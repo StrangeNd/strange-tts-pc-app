@@ -168,6 +168,8 @@ function voiceLabel(voice) {
 
 const TTS_HISTORY_KEY = 'strange-tts-history-v1';
 const TTS_HISTORY_LIMIT = 8;
+const TTS_PRESETS_KEY = 'strange-tts-presets-v1';
+const TTS_PRESETS_LIMIT = 8;
 
 function readTtsHistory() {
   try {
@@ -227,6 +229,83 @@ function renderTtsHistoryItems(items) {
   `).join('');
 }
 
+function ttsVoiceKey(voice) {
+  if (!voice) return 'default';
+  return `${voice.name || ''}|${voice.lang || ''}|${voice.localService ? 'local' : 'remote'}`;
+}
+
+function readTtsPresets() {
+  try {
+    const raw = window.localStorage.getItem(TTS_PRESETS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter(item => item && typeof item === 'object')
+      .map(item => ({
+        id: String(item.id || ''),
+        voiceKey: String(item.voiceKey || 'default'),
+        voiceName: String(item.voiceName || 'Default voice'),
+        voiceLang: String(item.voiceLang || ''),
+        rate: Number(item.rate || 1),
+        pitch: Number(item.pitch || 1),
+        createdAt: Number(item.createdAt || 0)
+      }))
+      .filter(item => item.id && Number.isFinite(item.rate) && Number.isFinite(item.pitch))
+      .slice(0, TTS_PRESETS_LIMIT);
+  } catch {
+    return [];
+  }
+}
+
+function writeTtsPresets(items) {
+  try {
+    window.localStorage.setItem(TTS_PRESETS_KEY, JSON.stringify(items.slice(0, TTS_PRESETS_LIMIT)));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function presetLabel(preset) {
+  const voice = preset.voiceName || 'Default voice';
+  const lang = preset.voiceLang ? ` ${preset.voiceLang}` : '';
+  return `${voice}${lang} | speed ${preset.rate.toFixed(1)} | pitch ${preset.pitch.toFixed(1)}`;
+}
+
+function addTtsPreset(preset) {
+  const normalized = {
+    ...preset,
+    id: `${preset.voiceKey}:${preset.rate}:${preset.pitch}`,
+    createdAt: Date.now()
+  };
+  const items = readTtsPresets().filter(item => item.id !== normalized.id);
+  items.unshift(normalized);
+  return writeTtsPresets(items);
+}
+
+function deleteTtsPreset(id) {
+  return writeTtsPresets(readTtsPresets().filter(item => item.id !== id));
+}
+
+function renderTtsPresetItems(items) {
+  if (!items.length) {
+    return '<div class="tts-history-empty">No saved presets yet.</div>';
+  }
+  return items.map((item, index) => `
+    <div class="tts-preset-item" data-preset-index="${index}">
+      <div>
+        <strong>${escapeHtml(presetLabel(item))}</strong>
+        <span>${escapeHtml(item.voiceKey === 'default' ? 'Uses browser default voice' : 'Local TTS preset')}</span>
+      </div>
+      <div class="tts-preset-actions">
+        <button type="button" class="secondary tts-apply-preset" data-preset-index="${index}">Apply</button>
+        <button type="button" class="secondary tts-delete-preset" data-preset-index="${index}">Delete</button>
+      </div>
+    </div>
+  `).join('');
+}
+
 function renderTtsPreviewWorkspace() {
   const synth = getSpeechSynthesis();
   if (synth && (state.tts.isPlaying || synth.speaking || synth.pending)) synth.cancel();
@@ -234,6 +313,7 @@ function renderTtsPreviewWorkspace() {
   state.tts.playbackId += 1;
   const voices = loadVoices();
   let historyItems = readTtsHistory();
+  let presetItems = readTtsPresets();
   const voiceOptions = voices.length
     ? voices.map((voice, index) => `<option value="${index}">${escapeHtml(voiceLabel(voice))}</option>`).join('')
     : '<option value="">Chưa có voice khả dụng</option>';
@@ -270,8 +350,20 @@ function renderTtsPreviewWorkspace() {
       <div class="actions">
         <button type="submit" ${synth ? '' : 'disabled'}>Nghe thử</button>
         <button type="button" class="secondary" id="ttsStopButton">Dừng đọc</button>
+        <button type="button" class="secondary" id="ttsSavePreset">Save preset</button>
       </div>
       <div class="tts-status" id="ttsStatus" data-mode="${synth ? 'ready' : 'unsupported'}">${synth ? (voices.length ? 'Sẵn sàng tạo giọng đọc thử.' : 'Không tìm thấy danh sách voice. App sẽ thử voice mặc định của hệ thống.') : 'Trình duyệt hiện tại không hỗ trợ speechSynthesis.'}</div>
+      <section class="tts-history-panel" aria-label="Saved TTS presets">
+        <div class="tts-history-header">
+          <div>
+            <h3>Saved presets</h3>
+            <p>Voice, speed, and pitch stored locally.</p>
+          </div>
+        </div>
+        <div class="tts-preset-list" id="ttsPresetList">
+          ${renderTtsPresetItems(presetItems)}
+        </div>
+      </section>
       <section class="tts-history-panel" aria-label="Recent TTS text">
         <div class="tts-history-header">
           <div>
@@ -291,8 +383,13 @@ function renderTtsPreviewWorkspace() {
   const textInput = form.querySelector('[name="ttsText"]');
   const counter = document.querySelector('#ttsCounter');
   const submitButton = form.querySelector('button[type="submit"]');
+  const voiceSelect = form.querySelector('[name="voiceIndex"]');
+  const rateInput = form.querySelector('[name="rate"]');
+  const pitchInput = form.querySelector('[name="pitch"]');
   const historyList = document.querySelector('#ttsHistoryList');
   const clearHistoryButton = document.querySelector('#ttsClearHistory');
+  const presetList = document.querySelector('#ttsPresetList');
+  const savePresetButton = document.querySelector('#ttsSavePreset');
   const setStatus = (text, mode = 'ready') => {
     status.textContent = text;
     status.dataset.mode = mode;
@@ -319,9 +416,54 @@ function renderTtsPreviewWorkspace() {
     clearHistoryButton.disabled = historyItems.length === 0;
     bindHistoryItems();
   };
+  const bindPresetItems = () => {
+    for (const applyButton of form.querySelectorAll('.tts-apply-preset')) {
+      applyButton.addEventListener('click', () => {
+        const preset = presetItems[Number(applyButton.dataset.presetIndex)];
+        if (!preset) return;
+        rateInput.value = String(preset.rate);
+        pitchInput.value = String(preset.pitch);
+        const voiceIndex = state.voices.findIndex(voice => ttsVoiceKey(voice) === preset.voiceKey);
+        if (voiceIndex >= 0 && voiceSelect) {
+          voiceSelect.value = String(voiceIndex);
+          setStatus('Preset applied. Click preview to listen with these settings.', 'ready');
+        } else {
+          setStatus('Preset speed and pitch applied. Saved voice is not available on this system.', 'queued');
+        }
+      });
+    }
+    for (const deleteButton of form.querySelectorAll('.tts-delete-preset')) {
+      deleteButton.addEventListener('click', () => {
+        const preset = presetItems[Number(deleteButton.dataset.presetIndex)];
+        if (!preset) return;
+        deleteTtsPreset(preset.id);
+        refreshPresets();
+        setStatus('Preset deleted.', 'ready');
+      });
+    }
+  };
+  const refreshPresets = () => {
+    presetItems = readTtsPresets();
+    presetList.innerHTML = renderTtsPresetItems(presetItems);
+    bindPresetItems();
+  };
   updateCounter();
   textInput.addEventListener('input', updateCounter);
   bindHistoryItems();
+  bindPresetItems();
+  savePresetButton.addEventListener('click', () => {
+    const selectedVoice = state.voices[Number(voiceSelect?.value)];
+    const preset = {
+      voiceKey: ttsVoiceKey(selectedVoice),
+      voiceName: selectedVoice ? selectedVoice.name : 'Default voice',
+      voiceLang: selectedVoice ? selectedVoice.lang : '',
+      rate: Number(rateInput.value || 1),
+      pitch: Number(pitchInput.value || 1)
+    };
+    const saved = addTtsPreset(preset);
+    refreshPresets();
+    setStatus(saved ? 'Preset saved locally.' : 'Could not save preset in this browser.', saved ? 'done' : 'error');
+  });
   clearHistoryButton.addEventListener('click', () => {
     clearTtsHistory();
     refreshHistory();

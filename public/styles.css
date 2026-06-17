@@ -466,6 +466,51 @@ h2 {
   padding: 8px 0;
 }
 
+.tts-preset-list {
+  display: grid;
+  gap: 8px;
+}
+
+.tts-preset-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #ffffff;
+  padding: 9px 10px;
+}
+
+.tts-preset-item strong,
+.tts-preset-item span {
+  display: block;
+}
+
+.tts-preset-item strong {
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.tts-preset-item span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  margin-top: 2px;
+}
+
+.tts-preset-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.tts-preset-actions button {
+  min-width: auto;
+  padding: 7px 9px;
+}
+
 .panel-header p,
 .hint {
   margin-bottom: 0;
@@ -807,6 +852,12 @@ code {
   .tts-history-header {
     display: grid;
     align-items: stretch;
+  }
+
+  .tts-preset-item,
+  .tts-preset-actions {
+    display: grid;
+    grid-template-columns: 1fr;
   }
 
   h1 {

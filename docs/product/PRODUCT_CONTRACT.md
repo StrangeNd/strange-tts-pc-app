@@ -37,5 +37,9 @@ and TTS preview behavior.
   can restore a recent text by clicking it or clear the history. The app must
   handle empty, duplicate, long, and corrupted history without sending text to a
   server.
+- TTS preview stores voice/speed/pitch presets in browser `localStorage` only.
+  Users can save, apply, and delete presets. The app must handle duplicate
+  presets, empty/corrupted preset storage, and missing saved voices without
+  sending settings to a server.
 - The agent workflow must use a non-main branch, no production deploys, and
   human approval for high-risk areas.
