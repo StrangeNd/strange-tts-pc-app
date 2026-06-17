@@ -85,4 +85,7 @@ Browser/UI QA note:
 
 ## PR
 
-Pending.
+- URL: https://github.com/StrangeNd/strange-tts-pc-app/pull/6
+- Branch: `ai-agent/daily-shop-ops-checklist`
+- Commit: `dcf157e6b63d4eb0b9ffc4854dd2cfbfc93384f1`
+- Status: opened, not merged.
