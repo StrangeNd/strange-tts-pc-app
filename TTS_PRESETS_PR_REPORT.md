@@ -32,4 +32,8 @@ Add local TTS presets for voice, speed, and pitch.
 
 ## PR
 
-Pending push and pull request creation.
+- URL: https://github.com/StrangeNd/strange-tts-pc-app/pull/3
+- Number: #3
+- Base: `main`
+- Head: `ai-agent/tts-presets`
+- Status: open, not merged
