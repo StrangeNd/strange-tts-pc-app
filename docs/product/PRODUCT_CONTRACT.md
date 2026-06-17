@@ -33,5 +33,9 @@ and TTS preview behavior.
 - TTS preview handles empty/short/long text, punctuation/numbers, missing voices,
   unsupported browsers, stop-before-preview, stop-during-preview, reload,
   mobile width, and console-clean UI feedback.
+- TTS preview keeps a recent text history in browser `localStorage` only. Users
+  can restore a recent text by clicking it or clear the history. The app must
+  handle empty, duplicate, long, and corrupted history without sending text to a
+  server.
 - The agent workflow must use a non-main branch, no production deploys, and
   human approval for high-risk areas.
