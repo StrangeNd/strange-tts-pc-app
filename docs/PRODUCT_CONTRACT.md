@@ -10,3 +10,7 @@ This file exists as a stable top-level pointer because agent prompts and human
 tasks commonly refer to `docs/PRODUCT_CONTRACT.md`.
 
 Agents must read the canonical file before changing user-visible behavior.
+
+Domain guard: `TTS` means TikTok Shop, not Text-To-Speech. Do not add speech
+synthesis, voice, pitch, or audio preview features unless a human explicitly
+requests an audio feature.

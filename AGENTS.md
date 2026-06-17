@@ -2,6 +2,10 @@
 
 This repository is agent-ready through a lightweight harness.
 
+Product domain rule: `TTS` in this repository means TikTok Shop, not
+Text-To-Speech. Do not add speech synthesis, voice, pitch, or audio preview
+features unless a human explicitly requests an audio feature.
+
 Before editing code:
 
 1. Read `agents/guardrails.md`.

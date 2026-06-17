@@ -9,7 +9,7 @@ try {
     throw new Error(`Unexpected health response: ${JSON.stringify(health)}`);
   }
   const html = await fetch(`${started.url}/`).then(res => res.text());
-  if (!html.includes('Strange TTS PC App')) {
+  if (!html.includes('Strange TikTok Shop PC App')) {
     throw new Error('Static UI did not render index.html.');
   }
   const cssStatus = await fetch(`${started.url}/styles.css`).then(res => res.status);

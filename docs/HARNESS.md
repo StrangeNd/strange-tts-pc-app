@@ -4,6 +4,10 @@ This repository uses a lightweight agent workflow inspired by
 `hoangnb24/repository-harness`: the app is what users touch; the harness is what
 agents touch before they change the app.
 
+Domain correction: `TTS` means TikTok Shop in this repository. It does not mean
+Text-To-Speech. Agents must not add speech synthesis, voice, pitch, or audio
+preview features unless a human explicitly requests an audio feature.
+
 The goal is to make every agent loop answer four questions before editing:
 
 1. What behavior or workflow is being changed?

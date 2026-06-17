@@ -110,7 +110,7 @@ Suggested target:
 - `scripts/agent-ui-smoke.mjs`
 - healthcheck integration that runs it only when local browser automation is
   available
-- test matrix row updates for TTS preview and desktop shell smoke
+- test matrix row updates for TikTok Shop desktop shell smoke
 
 ## Validation
 
