@@ -47,6 +47,12 @@ scripts/agent-create-pr.sh
 
 The script refuses to run on `main` or `master`. It uses `gh pr create` when GitHub CLI and a remote are configured.
 
+## PR Workflow Check
+
+Future agent changes should happen on a feature branch, then be reviewed through
+a pull request before merging into `main`. Direct pushes to `main` are only for
+explicitly approved repository setup or emergency maintenance tasks.
+
 ## Stop / Recover Safely
 
 ```bash
