@@ -1,19 +1,23 @@
 # Product Contract
 
-Strange TTS PC App is a local desktop companion for operating Strange TTS
-workflows around TikTok Shop/Seller Center data, dashboard review, crawler data,
-and TTS preview behavior.
+Strange-tiktokshop-pc-app is a local desktop companion for operating,
+managing, and optimizing TikTok Shop workflows on PC.
+
+In this repository, `TTS` means TikTok Shop, not Text-To-Speech. Do not add
+speech synthesis, voice, pitch, or audio preview features unless a human
+explicitly requests an audio feature.
 
 ## Core User Outcomes
 
 - Open the local app from desktop or script.
 - Manage shop/dashboard workflows in a controlled local runtime.
-- Preview text-to-speech locally through available system/browser voices.
 - Open GMV Max dashboard and shop overview views.
 - Crawl TikTok Seller Center/Compass data with the user's authenticated local
   profile when explicitly requested.
 - Combine crawled TikTok data and uploaded XLSX/CSV files into business
   analysis and planning views.
+- Support TikTok Shop operations workflows such as shop management, listing,
+  order, content, crawler, ads, and productivity support.
 
 ## Product Constraints
 
@@ -26,16 +30,11 @@ and TTS preview behavior.
   silently inventing values.
 - Desktop shortcuts and packaged app flows must remain usable for non-technical
   users.
+- Text-To-Speech, speech synthesis, generated audio, voice selection, pitch, and
+  audio preview behavior are out of scope unless explicitly requested by a
+  human.
 
 ## Current Accepted Behaviors
 
-- TTS preview is browser-local via `speechSynthesis`.
-- TTS preview handles empty/short/long text, punctuation/numbers, missing voices,
-  unsupported browsers, stop-before-preview, stop-during-preview, reload,
-  mobile width, and console-clean UI feedback.
-- TTS preview keeps a recent text history in browser `localStorage` only. Users
-  can restore a recent text by clicking it or clear the history. The app must
-  handle empty, duplicate, long, and corrupted history without sending text to a
-  server.
 - The agent workflow must use a non-main branch, no production deploys, and
   human approval for high-risk areas.
