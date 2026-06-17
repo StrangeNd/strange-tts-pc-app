@@ -2,6 +2,7 @@ node_modules/
 dist/
 build/
 coverage/
+tools/
 
 # Local secrets and private runtime data
 .env
@@ -36,6 +37,7 @@ Thumbs.db
 *.swo
 *~
 *.log
+review-status.txt
 
 # Local scratch, captures, and generated test artifacts
 tmp-*
