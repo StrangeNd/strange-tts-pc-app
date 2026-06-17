@@ -66,4 +66,7 @@ Domain audit result:
 
 ## PR
 
-Pending.
+- URL: https://github.com/StrangeNd/strange-tts-pc-app/pull/5
+- Branch: `ai-agent/remove-speech-shell`
+- Commit: `f3af7b200bddfdd2579b7c58444facc790ed7e91`
+- Status: opened, not merged.
