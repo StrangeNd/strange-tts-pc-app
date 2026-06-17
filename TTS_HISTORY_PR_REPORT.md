@@ -33,4 +33,8 @@ Add local TTS history to the main TTS preview journey.
 
 ## PR
 
-Pending push and pull request creation.
+- URL: https://github.com/StrangeNd/strange-tts-pc-app/pull/2
+- Number: #2
+- Base: `main`
+- Head: `ai-agent/tts-history`
+- Status: open, not merged
