@@ -402,6 +402,70 @@ h2 {
   color: var(--danger);
 }
 
+.tts-history-panel {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: #f8fafc;
+}
+
+.tts-history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.tts-history-header h3 {
+  margin: 0;
+  font-size: 15px;
+  color: var(--text);
+}
+
+.tts-history-header p {
+  margin: 3px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.tts-clear-history {
+  min-width: auto;
+  padding: 8px 10px;
+}
+
+.tts-history-list {
+  display: grid;
+  gap: 8px;
+}
+
+.tts-history-item {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #ffffff;
+  color: var(--text);
+  padding: 9px 10px;
+  text-align: left;
+  font-weight: 700;
+  line-height: 1.35;
+  cursor: pointer;
+}
+
+.tts-history-item:hover,
+.tts-history-item:focus-visible {
+  border-color: rgba(15, 118, 110, 0.45);
+  background: #f0fdfa;
+}
+
+.tts-history-empty {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  padding: 8px 0;
+}
+
 .panel-header p,
 .hint {
   margin-bottom: 0;
@@ -738,6 +802,11 @@ code {
 
   .tts-helper-row {
     display: grid;
+  }
+
+  .tts-history-header {
+    display: grid;
+    align-items: stretch;
   }
 
   h1 {

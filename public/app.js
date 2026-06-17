@@ -166,12 +166,74 @@ function voiceLabel(voice) {
   return `${voice.name}${voice.lang ? ` (${voice.lang})` : ''}${voice.localService ? ' - local' : ''}`;
 }
 
+const TTS_HISTORY_KEY = 'strange-tts-history-v1';
+const TTS_HISTORY_LIMIT = 8;
+
+function readTtsHistory() {
+  try {
+    const raw = window.localStorage.getItem(TTS_HISTORY_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter(item => typeof item === 'string')
+      .map(item => item.trim())
+      .filter(Boolean)
+      .slice(0, TTS_HISTORY_LIMIT);
+  } catch {
+    return [];
+  }
+}
+
+function writeTtsHistory(items) {
+  try {
+    window.localStorage.setItem(TTS_HISTORY_KEY, JSON.stringify(items.slice(0, TTS_HISTORY_LIMIT)));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function addTtsHistoryItem(text) {
+  const normalized = String(text || '').trim();
+  if (!normalized) return false;
+  const items = readTtsHistory().filter(item => item !== normalized);
+  items.unshift(normalized);
+  return writeTtsHistory(items);
+}
+
+function clearTtsHistory() {
+  try {
+    window.localStorage.removeItem(TTS_HISTORY_KEY);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function ttsHistoryPreview(text) {
+  const compact = String(text || '').replace(/\s+/g, ' ').trim();
+  return compact.length > 96 ? `${compact.slice(0, 96)}...` : compact;
+}
+
+function renderTtsHistoryItems(items) {
+  if (!items.length) {
+    return '<div class="tts-history-empty">No recent TTS text yet.</div>';
+  }
+  return items.map((item, index) => `
+    <button type="button" class="tts-history-item" data-history-index="${index}" title="${escapeHtml(item)}">
+      ${escapeHtml(ttsHistoryPreview(item))}
+    </button>
+  `).join('');
+}
+
 function renderTtsPreviewWorkspace() {
   const synth = getSpeechSynthesis();
   if (synth && (state.tts.isPlaying || synth.speaking || synth.pending)) synth.cancel();
   state.tts.isPlaying = false;
   state.tts.playbackId += 1;
   const voices = loadVoices();
+  let historyItems = readTtsHistory();
   const voiceOptions = voices.length
     ? voices.map((voice, index) => `<option value="${index}">${escapeHtml(voiceLabel(voice))}</option>`).join('')
     : '<option value="">Chưa có voice khả dụng</option>';
@@ -210,6 +272,18 @@ function renderTtsPreviewWorkspace() {
         <button type="button" class="secondary" id="ttsStopButton">Dừng đọc</button>
       </div>
       <div class="tts-status" id="ttsStatus" data-mode="${synth ? 'ready' : 'unsupported'}">${synth ? (voices.length ? 'Sẵn sàng tạo giọng đọc thử.' : 'Không tìm thấy danh sách voice. App sẽ thử voice mặc định của hệ thống.') : 'Trình duyệt hiện tại không hỗ trợ speechSynthesis.'}</div>
+      <section class="tts-history-panel" aria-label="Recent TTS text">
+        <div class="tts-history-header">
+          <div>
+            <h3>Recent TTS text</h3>
+            <p>Stored only in this browser.</p>
+          </div>
+          <button type="button" class="secondary tts-clear-history" id="ttsClearHistory" ${historyItems.length ? '' : 'disabled'}>Clear</button>
+        </div>
+        <div class="tts-history-list" id="ttsHistoryList">
+          ${renderTtsHistoryItems(historyItems)}
+        </div>
+      </section>
     </form>
   `;
   const form = document.querySelector('#ttsPreviewForm');
@@ -217,6 +291,8 @@ function renderTtsPreviewWorkspace() {
   const textInput = form.querySelector('[name="ttsText"]');
   const counter = document.querySelector('#ttsCounter');
   const submitButton = form.querySelector('button[type="submit"]');
+  const historyList = document.querySelector('#ttsHistoryList');
+  const clearHistoryButton = document.querySelector('#ttsClearHistory');
   const setStatus = (text, mode = 'ready') => {
     status.textContent = text;
     status.dataset.mode = mode;
@@ -226,8 +302,31 @@ function renderTtsPreviewWorkspace() {
     counter.textContent = `${length} / 1200 ký tự`;
     counter.classList.toggle('warn', length > 1000);
   };
+  const bindHistoryItems = () => {
+    for (const itemButton of form.querySelectorAll('.tts-history-item')) {
+      itemButton.addEventListener('click', () => {
+        const selectedText = historyItems[Number(itemButton.dataset.historyIndex)] || '';
+        textInput.value = selectedText;
+        textInput.focus();
+        updateCounter();
+        setStatus('Restored recent text. Click preview to listen again.', 'ready');
+      });
+    }
+  };
+  const refreshHistory = () => {
+    historyItems = readTtsHistory();
+    historyList.innerHTML = renderTtsHistoryItems(historyItems);
+    clearHistoryButton.disabled = historyItems.length === 0;
+    bindHistoryItems();
+  };
   updateCounter();
   textInput.addEventListener('input', updateCounter);
+  bindHistoryItems();
+  clearHistoryButton.addEventListener('click', () => {
+    clearTtsHistory();
+    refreshHistory();
+    setStatus('Recent TTS history cleared.', 'ready');
+  });
   form.querySelector('[name="voiceIndex"]')?.addEventListener('change', () => {
     if (state.tts.isPlaying) setStatus('Voice mới sẽ áp dụng ở lần nghe thử tiếp theo.', 'queued');
   });
@@ -284,8 +383,10 @@ function renderTtsPreviewWorkspace() {
       setStatus('Không phát được preview. Hãy thử voice khác hoặc kiểm tra âm thanh của máy.', 'error');
     };
     activeSynth.speak(utterance);
+    const historySaved = addTtsHistoryItem(text);
+    refreshHistory();
     setStatus('Đang chuẩn bị phát preview...', 'playing');
-    setOutput({ ok: true, action: 'tts-preview', characters: text.length, voice: selectedVoice ? voiceLabel(selectedVoice) : 'default' });
+    setOutput({ ok: true, action: 'tts-preview', characters: text.length, voice: selectedVoice ? voiceLabel(selectedVoice) : 'default', historySaved });
   });
   bindClick('#ttsStopButton', () => {
     const activeSynth = getSpeechSynthesis();
