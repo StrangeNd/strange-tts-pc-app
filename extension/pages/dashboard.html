@@ -1,0 +1,1097 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Strange TTS Solution 1.0.0</title>
+    <link rel="stylesheet" href="../styles/dashboard.css">
+    <link rel="stylesheet" href="../styles/strangetts-theme.css">
+    <link rel="icon" href="../assets/icons/icon48.png">
+</head>
+
+<body>
+    <!-- JARVIS BACKGROUND EFFECTS -->
+    <style>
+        .v20-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            object-fit: cover;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .v20-shop-icon {
+            width: 32px;
+            height: 32px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+
+        .sync-time {
+            font-size: 10px;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            white-space: nowrap;
+        }
+
+        #panel-main.hide-on-report {
+            display: none !important;
+        }
+
+        .rp-day-pill.active,
+        .global-day.active {
+            background: #a855f7 !important;
+            color: #fff !important;
+            box-shadow: 0 0 10px rgba(168, 85, 247, 0.4);
+        }
+
+        .rp-day-pill,
+        .global-day {
+            background: rgba(100, 116, 139, 0.2) !important;
+            color: #94a3b8 !important;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+
+        .rp-global-activate-btn.active {
+            background: #22c55e !important;
+            color: #fff !important;
+            box-shadow: 0 0 15px rgba(34, 197, 94, 0.4);
+        }
+
+        .v20-sep {
+            height: 20px;
+            width: 1px;
+            background: rgba(255, 255, 255, 0.1);
+            margin: 0 8px;
+        }
+
+        .rp-toggle-wrap.mini {
+            padding: 2px;
+        }
+
+        .rp-toggle-wrap.mini .rp-toggle {
+            font-size: 9px;
+            padding: 4px 8px;
+            min-width: 60px;
+        }
+    </style>
+    <div class="v20-bg-effects">
+        <div class="bg-ring ring-1"></div>
+        <div class="bg-ring ring-2"></div>
+        <div class="bg-grid"></div>
+        <div class="bg-scanline"></div>
+        <div class="bg-glow"></div>
+    </div>
+    <!-- HEADER -->
+    <header class="dash-header">
+        <div class="dash-header-left">
+            <img src="../assets/icons/icon48.png" class="dash-logo-img" alt="Strange TTS">
+            <div>
+                <div class="dash-title">Strange TTS Solution <span
+                        style="font-size:10px;vertical-align:middle;opacity:0.6;background:rgba(255,255,255,0.1);padding:2px 6px;border-radius:4px;margin-left:5px">1.0.0</span>
+                </div>
+                <div class="dash-subtitle">Quản lý tập trung • Master Sync</div>
+            </div>
+            <div id="rp-realtime-clock"
+                style="flex:0 0 auto;font-family:monospace;font-size:15px;font-weight:800;color:#60a5fa;letter-spacing:2px;white-space:nowrap;padding:3px 12px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);border-radius:7px;">
+                00:00:00</div>
+        </div>
+        <div class="dash-header-right">
+            <select id="sel-dashboard-layout" class="btn btn-secondary dashboard-layout-select" title="Layout" style="padding:6px 10px">
+                <option value="cards">Layout: Cards</option>
+                <option value="table">Layout: Table</option>
+                <option value="compact">Layout: Compact</option>
+            </select>
+            <button class="btn btn-secondary theme-toggle-btn" id="btn-theme-toggle" title="Đổi giao diện sáng/tối"
+                style="padding:6px 10px"><span id="theme-toggle-icon" class="st-icon st-icon-theme" aria-hidden="true"></span></button>
+            <button class="btn btn-ghost" id="btn-open-seller" title="Mở trang Seller Ads hôm nay"
+                style="padding:6px 10px"><span class="st-icon st-icon-seller" aria-hidden="true"></span><span>Seller Ads</span></button>
+            <button class="btn btn-secondary" id="btn-sort-activity" title="Sắp xếp shop đang có hoạt động tốt nhất"
+                style="padding:6px 10px"><span class="st-icon st-icon-sort" aria-hidden="true"></span><span>Sap xep</span></button>
+            <select id="sel-auto-refresh" class="btn btn-secondary"
+                style="padding:5px 6px;cursor:pointer;border:1px solid var(--border)" title="Tự động tải lại">
+                <option value="0" selected>Auto: Tat</option>
+                <option value="1">Auto: 1p</option>
+                <option value="5">Auto: 5p</option>
+                <option value="15">Auto: 15p</option>
+                <option value="30">Auto: 30p</option>
+            </select>
+            <button class="btn btn-secondary" id="btn-refresh" title="Tải lại data tất cả shops"
+                style="padding:6px 10px"><span class="st-icon st-icon-refresh" aria-hidden="true"></span><span>Refresh</span></button>
+            <button class="btn btn-secondary toolbar-icon-filled" id="btn-export" title="Xuất toàn bộ Shop ra file JSON"
+                style="padding:6px 8px;background:rgba(16,185,129,0.1);border-color:rgba(16,185,129,0.3);color:#10b981"><i
+                    class="fa-solid fa-file-export"></i></button>
+            <button class="btn btn-primary toolbar-icon-filled" id="btn-import" title="Import file JSON shop"
+                style="padding:6px 8px;background:rgba(5,150,105,0.2);border-color:rgba(5,150,105,0.4);color:#34d399"><i
+                    class="fa-solid fa-file-import"></i></button>
+            <input type="file" id="file-input" multiple accept=".json" style="display:none">
+            <div class="v20-sep"></div>
+            <button class="btn btn-secondary toolbar-icon-filled" id="btn-sync-cloud-all" title="Lên Cloud (Upload)"
+                style="background:rgba(139,92,246,0.1);border-color:rgba(139,92,246,0.3);color:#a78bfa;padding:6px 10px"><i
+                    class="fa-solid fa-cloud-arrow-up"></i> <span
+                    style="font-size:9px;font-weight:800">LÊN</span></button>
+            <button class="btn btn-secondary toolbar-icon-filled" id="btn-cloud-download" title="Tải từ Cloud (Download)"
+                style="background:rgba(34,197,94,0.1);border-color:rgba(34,197,94,0.3);color:#4ade80;padding:6px 10px"><i
+                    class="fa-solid fa-cloud-arrow-down"></i> <span
+                    style="font-size:9px;font-weight:800">VỀ</span></button>
+            <button class="btn btn-secondary toolbar-icon-filled" id="btn-clear-all" title="Xóa sạch dữ liệu (Reset)"
+                style="background:rgba(239,68,68,0.1);border-color:rgba(239,68,68,0.3);color:#f87171;padding:6px 10px"><i
+                    class="fa-solid fa-trash-can"></i> <span style="font-size:9px;font-weight:800">XÓA</span></button>
+            <button class="btn btn-secondary toolbar-icon-filled" id="btn-logout" title="Đăng xuất"
+                style="background:rgba(245,158,11,0.1);border-color:rgba(245,158,11,0.3);color:#fbbf24;padding:6px 10px"><i
+                    class="fa-solid fa-right-from-bracket"></i></button>
+            <button class="btn btn-secondary toolbar-icon-filled" id="btn-open-alerts" title="Cài đặt Thông báo Số dư / Ngưỡng"
+                style="background:rgba(239,68,68,0.1);border-color:rgba(239,68,68,0.3);color:#fca5a5;padding:6px 10px;margin-left:5px"><i
+                    class="fa-solid fa-bell"></i></button>
+        </div>
+    </header>
+
+    <!-- TAB NAV -->
+    <div class="main-tab-nav" id="main-tab-nav">
+        <button class="main-tab-btn active" data-tab="main" id="tab-btn-main"><span class="st-icon st-icon-dashboard" aria-hidden="true"></span><span>Quảng cáo GMV Max</span></button>
+        <button class="main-tab-btn" data-tab="shop-overview" id="tab-btn-shop-overview"><span class="st-icon st-icon-shop" aria-hidden="true"></span><span>Tổng quan Shop</span></button>
+        <button class="main-tab-btn" data-tab="report" id="tab-btn-report"><span class="st-icon st-icon-report" aria-hidden="true"></span><span>Gửi báo cáo</span> <span class="tab-badge"
+                id="tab-report-badge"></span></button>
+        <button class="main-tab-btn" data-tab="business-analysis" id="tab-btn-business-analysis"><span class="st-icon st-icon-trend-up" aria-hidden="true"></span><span>Phân tích kinh doanh</span></button>
+        <button class="main-tab-btn" data-tab="tiktok-crawler" id="tab-btn-tiktok-crawler"><span class="st-icon st-icon-data" aria-hidden="true"></span><span>Thu thập dữ liệu</span></button>
+        <button class="main-tab-btn" data-tab="business-plan" id="tab-btn-business-plan"><span class="st-icon st-icon-rocket" aria-hidden="true"></span><span>Kế hoạch tăng trưởng</span></button>
+        <button class="main-tab-btn" data-tab="admin" id="tab-btn-admin" style="display:none"><span class="st-icon st-icon-user" aria-hidden="true"></span><span>Quản trị hệ thống</span></button>
+        <!-- SEARCH BAR - chỉ hiện khi ở tab report -->
+        <div id="rp-search-wrap"
+            style="display:none;align-items:center;gap:8px;margin-left:16px;border-left:1px solid rgba(255,255,255,0.1);padding-left:16px">
+            <span style="font-size:10px;color:#94a3b8;white-space:nowrap;font-weight:700"><span class="st-icon st-icon-sort" aria-hidden="true"></span> Shop:</span>
+            <div style="position:relative">
+                <input type="text" id="rp-shop-search" placeholder="Tìm thương hiệu / shop..." autocomplete="off"
+                    style="width:220px;padding:4px 26px 4px 9px;border-radius:7px;border:1px solid rgba(99,102,241,0.35);background:rgba(30,27,75,0.8);color:#e2e8f0;font-size:11px;outline:none;transition:border-color 0.2s">
+                <button id="rp-shop-search-clear" title="Xóa"
+                    style="position:absolute;right:5px;top:50%;transform:translateY(-50%);background:none;border:none;color:#475569;cursor:pointer;font-size:12px;padding:0;line-height:1">✕</button>
+            </div>
+            <span id="rp-search-count" style="font-size:10px;color:#64748b;white-space:nowrap"></span>
+        </div>
+        <button id="btn-open-guide"
+            style="margin-left:auto;background:linear-gradient(135deg,rgba(124,58,237,0.3),rgba(168,85,247,0.2));border:1px solid rgba(168,85,247,0.4);color:#c084fc;font-weight:700;border-radius:8px;padding:6px 16px;cursor:pointer;font-size:13px;transition:all 0.2s">
+            <span class="st-icon st-icon-guide" aria-hidden="true"></span><span>Huong dan</span></button>
+    </div>
+
+    <!-- PANEL ADMIN: Quản trị hệ thống (Chỉ admin) -->
+    <div id="panel-admin" style="display:none; padding:20px;">
+        <div class="v20-glass-panel" style="padding:25px; min-height:600px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:25px;">
+                <div>
+                    <h2 style="font-family:var(--font-head); font-size:24px; color:#fff; margin-bottom:5px;">👑 Hệ Thống
+                        Quản Trị Master</h2>
+                    <p style="color:var(--text-muted); font-size:13px;">Giám sát người dùng, quản lý shop tập trung và
+                        hỗ trợ kỹ thuật an toàn.</p>
+                </div>
+                <div style="display:flex; gap:10px;">
+                    <button class="btn btn-primary" id="btn-admin-refresh-users">🔄 Làm mới danh sách</button>
+                    <button class="btn btn-secondary" id="btn-admin-master-cookies" style="background:linear-gradient(90deg,#8b5cf6,#a855f7);border:none;font-weight:700">🌐 Master Cookie Manager</button>
+                    <button class="btn btn-secondary" id="btn-admin-add-user-toggle">➕ Thêm User mới</button>
+                </div>
+            </div>
+
+            <div id="admin-user-flow-grid" style="display:grid; grid-template-columns: 350px 1fr; gap:20px;">
+                <!-- Cột trái: Danh sách User -->
+                <div
+                    style="background:rgba(0,0,0,0.2); border:1px solid var(--border); border-radius:15px; overflow:hidden; display:flex; flex-direction:column;">
+                    <div
+                        style="padding:15px; background:rgba(138,141,145,0.1); border-bottom:1px solid var(--border); font-weight:800; color:var(--primary); font-size:12px; text-transform:uppercase; letter-spacing:0.05em;">
+                        👥 Danh sách người dùng
+                    </div>
+                    <div id="admin-user-list-container"
+                        style="flex:1; overflow-y:auto; max-height:650px; padding:10px;">
+                        <!-- User items render here -->
+                    </div>
+                </div>
+
+                <!-- Cột phải: Chi tiết User & Shops -->
+                <div id="admin-detail-view"
+                    style="background:rgba(255,255,255,0.02); border:1px solid var(--border); border-radius:15px; padding:20px; min-height:500px; display:flex; flex-direction:column; justify-content:center; align-items:center;">
+                    <div id="admin-detail-empty" style="text-align:center; color:var(--text-muted);">
+                        <i class="fa-solid fa-users-viewfinder"
+                            style="font-size:48px; margin-bottom:20px; opacity:0.3;"></i>
+                        <p>Chọn một người dùng từ danh sách bên trái để xem chi tiết cửa hàng và hỗ trợ kỹ thuật.</p>
+                    </div>
+                    <div id="admin-detail-content" style="display:none; width:100%;">
+                        <!-- User specific shop list render here -->
+                    </div>
+                    <!-- Master Cookie Table Container -->
+                    <div id="admin-master-cookie-view" style="display:none; width:100%;">
+                        <!-- Master table renders here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PANEL CHÍNH: Quản lý Shop -->
+    <div id="panel-main">
+        <!-- SUMMARY STATS STRIP -->
+        <div class="stats-strip" id="stats-row">
+            <div class="stat-chip"><span class="stat-chip-icon st-icon st-icon-dashboard" aria-hidden="true"></span><span class="stat-chip-val purple"
+                    id="stat-shops">0</span><span class="stat-chip-label">Shops</span></div>
+            <div class="stat-chip"><span class="stat-chip-icon st-icon st-icon-money" aria-hidden="true"></span><span class="stat-chip-val red"
+                    id="stat-cost">0</span><span class="stat-chip-label">Chi phí</span></div>
+            <div class="stat-chip"><span class="stat-chip-icon st-icon st-icon-revenue" aria-hidden="true"></span><span class="stat-chip-val green"
+                    id="stat-gmv">0</span><span class="stat-chip-label">Doanh thu</span></div>
+            <div class="stat-chip"><span class="stat-chip-icon st-icon st-icon-roi" aria-hidden="true"></span><span class="stat-chip-val"
+                    id="stat-roi">0</span><span class="stat-chip-label">ROI TB</span></div>
+            <div class="stat-chip"><span class="stat-chip-icon st-icon st-icon-order" aria-hidden="true"></span><span class="stat-chip-val yellow"
+                    id="stat-orders">0</span><span class="stat-chip-label">Đơn</span></div>
+            <div class="stat-chip"><span class="stat-chip-icon st-icon st-icon-cpo" aria-hidden="true"></span><span class="stat-chip-val orange"
+                    id="stat-cpo">0</span><span class="stat-chip-label">CPO TB</span></div>
+        </div>
+
+        <!-- Row 3: Chỉ số Ads (Expanded) -->
+        <div class="ads-stats-row">
+            <div class="ads-stat-card fire">
+                <div class="ads-card-icon st-icon st-icon-fire" aria-hidden="true"></div>
+                <div class="ads-card-info">
+                    <span class="ads-card-total" id="stat-total-fire">0</span>
+                    <span class="ads-card-label">GẦN HẾT NS</span>
+                </div>
+                <div class="ads-card-list" id="stat-detail-fire"></div>
+            </div>
+            <div class="ads-stat-card good">
+                <div class="ads-card-icon st-icon st-icon-trend-up" aria-hidden="true"></div>
+                <div class="ads-card-info">
+                    <span class="ads-card-total" id="stat-total-good-roi">0</span>
+                    <span class="ads-card-label">ROI NGON</span>
+                </div>
+                <div class="ads-card-list" id="stat-detail-good-roi"></div>
+            </div>
+            <div class="ads-stat-card strong">
+                <div class="ads-card-icon st-icon st-icon-rocket" aria-hidden="true"></div>
+                <div class="ads-card-info">
+                    <span class="ads-card-total" id="stat-total-strong">0</span>
+                    <span class="ads-card-label">SCALE/KHỎE</span>
+                </div>
+                <div class="ads-card-list" id="stat-detail-strong"></div>
+            </div>
+            <div class="ads-stat-card low">
+                <div class="ads-card-icon st-icon st-icon-trend-down" aria-hidden="true"></div>
+                <div class="ads-card-info">
+                    <span class="ads-card-total" id="stat-total-low-roi">0</span>
+                    <span class="ads-card-label">ROI THẤP</span>
+                </div>
+                <div class="ads-card-list" id="stat-detail-low-roi"></div>
+            </div>
+            <div class="ads-stat-card weak">
+                <div class="ads-card-icon st-icon st-icon-snow" aria-hidden="true"></div>
+                <div class="ads-card-info">
+                    <span class="ads-card-total" id="stat-total-weak">0</span>
+                    <span class="ads-card-label">YẾU</span>
+                </div>
+                <div class="ads-card-list" id="stat-detail-weak"></div>
+            </div>
+        </div>
+
+        <!-- Row 4: Sorting & View Controls -->
+        <div
+            style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; gap:10px; padding:0 4px">
+            <div
+                style="display:flex; gap:8px; align-items:center; background:rgba(255,255,255,0.03); padding:4px 12px; border-radius:10px; border:1px solid rgba(255,255,255,0.05)">
+                <span style="font-size:12px; color:rgba(255,255,255,0.5); font-weight:600">🔢 SẮP XẾP:</span>
+                <button class="btn btn-sm btn-ghost active" id="btn-sort-name" style="font-size:11px">Tên</button>
+                <button class="btn btn-sm btn-ghost" id="btn-sort-active" style="font-size:11px">Hoạt động</button>
+                <button class="btn btn-sm btn-ghost" id="btn-sort-gmv" style="font-size:11px">GMV</button>
+                <button class="btn btn-sm btn-ghost" id="btn-sort-roi" style="font-size:11px">ROI</button>
+                <button class="btn btn-sm btn-ghost" id="btn-sort-orders" style="font-size:11px">Đơn</button>
+            </div>
+            <div class="view-toggle">
+                <button class="btn btn-sm btn-ghost active" id="btn-view-cards" title="Card view"><span class="st-icon st-icon-cards" aria-hidden="true"></span><span>Cards</span></button>
+                <button class="btn btn-sm btn-ghost" id="btn-view-table" title="Table view"><span class="st-icon st-icon-table" aria-hidden="true"></span><span>Table</span></button>
+            </div>
+        </div>
+
+        <!-- SHOP CARDS GRID -->
+        <div class="shop-cards-grid" id="shop-cards-grid"></div>
+        <div class="table-wrap" id="table-wrap">
+        <table class="shop-table" id="shop-table">
+            <thead>
+                <tr>
+                    <th data-col="index">#</th>
+                    <th data-col="name">Shop <span class="sort-icon">⇅</span></th>
+                    <th data-col="billingType">Loại TK <span class="sort-icon">⇅</span></th>
+                    <th data-col="balance" class="num">Balance <span class="sort-icon">⇅</span></th>
+                    <th data-col="credit" class="num">Credit <span class="sort-icon">⇅</span></th>
+                    <th data-col="threshold" class="num">Ngưỡng <span class="sort-icon">⇅</span></th>
+                    <th data-col="totalCost" class="num">Spend <span class="sort-icon">⇅</span></th>
+                    <th data-col="totalOrders" class="num">Đơn <span class="sort-icon">⇅</span></th>
+                    <th data-col="totalGmv" class="num">GMV <span class="sort-icon">⇅</span></th>
+                    <th data-col="roi" class="num">ROI <span class="sort-icon">⇅</span></th>
+                    <th data-col="cpo" class="num">CPO <span class="sort-icon">⇅</span></th>
+                    <th data-col="campaignCount" class="num">Camps</th>
+                    <th data-col="owner" style="width:80px">👤 Owner</th>
+                    <th data-col="updatedAt" style="width:100px">⏰ Cập nhật</th>
+                    <th data-col="status" style="width:70px">Trạng thái</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody id="shop-tbody"></tbody>
+        </table>
+        </div>
+    </div>
+
+    <!-- EMPTY STATE -->
+    <div class="empty-state" id="empty-state">
+        <div class="empty-state-icon">🏪</div>
+        <div class="empty-state-text">Chưa có shop nào</div>
+        <div class="empty-state-hint">Import file JSON từ nút 📤 Xuất Shop trên panel Strange TTS ở mỗi profile Chrome</div>
+    </div>
+    </div><!-- /panel-main -->
+
+    <!-- PANEL BÁO CÁO ZALO -->
+    <div id="panel-report" style="display:none">
+        <div class="report-toolbar">
+            <div class="report-toolbar-left">
+                <span class="report-title">📊 Báo Cáo Doanh Thu → Zalo</span>
+                <span class="report-hint">Cấu hình nhóm Zalo & doanh thu mục tiêu cho từng shop, sau đó tải dữ liệu và
+                    preview trước khi gửi.</span>
+            </div>
+            <div class="report-toolbar-right">
+                <div class="rp-global-toggles"
+                    style="display:flex;gap:12px;align-items:center;background:rgba(255,255,255,0.03);padding:6px 16px;border-radius:12px;border:1px solid rgba(255,255,255,0.08)">
+                    <span style="font-size:11px;color:#22c55e;font-weight:900;white-space:nowrap;letter-spacing:1px">🚀
+                        KÍCH HOẠT:</span>
+                    <label class="rp-toggle-wrap mini" title="Kích hoạt Zalo toàn cục">
+                        <input type="checkbox" id="check-rp-global-zalo" />
+                        <span class="rp-toggle blue" style="font-size:10px;padding:2px 8px">ZALO</span>
+                    </label>
+                    <label class="rp-toggle-wrap mini" title="Kích hoạt Sheets toàn cục">
+                        <input type="checkbox" id="check-rp-global-sheet" />
+                        <span class="rp-toggle green" style="font-size:10px;padding:2px 8px">SHEET</span>
+                    </label>
+                    <label class="rp-toggle-wrap mini" title="Kích hoạt Telegram toàn cục">
+                        <input type="checkbox" id="check-rp-global-tg" />
+                        <span class="rp-toggle purple" style="font-size:10px;padding:2px 8px">TELE</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- NEW ROW: TOOLBAR TOOLS -->
+        <div
+            style="display:flex;gap:10px;align-items:center;padding:8px 24px;background:rgba(10,14,20,0.4);border-bottom:1px solid var(--border);flex-wrap:wrap">
+            <div style="display:flex;gap:8px;align-items:center">
+                <button class="btn btn-secondary btn-sm" id="btn-rp-manage-shops"
+                    style="background:rgba(255,255,255,0.05);border-color:rgba(255,255,255,0.1)">⚙️ Hiển thị</button>
+                <button class="btn btn-secondary btn-sm" id="btn-rp-cloud-sync"
+                    style="background:rgba(139,92,246,0.1);border-color:rgba(139,92,246,0.2);color:#a78bfa">☁️ Cloud
+                    Sync</button>
+            </div>
+            <div class="v20-sep"></div>
+            <div
+                style="display:flex; gap:8px; align-items:center; background:rgba(255,255,255,0.03); padding:4px 12px; border-radius:10px; border:1px solid rgba(255,255,255,0.05)">
+                <span style="font-size:11px; color:rgba(255,255,255,0.5)">🔢 LỌC:</span>
+                <button class="btn btn-sm btn-ghost active" id="btn-rp-sort-name" style="font-size:11px">Tên</button>
+                <button class="btn btn-sm btn-ghost" id="btn-rp-sort-active" style="font-size:11px">Hoạt động</button>
+                <button class="btn btn-sm btn-ghost" id="btn-rp-sort-gmv" style="font-size:11px">GMV</button>
+                <button class="btn btn-sm btn-ghost" id="btn-rp-sort-roi" style="font-size:11px">ROI</button>
+                <button class="btn btn-sm btn-ghost" id="btn-rp-sort-orders" style="font-size:11px">Đơn</button>
+            </div>
+            <div class="v20-sep"></div>
+            <div style="display:flex;gap:8px;align-items:center">
+                <button class="btn btn-secondary btn-sm" id="btn-rp-import">📥 Nhập</button>
+                <button class="btn btn-secondary btn-sm" id="id-rp-export-all">📤 Xuất</button>
+                <button class="btn btn-secondary btn-sm" id="btn-rp-bulk-config"
+                    style="background:rgba(14,165,233,0.12);border-color:rgba(14,165,233,0.3);color:#7dd3fc">🧾
+                    Điền ID theo shop</button>
+            </div>
+            <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+                <button class="btn btn-primary" id="btn-rp-refresh-all"
+                    style="padding:4px 16px;font-weight:800;font-size:12px">🔄 TẢI LẠI TẤT CẢ (TUẦN TỰ)</button>
+            </div>
+        </div>
+
+        <div class="rp-global-config">
+            <section class="rp-global-panel rp-global-zalo">
+                <div class="rp-global-head"><span>🔷 Zalo</span><button class="btn btn-primary btn-sm" id="btn-rp-send-all-zalo">📤 Gửi tất cả</button></div>
+                <div class="rp-global-grid">
+                    <label class="rp-field wide"><span>Server Zalo</span><input type="text" id="rp-global-zalo-server" class="rp-input" data-rp-sensitive="1" placeholder="https://drilling-beverly-reform-optimization.trycloudflare.com hoặc URL Server Zlapi" /></label>
+                    <button class="btn btn-secondary btn-sm" id="btn-rp-test-server">⚡ Test</button>
+                    <label class="rp-field"><span><input type="checkbox" id="rp-global-zalo-group-on" checked> Nhóm</span><input type="text" id="rp-global-zalo-group" class="rp-input" data-rp-sensitive="1" placeholder="Zalo Group ID" /></label>
+                    <label class="rp-field"><span><input type="checkbox" id="rp-global-zalo-user-on" checked> Cá nhân</span><input type="text" id="rp-global-zalo-user" class="rp-input" data-rp-sensitive="1" placeholder="Zalo User ID" /></label>
+                    <button class="btn btn-secondary" id="btn-rp-apply-zalo">✅ Áp dụng</button>
+                    <button class="btn btn-secondary" id="btn-rp-toggle-all-shop" title="Ẩn/Hiện phần dữ liệu Cửa hàng tổng của tất cả shop">👁️ Dữ liệu shop</button>
+                </div>
+            </section>
+
+            <section class="rp-global-panel rp-global-telegram">
+                <div class="rp-global-head"><span>📨 Telegram</span><button class="btn btn-secondary" id="btn-rp-apply-tg">✅ Áp dụng</button></div>
+                <div class="rp-global-grid">
+                    <label class="rp-field wide"><span>Bot Token</span><input type="text" id="rp-global-tg-token" class="rp-input" data-rp-sensitive="1" placeholder="Bot Token (BotFather)" /></label>
+                    <label class="rp-field"><span><input type="checkbox" id="rp-global-tg-chatid-on" checked> ID 1</span><input type="text" id="rp-global-tg-chatid" class="rp-input" data-rp-sensitive="1" placeholder="ID cá nhân/nhóm" /></label>
+                    <label class="rp-field"><span><input type="checkbox" id="rp-global-tg-chatid2-on" checked> ID 2</span><input type="text" id="rp-global-tg-chatid2" class="rp-input" data-rp-sensitive="1" placeholder="ID phụ" /></label>
+                    <label class="rp-field compact"><span>Giờ</span><input type="time" id="rp-global-tg-time" class="rp-input" value="09:00" /></label>
+                    <label class="rp-field"><span>Lặp lại</span><input type="text" id="rp-global-tg-extra" class="rp-input" placeholder="11:00, 15:00..." /></label>
+                </div>
+            </section>
+
+            <section class="rp-global-panel rp-global-sheet">
+                <div class="rp-global-head"><span>📊 Google Sheets</span><button class="btn btn-secondary" id="btn-rp-apply-sheets-url">✅ Áp dụng</button></div>
+                <div class="rp-global-grid">
+                    <label class="rp-field wide"><span>Apps Script URL</span><input type="text" id="rp-global-sheets-url" class="rp-input" data-rp-sensitive="1" placeholder="https://script.google.com/macros/s/..." /></label>
+                    <label class="rp-field compact"><span>Giờ</span><input type="time" id="rp-global-sheets-time" class="rp-input" value="08:30" /></label>
+                    <label class="rp-field"><span>Lặp lại</span><input type="text" id="rp-global-sheets-extra" class="rp-input" placeholder="10:00, 14:00..." /></label>
+                </div>
+            </section>
+
+            <section class="rp-global-panel rp-global-schedule">
+                <div class="rp-global-head">
+                    <span>⏰ Lịch gửi & tải dữ liệu</span>
+                    <span id="rp-next-run-countdown">Đang kiểm tra...</span>
+                </div>
+                <div class="rp-global-grid">
+                    <label class="rp-field compact"><span>Giờ Zalo</span><input type="time" id="rp-global-time" class="rp-input" value="08:00" /></label>
+                    <label class="rp-field"><span>Lặp lại</span><input type="text" id="rp-global-send-extra" class="rp-input" placeholder="12:00, 18:00..." /></label>
+                    <div class="rp-field days"><span>Ngày gửi</span><div id="rp-global-days">
+                        <button class="rp-day-pill global-day active" data-val="1">T2</button><button class="rp-day-pill global-day active" data-val="2">T3</button><button class="rp-day-pill global-day active" data-val="3">T4</button><button class="rp-day-pill global-day active" data-val="4">T5</button><button class="rp-day-pill global-day active" data-val="5">T6</button><button class="rp-day-pill global-day active" data-val="6">T7</button><button class="rp-day-pill global-day active" data-val="0">CN</button>
+                    </div></div>
+                    <button class="btn btn-secondary" id="btn-rp-apply-schedule">✅ Áp dụng lịch</button>
+                    <label class="rp-field compact"><span>Delay</span><input type="number" id="rp-global-delay" min="0" max="120" value="3" /></label>
+                    <label class="rp-field compact"><span>Timeout</span><input type="number" id="rp-global-timeout" min="10" max="300" value="60" /></label>
+                    <label class="rp-field check"><input type="checkbox" id="rp-auto-load-before-send" checked><span>Tự tải mới trước khi gửi hàng loạt</span></label>
+                    <span id="rp-bg-alarm-status">⏰ Alarm: đang kiểm tra...</span>
+                </div>
+            </section>
+        </div>
+
+
+        <!-- BACKGROUND LOGS (VPS DIAGNOSTICS) -->
+        <div class="rp-bg-logs-wrap">
+            <div class="rp-bg-logs-header">
+                <span class="rp-bg-logs-title">📋 NHẬT KÝ CHẠY NGẦM (VPS 24/7)</span>
+                <button class="btn btn-sm btn-ghost" id="btn-rp-clear-bg-logs" style="font-size:9px;opacity:0.6">Dọn
+                    dẹp</button>
+            </div>
+            <div class="rp-bg-logs-content" id="rp-bg-logs-content">
+                <div style="padding:10px;color:var(--text-dim);text-align:center">Chưa có nhật ký hoạt động ngầm...
+                </div>
+            </div>
+        </div>
+
+
+
+        <div class="report-shop-list" id="rp-shop-list">
+            <!-- Các shop card báo cáo sẽ render vào đây -->
+        </div>
+
+        <!-- PREVIEW MODAL -->
+        <div class="rp-modal-overlay" id="rp-preview-modal" style="display:none">
+            <div class="rp-modal">
+                <div class="rp-modal-header">
+                    <span class="rp-modal-title" id="rp-modal-shop-name">Preview tin nhắn</span>
+                    <button class="btn btn-ghost rp-modal-close" id="rp-modal-close">✕</button>
+                </div>
+                <div class="rp-modal-body">
+                    <pre class="rp-msg-preview" id="rp-msg-preview"></pre>
+                </div>
+                <div class="rp-modal-footer">
+                    <button class="btn btn-secondary" id="rp-copy-msg">📋 Copy</button>
+                    <button class="btn btn-primary" id="rp-confirm-send">📤 Xác nhận gửi Zalo</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- BULK SHOP CONFIG MODAL -->
+        <div class="rp-modal-overlay" id="rp-bulk-config-modal" style="display:none">
+            <div class="rp-modal rp-bulk-config-modal">
+                <div class="rp-modal-header">
+                    <div>
+                        <span class="rp-modal-title">🧾 Điền ID theo từng shop</span>
+                        <div class="rp-bulk-config-hint">Chỉ thêm cách nhập nhanh. File Excel .xlsx có sẵn cột, map theo oec_seller_id / seller_id;
+                            dữ liệu vẫn lưu vào cấu hình Report từng shop như các card bên dưới.</div>
+                    </div>
+                    <button class="btn btn-ghost rp-modal-close" id="rp-bulk-config-close">✕</button>
+                </div>
+                <div class="rp-modal-body rp-bulk-config-body">
+                    <div class="rp-bulk-config-tools">
+                        <span id="rp-bulk-config-count">0 shop</span>
+                        <span>Tele: Bot Token / ID 1 / ID 2 / Topic</span>
+                        <span>Zalo: Nhóm / Cá nhân</span>
+                        <span>Sheet: Apps Script URL</span>
+                        <button class="btn btn-secondary btn-sm" id="rp-bulk-config-export" type="button">⬇ Xuất XLSX</button>
+                        <button class="btn btn-secondary btn-sm" id="rp-bulk-config-import" type="button">⬆ Nhập XLSX</button>
+                        <input type="file" id="rp-bulk-config-file" accept=".xlsx,.tsv,.txt,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/tab-separated-values,text/plain,text/csv" style="display:none">
+                    </div>
+                    <div class="rp-bulk-config-table-wrap">
+                        <table class="rp-bulk-config-table">
+                            <thead>
+                                <tr>
+                                    <th class="rp-bulk-config-index-col" style="width:42px">#</th>
+                                    <th class="rp-bulk-config-shop-col" style="width:220px">Shop</th>
+                                    <th style="width:230px">Bot Token</th>
+                                    <th style="width:130px">Tele ID 1</th>
+                                    <th style="width:130px">Tele ID 2</th>
+                                    <th style="width:110px">Topic</th>
+                                    <th style="width:145px">Zalo nhóm</th>
+                                    <th style="width:145px">Zalo cá nhân</th>
+                                    <th style="width:320px">Sheet URL</th>
+                                </tr>
+                            </thead>
+                            <tbody id="rp-bulk-config-tbody">
+                                <tr>
+                                    <td colspan="9" class="rp-bulk-config-empty">Chưa có shop để cấu hình</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="rp-modal-footer">
+                    <button class="btn btn-secondary" id="rp-bulk-config-refresh">↻ Nạp lại bảng</button>
+                    <button class="btn btn-primary" id="rp-bulk-config-save">💾 Lưu cấu hình</button>
+                </div>
+            </div>
+        </div>
+    </div><!-- /panel-report -->
+
+    <!-- PANEL TIKTOK CRAWLER -->
+    <div id="panel-tiktok-crawler" class="business-panel" style="display:none">
+        <div class="business-shell">
+            <div class="business-head">
+                <div>
+                    <h2>Thu thập dữ liệu TikTok Shop</h2>
+                    <p>Tự động lấy dữ liệu GMV, đơn hàng, sản phẩm, traffic và chỉ số vận hành từ Seller Center.</p>
+                </div>
+                <div class="business-head-actions">
+                    <div class="ux-view-toggle" role="group" aria-label="Chế độ xem">
+                        <span>Chế độ xem</span>
+                        <button class="ux-mode-btn active" type="button" data-ux-mode-target="panel-tiktok-crawler" data-ux-mode="basic">Cơ bản</button>
+                        <button class="ux-mode-btn" type="button" data-ux-mode-target="panel-tiktok-crawler" data-ux-mode="advanced">Nâng cao</button>
+                    </div>
+                    <button class="btn btn-secondary" id="tts-crawler-reload" type="button"><span class="st-icon st-icon-refresh" aria-hidden="true"></span>Xem lịch sử</button>
+                    <button class="btn btn-secondary" id="tts-crawler-run" type="button" data-mode="seller-center"><span class="st-icon st-icon-data" aria-hidden="true"></span>Lấy dữ liệu TikTok Shop</button>
+                    <button class="btn btn-primary" id="tts-crawler-seller-center-run" type="button" data-mode="seller-center"><span class="st-icon st-icon-shop" aria-hidden="true"></span>Lấy dữ liệu ngay</button>
+                </div>
+            </div>
+            <div class="business-form">
+                <label class="business-field">
+                    <span>Shop DB</span>
+                    <input id="tts-crawler-shop-id" value="little-apricot-hawaii-fashion" autocomplete="off">
+                </label>
+                <label class="business-field">
+                    <span>Seller ID</span>
+                    <input id="tts-crawler-seller-id" value="7494478078863902049" autocomplete="off">
+                </label>
+                <label class="business-field">
+                    <span>CDP port</span>
+                    <input id="tts-crawler-cdp-port" value="58849" autocomplete="off">
+                </label>
+                <label class="business-field">
+                    <span>URL Seller Center</span>
+                    <input id="tts-crawler-base-url" value="https://seller-vn.tiktok.com/homepage?shop_region=VN" autocomplete="off">
+                </label>
+                <label class="business-field">
+                    <span>Tháng crawl</span>
+                    <input id="tts-crawler-months" value="2026-04,2026-05" autocomplete="off">
+                </label>
+                <label class="business-field">
+                    <span>Giới hạn module</span>
+                    <input id="tts-crawler-max-modules" value="0" autocomplete="off">
+                </label>
+            </div>
+            <div id="tts-crawler-output" class="business-output">
+                <div class="business-empty">Bấm Tải DB để xem dữ liệu crawler đã lưu.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PANEL TONG QUAN SHOP -->
+    <div id="panel-shop-overview" class="business-panel" style="display:none">
+        <div class="business-shell shop-overview-dashboard-shell">
+            <div class="business-head">
+                <div>
+                    <span class="business-kicker">Seller Center native</span>
+                    <h2>Tổng quan Shop</h2>
+                    <p>Xem nhanh từng shop đã nạp/crawl: GMV, đơn hàng, khách truy cập, health score và các chỉ số vận hành chính.</p>
+                </div>
+                <div class="business-head-actions business-action-cluster">
+                    <button class="btn btn-primary" type="button" id="shop-overview-realtime-crawl"><span class="st-icon st-icon-refresh" aria-hidden="true"></span>Cào realtime</button>
+                    <button class="btn btn-secondary" type="button" id="shop-overview-refresh"><span class="st-icon st-icon-trend-up" aria-hidden="true"></span>Tải tổng quan</button>
+                    <button class="btn btn-secondary" type="button" id="shop-overview-open-crawler"><span class="st-icon st-icon-data" aria-hidden="true"></span>TikTok Crawler</button>
+                </div>
+            </div>
+            <div class="shop-overview-toolbar">
+                <label class="business-field">
+                    <span>Shop DB</span>
+                    <input id="shop-overview-shop-id" value="little-apricot-hawaii-fashion" autocomplete="off">
+                </label>
+                <label class="business-field">
+                    <span>Seller ID</span>
+                    <input id="shop-overview-seller-id" value="7494478078863902049" autocomplete="off">
+                </label>
+                <label class="business-field">
+                    <span>CDP port</span>
+                    <input id="shop-overview-cdp-port" value="58849" autocomplete="off">
+                </label>
+                <label class="business-field">
+                    <span>Module realtime</span>
+                    <input id="shop-overview-max-modules" value="0" autocomplete="off">
+                </label>
+                <label class="business-field wide">
+                    <span>URL Seller Center</span>
+                    <input id="shop-overview-base-url" value="https://seller-vn.tiktok.com/homepage?shop_region=VN" autocomplete="off">
+                </label>
+            </div>
+            <div id="shop-overview-output" class="business-output shop-overview-output">
+                <div class="business-empty">Bấm Tải tổng quan để xem thẻ từng shop từ dữ liệu crawler đã lưu.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PANEL PHAN TICH KINH DOANH -->
+    <div id="panel-business-analysis" class="business-panel" style="display:none">
+        <div class="business-shell">
+            <div class="business-head">
+                <div>
+                    <h2>Phân tích kinh doanh</h2>
+                    <p>Tổng hợp dữ liệu TikTok Shop, Ads, giá vốn, KOC và chi phí để tính hiệu quả kinh doanh.</p>
+                </div>
+                <div class="business-head-actions">
+                    <div class="ux-view-toggle" role="group" aria-label="Chế độ xem">
+                        <span>Chế độ xem</span>
+                        <button class="ux-mode-btn active" type="button" data-ux-mode-target="panel-business-analysis" data-ux-mode="basic">Cơ bản</button>
+                        <button class="ux-mode-btn" type="button" data-ux-mode-target="panel-business-analysis" data-ux-mode="advanced">Nâng cao</button>
+                    </div>
+                    <button class="btn btn-secondary business-admin-only ux-advanced-only" id="business-toggle-rules" type="button" style="display:none"><span class="st-icon st-icon-settings" aria-hidden="true"></span>Công thức tính</button>
+                    <button class="btn btn-primary" id="business-open-plan" type="button"><span class="st-icon st-icon-rocket" aria-hidden="true"></span>Kế hoạch</button>
+                </div>
+            </div>
+            <form id="business-rules-form" class="business-rules-form business-admin-only" style="display:none">
+                <div class="business-rules-title">
+                    <div>
+                        <strong>Cấu hình logic tính toán</strong>
+                        <span>Chỉ admin/owner thay được. Lưu xong lần phân tích tiếp theo sẽ áp dụng rules mới.</span>
+                    </div>
+                    <button class="btn btn-secondary" id="business-rules-reset" type="button">Mặc định</button>
+                </div>
+                <label class="business-field">
+                    <span>Nguồn doanh thu</span>
+                    <select name="revenueMode">
+                        <option value="auto">Auto: Đơn hàng -> Quyết toán -> GMV Max</option>
+                        <option value="orders">Chỉ lấy file đơn hàng</option>
+                        <option value="settlement">Đã + sẽ quyết toán</option>
+                        <option value="gmvMax">GMV Max creative</option>
+                    </select>
+                </label>
+                <label class="business-field"><span>Ads credit mặc định (%)</span><input name="adsCreditRatioPct" type="number" min="0" max="100" step="1"></label>
+                <label class="business-check"><input name="includeProductCost" type="checkbox"><span>Tính giá vốn hàng bán</span></label>
+                <label class="business-check"><input name="includeAffiliateSampleCost" type="checkbox"><span>Tính chi phí mẫu affiliate</span></label>
+                <label class="business-check"><input name="includeAffiliateShipping" type="checkbox"><span>Tính ship affiliate</span></label>
+                <label class="business-check"><input name="includeAdsActualCost" type="checkbox"><span>Tính Ads thực tế</span></label>
+                <label class="business-field"><span>Phí sàn / voucher / hoàn tiền (%)</span><input name="marketplaceFeePct" type="number" min="0" max="100" step="0.1"></label>
+                <label class="business-field"><span>Phí thanh toán (%)</span><input name="paymentFeePct" type="number" min="0" max="100" step="0.1"></label>
+                <label class="business-field"><span>Phí vận hành / đóng gói (%)</span><input name="operationFeePct" type="number" min="0" max="100" step="0.1"></label>
+                <label class="business-field"><span>Chi phí cố định (VND)</span><input name="fixedCost" type="number" min="0" step="1000"></label>
+                <label class="business-field"><span>Tăng trưởng mặc định (%)</span><input name="targetGrowthPct" type="number" min="0" max="500" step="1"></label>
+                <label class="business-field"><span>ROI hòa vốn tối thiểu (0 = tự tính)</span><input name="minRoiOverride" type="number" min="0" max="999" step="0.01"></label>
+                <label class="business-field"><span>Phí trừ vào lãi SKU (%)</span><input name="skuProfitFeePct" type="number" min="0" max="100" step="0.1"></label>
+                <div class="business-metric-editor">
+                    <div class="business-rules-title">
+                        <div>
+                            <strong>Metric editor - từng đầu mục trong bảng phân tích</strong>
+                            <span>Chọn một dòng số liệu để sửa tên hiển thị, nguồn cột/hàng, filter hoặc công thức tính.</span>
+                        </div>
+                        <div class="business-inline-actions">
+                            <button class="btn btn-secondary" id="business-metric-add" type="button">Thêm metric</button>
+                            <button class="btn btn-secondary" id="business-metric-delete" type="button">Xóa metric</button>
+                            <button class="btn btn-secondary" id="business-metrics-reset" type="button">Reset metric</button>
+                        </div>
+                    </div>
+                    <label class="business-field wide">
+                        <span>Dòng đang sửa</span>
+                        <select id="business-metric-select"></select>
+                    </label>
+                    <label class="business-field"><span>Key nội bộ</span><input id="metric-key" autocomplete="off"></label>
+                    <label class="business-field"><span>Tên hiển thị</span><input id="metric-label" autocomplete="off"></label>
+                    <label class="business-field"><span>Nhóm hiển thị</span><input id="metric-section" autocomplete="off" placeholder="ads / settlement / custom"></label>
+                    <label class="business-field"><span>Tên nhóm</span><input id="metric-section-title" autocomplete="off" placeholder="Ads GMV Max"></label>
+                    <label class="business-field"><span>Kiểu nhóm</span><select id="metric-section-kind"><option value="list">Card/list</option><option value="kpi">KPI trên cùng</option></select></label>
+                    <label class="business-field"><span>Định dạng</span><select id="metric-format"><option value="money">Tiền</option><option value="number">Số</option><option value="percent">Phần trăm</option><option value="decimal">Thập phân</option><option value="text">Text</option></select></label>
+                    <label class="business-field"><span>Cách tính</span><select id="metric-mode"><option value="path">Lấy từ path sẵn có</option><option value="aggregate">Lấy từ cột/hàng file upload</option><option value="formula">Công thức</option></select></label>
+                    <label class="business-check"><input id="metric-visible" type="checkbox"><span>Hiển thị metric này</span></label>
+                    <label class="business-field wide"><span>Path sẵn có</span><input id="metric-path" autocomplete="off" placeholder="VD: costs.adsActualCost"></label>
+                    <div class="business-path-inspector wide" id="business-path-inspector">
+                        <div class="business-path-inspector-title">Path đang nối backend</div>
+                        <div class="business-path-inspector-body" id="business-path-inspector-body">Chọn metric dùng path sẵn có để xem nguồn dữ liệu và công thức backend.</div>
+                    </div>
+                    <label class="business-field"><span>Loại file</span><select id="metric-file-type"><option value="orders">orders</option><option value="adsActual">adsActual</option><option value="gmvMaxCreative">gmvMaxCreative</option><option value="income">income</option><option value="onhold">onhold</option><option value="affiliate">affiliate</option><option value="product">product</option><option value="video">video</option><option value="creator">creator</option></select></label>
+                    <label class="business-field"><span>Phép tính cột</span><select id="metric-op"><option value="sum">Tổng</option><option value="count">Đếm dòng</option><option value="avg">Trung bình</option><option value="first">Dòng đầu</option><option value="min">Min</option><option value="max">Max</option></select></label>
+                    <label class="business-field wide"><span>Tên cột lấy dữ liệu</span><input id="metric-value-columns" autocomplete="off" placeholder="VD: cash cost, credit cost"></label>
+                    <label class="business-field"><span>Hàng bắt đầu</span><input id="metric-row-start" type="number" min="0" step="1"></label>
+                    <label class="business-field"><span>Hàng kết thúc</span><input id="metric-row-end" type="number" min="0" step="1"></label>
+                    <label class="business-field"><span>Chỉ lấy hàng số</span><input id="metric-row-number" type="number" min="0" step="1"></label>
+                    <label class="business-field"><span>Cột filter</span><input id="metric-filter-column" autocomplete="off" placeholder="VD: campaign name"></label>
+                    <label class="business-field"><span>Giá trị filter chứa</span><input id="metric-filter-contains" autocomplete="off" placeholder="VD: GMV Max"></label>
+                    <label class="business-field wide"><span>Công thức</span><input id="metric-formula" autocomplete="off" placeholder="VD: revenue - productCost - adsActualCost"></label>
+                    <div class="business-actions">
+                        <button class="btn btn-secondary" id="business-metric-apply" type="button">Áp dụng metric đang sửa</button>
+                        <span class="business-help-text">Formula chỉ hỗ trợ số, + - * / ( ), metric key và summary path. Không chạy code tùy ý.</span>
+                    </div>
+                </div>
+                <div class="business-actions">
+                    <button class="btn btn-primary" id="business-rules-save" type="submit">Lưu công thức</button>
+                    <span id="business-rules-status"></span>
+                </div>
+            </form>
+            <form id="business-analysis-form" class="business-form">
+                <label class="business-field wide">
+                    <span>Google Sheet giá gốc</span>
+                    <input name="priceSheetUrl" value="https://docs.google.com/spreadsheets/d/1RlaQAhHvLdFrYiG3q80DyVWrJZBmrvLPsrCGGRO_AWo/edit?gid=478274778#gid=478274778" autocomplete="off">
+                </label>
+                <label class="business-field">
+                    <span>Hoặc upload file giá gốc (.xlsx/.csv)</span>
+                    <input name="priceFile" type="file" accept=".xlsx,.xls,.csv">
+                </label>
+                <label class="business-field">
+                    <span>File TikTok Seller/Ads/KOC (.xlsx/.csv)</span>
+                    <input name="businessFiles" type="file" accept=".xlsx,.xls,.csv" multiple>
+                </label>
+                <label class="business-field">
+                    <span>Kỳ dữ liệu cũ</span>
+                    <input name="periodLabel" placeholder="VD: Tháng 5/2026">
+                </label>
+                <label class="business-field">
+                    <span>Kỳ kế hoạch</span>
+                    <input name="nextPeriodLabel" placeholder="VD: Tháng 6/2026 / Q3">
+                </label>
+                <label class="business-field">
+                    <span>Tỷ lệ Ads credit còn lại (%)</span>
+                    <input name="adsCreditRatio" type="number" min="0" max="100" step="1" value="50">
+                </label>
+                <label class="business-field">
+                    <span>Tăng trưởng mục tiêu (%)</span>
+                    <input name="targetGrowthPct" type="number" min="0" max="500" step="1" value="20">
+                </label>
+                <div class="business-actions">
+                    <button class="btn btn-primary" type="submit" id="business-run-analysis"><span class="st-icon st-icon-trend-up" aria-hidden="true"></span>Cập nhật dashboard phân tích</button>
+                    <button class="btn btn-secondary" type="button" id="business-clear-result">Xóa kết quả</button>
+                </div>
+            </form>
+            <div id="business-analysis-output" class="business-output">
+                <div class="business-empty">Bấm Cập nhật dashboard phân tích để xem dữ liệu crawler. Nạp thêm XLSX/CSV để bổ sung Ads, video, giá vốn và P&L.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PANEL KE HOACH KINH DOANH -->
+    <div id="panel-business-plan" class="business-panel" style="display:none">
+        <div class="business-shell">
+            <div class="business-head">
+                <div>
+                    <span class="business-kicker">Trình dựng kế hoạch</span>
+                    <h2>Kế hoạch tháng/quý tới</h2>
+                    <p>Kế hoạch sẽ được tạo từ kết quả phân tích gần nhất trong phiên dashboard này.</p>
+                </div>
+                <button class="btn btn-primary" id="business-open-analysis" type="button"><span class="st-icon st-icon-trend-up" aria-hidden="true"></span>Nạp file phân tích</button>
+            </div>
+            <div id="business-plan-output" class="business-output">
+                <div class="business-empty">Chưa có dữ liệu. Vào Phân tích KD, nạp file, sau đó quay lại Kế hoạch.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CAMPAIGN PANEL (bottom popup) -->
+    <div class="camp-panel" id="camp-panel">
+        <div class="camp-panel-header" id="camp-panel-header">
+            <div class="camp-panel-title">
+                <span id="camp-panel-shop-name">—</span>
+                <span class="camp-panel-badge" id="camp-panel-badge"></span>
+                <span id="camp-panel-status-summary"
+                    style="font-size:11px; color:var(--text-dim); margin-left:12px; font-weight:normal;"></span>
+            </div>
+            <div class="camp-panel-actions">
+                <button class="btn btn-sm btn-secondary" id="camp-panel-refresh">🔄 Refresh</button>
+                <button class="btn btn-sm btn-ghost" id="camp-panel-close">✕</button>
+            </div>
+        </div>
+        <div class="camp-panel-body" id="camp-panel-body">
+            <div class="camp-panel-loading">⏳ Đang tải campaigns...</div>
+        </div>
+    </div>
+
+    <!-- STATUS BAR -->
+    <div class="status-bar">
+        <span id="status-text">Sẵn sàng</span>
+        <span id="status-time"></span>
+    </div>
+
+    <!-- MODAL: QUẢN LÝ HIỂN THỊ SHOP -->
+    <div id="modal-manage-shops" class="modal" style="display:none">
+        <div class="modal-content" style="max-width:500px">
+            <div class="modal-header">
+                <h3>⚙️ Quản lý hiển thị Shop</h3>
+                <span class="close" id="close-manage-shops">&times;</span>
+            </div>
+            <div class="modal-body" style="max-height:400px;overflow-y:auto">
+                <p style="font-size:12px;color:rgba(255,255,255,0.6);margin-bottom:12px">Chọn các shop bạn muốn hiển thị
+                    trên Dashboard chính.</p>
+                <div id="manage-shops-list" style="display:flex;flex-direction:column;gap:8px"></div>
+            </div>
+            <div class="modal-footer"
+                style="padding-top:16px;border-top:1px solid rgba(255,255,255,0.1);display:flex;gap:10px">
+                <button class="btn btn-secondary" id="btn-manage-select-all" style="flex:1">Chọn tất cả</button>
+                <button class="btn btn-outline-danger" id="btn-manage-delete"
+                    style="flex:1;border-color:rgba(239,68,68,0.3);color:#ef4444">🗑 Xóa Shop</button>
+                <button class="btn btn-primary" id="btn-manage-save" style="flex:1.5">Lưu hiển thị</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: CÀI ĐẶT HẠ TẦNG THÔNG BÁO -->
+    <div id="modal-alert-settings" class="modal" style="display:none">
+        <div class="modal-content" style="max-width:480px">
+            <div class="modal-header">
+                <h3>⚙️ Cấu hình Hạ tầng Thông báo</h3>
+                <span class="close" id="close-alert-settings">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div
+                    style="background:rgba(59,130,246,0.05); border:1px solid rgba(59,130,246,0.2); border-radius:10px; padding:15px; margin-bottom:15px;">
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+                        <span style="font-size:13px; font-weight:800; color:#fff;">⚡ Quick Recap hằng ngày</span>
+                        <label
+                            style="display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:rgba(59,130,246,0.1);cursor:pointer">
+                            <input type="checkbox" id="alert-recap-enabled" style="cursor:pointer">
+                            <span style="font-size:11px;font-weight:800;color:#7dd3fc">BẬT</span>
+                        </label>
+                    </div>
+                    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
+                        <input type="text" id="alert-recap-times" class="rp-input" placeholder="08:30, 12:00, 21:30"
+                            style="flex:1;min-width:220px; font-size:12px; padding:4px 8px;">
+                        <button class="btn btn-secondary btn-sm" id="btn-send-quick-recap-now"
+                            style="white-space:nowrap;background:rgba(59,130,246,0.14);border-color:rgba(59,130,246,0.32);color:#7dd3fc">🚀
+                            Gửi recap ngay</button>
+                    </div>
+                    <p style="font-size:11px; color:#94a3b8; line-height:1.4;">
+                        • Chỉ dùng Telegram/Zalo nhập ở đây, để trống kênh nào thì không gửi kênh đó.
+                        <br>• Có thể nhập nhiều giờ, cách nhau bằng dấu phẩy.
+                        <br>• Nếu Report đang auto/manual chạy thì recap sẽ tự bỏ qua.
+                        <br>• Đến giờ sẽ gọi lại data theo luồng Dashboard trong ngày.
+                        <br>• Gộp 1 tin, nhưng mỗi shop tách 2-3 dòng để dễ đọc trên Zalo/Telegram.
+                        <br>• Format: tên shop / DT + đơn + Ads / ROI + Dư / camp khác 0.
+                    </p>
+                    <div id="alert-recap-last-status"
+                        style="margin-top:10px;padding:10px 12px;border-radius:8px;background:rgba(15,23,42,0.55);border:1px solid rgba(148,163,184,0.15);font-size:11px;color:#cbd5e1;line-height:1.5">
+                        Chưa có lịch sử recap.
+                    </div>
+                </div>
+
+                <!-- Telegram Config -->
+                <div style="margin-bottom:15px;">
+                    <div
+                        style="font-size:12px; font-weight:800; color:#60a5fa; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+                        <i class="fa-brands fa-telegram"></i> TELEGRAM RECAP (Ưu tiên tại đây)
+                    </div>
+                    <input type="text" id="alert-tg-token" class="rp-input" placeholder="Bot Token (BotFather)"
+                        style="width:100%; margin-bottom:6px;">
+                    <div style="display:flex; gap:6px;">
+                        <input type="text" id="alert-tg-chatid" class="rp-input" placeholder="Chat ID 1"
+                            style="flex:1;">
+                        <input type="text" id="alert-tg-chatid2" class="rp-input" placeholder="Chat ID 2 (Nhóm)"
+                            style="flex:1;">
+                    </div>
+                </div>
+
+                <!-- Zalo Config -->
+                <div>
+                    <div
+                        style="font-size:12px; font-weight:800; color:#22c55e; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+                        <i class="fa-solid fa-comments"></i> ZALO RECAP (Ưu tiên tại đây)
+                    </div>
+                    <input type="text" id="alert-zalo-server" class="rp-input"
+                        placeholder="Zalo Server URL (http://ip:7788)" style="width:100%; margin-bottom:6px;">
+                    <div style="display:flex; gap:6px;">
+                        <input type="text" id="alert-zalo-user" class="rp-input" placeholder="Người nhận (User ID)"
+                            style="flex:1;">
+                        <input type="text" id="alert-zalo-group" class="rp-input" placeholder="Nhóm nhận (Group ID)"
+                            style="flex:1;">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer" style="padding-top:16px; border-top:1px solid rgba(255,255,255,0.1);">
+                <button class="btn btn-primary" id="btn-save-alerts" style="width:100%; font-weight:800;">LƯU CẤU HÌNH
+                    HẠ TẦNG</button>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .v20-alert-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 12px;
+            background: rgba(0, 0, 0, 0.15);
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            margin-top: 5px;
+        }
+
+        .v20-alert-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            padding: 2px 8px;
+            border-radius: 6px;
+            border: 1px solid transparent;
+            font-size: 10px;
+            font-weight: 800;
+            user-select: none;
+        }
+
+        .v20-alert-item.on {
+            background: rgba(168, 85, 247, 0.1);
+            border-color: rgba(168, 85, 247, 0.3);
+            color: #c084fc;
+        }
+
+        .v20-alert-item.off {
+            background: rgba(255, 255, 255, 0.03);
+            border-color: rgba(255, 255, 255, 0.05);
+            color: rgba(255, 255, 255, 0.2);
+            filter: grayscale(1);
+        }
+
+        .v20-alert-item:hover {
+            transform: translateY(-1px);
+            background: rgba(255, 255, 255, 0.08);
+        }
+    </style>
+
+    <script src="../src/dashboard.js"></script>
+    <script src="../src/report.js"></script>
+
+    <!-- MODAL: HƯỚNG DẪN SọNG -->
+    <div id="modal-guide"
+        style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.75);backdrop-filter:blur(6px);overflow-y:auto">
+        <div
+            style="max-width:720px;margin:40px auto;background:linear-gradient(135deg,#0f172a,#1e1b4b);border:1px solid rgba(168,85,247,0.3);border-radius:16px;padding:32px;position:relative">
+            <button id="btn-close-guide"
+                style="position:absolute;top:16px;right:16px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#94a3b8;border-radius:8px;padding:4px 12px;cursor:pointer;font-size:18px">×</button>
+            <h2 style="color:#c084fc;font-size:20px;font-weight:900;margin:0 0 6px">📖 Hướng dẫn sử dụng</h2>
+            <p style="color:#64748b;font-size:12px;margin:0 0 24px">Strange TTS Solution 1.0.0 &mdash; Cài đặt báo cáo tự động
+            </p>
+
+            <!-- ZALO -->
+            <div
+                style="background:rgba(168,85,247,0.08);border:1px solid rgba(168,85,247,0.2);border-radius:12px;padding:20px;margin-bottom:16px">
+                <div style="font-size:13px;font-weight:800;color:#c084fc;margin-bottom:12px">📱 Cách lấy ZALO ID (Nhóm
+                    &amp; Cá nhân)</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                    <div>
+                        <div style="font-size:11px;font-weight:700;color:#a855f7;margin-bottom:6px">👥 ID Nhóm Zalo
+                        </div>
+                        <ol style="font-size:11px;color:#94a3b8;margin:0;padding-left:16px;line-height:1.8">
+                            <li>Mở ứng dụng <b>Zalo</b> trên điện thoại</li>
+                            <li>Vào <b>Nhóm Zalo</b> muốn nhận báo cáo</li>
+                            <li>Nhấn vào tên nhóm → <b>Thông tin nhóm</b></li>
+                            <li>Copy <b>Link nhóm</b> → ID là con số dài cuối URL</li>
+                        </ol>
+                        <div
+                            style="margin-top:8px;background:#0f172a;border-radius:6px;padding:6px 10px;font-size:10px;color:#60a5fa;font-family:monospace">
+                            Zalo.me/g/<b style="color:#c084fc">1234567890123456789</b></div>
+                    </div>
+                    <div>
+                        <div style="font-size:11px;font-weight:700;color:#60a5fa;margin-bottom:6px">👤 ID Cá nhân Zalo
+                        </div>
+                        <ol style="font-size:11px;color:#94a3b8;margin:0;padding-left:16px;line-height:1.8">
+                            <li>Mở <b>Zalo</b> → vào trang cá nhân của người nhận</li>
+                            <li>Nhấn <b>Chia sẻ trang cá nhân</b></li>
+                            <li>Copy link → ID là con số sau <code style="color:#c084fc">/</code></li>
+                            <li>Hoặc hỏi trực tiếp Strange TTS support để lấy ID</li>
+                        </ol>
+                        <div
+                            style="margin-top:8px;background:#0f172a;border-radius:6px;padding:6px 10px;font-size:10px;color:#60a5fa;font-family:monospace">
+                            Zalo.me/<b style="color:#c084fc">8841929541650534</b></div>
+                    </div>
+                </div>
+                <div
+                    style="margin-top:12px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);border-radius:8px;padding:10px;font-size:11px;color:#fca5a5">
+                    ⚠️ <b>Lưu ý:</b> Server Zlapi phải đang chạy trên VPS. URL mặc định: <code
+                        style="color:#f87171">https://drilling-beverly-reform-optimization.trycloudflare.com</code> (chỉ dùng khi chạy ngay trên máy). Khi chạy
+                    trên VPS, điền IP của VPS: <code style="color:#f87171">http://&lt;IP_VPS&gt;:7788</code>
+                </div>
+            </div>
+
+            <!-- TELEGRAM -->
+            <div
+                style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);border-radius:12px;padding:20px;margin-bottom:16px">
+                <div style="font-size:13px;font-weight:800;color:#60a5fa;margin-bottom:12px">📨 Cách lấy TELEGRAM Chat
+                    ID &amp; Bot Token</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                    <div>
+                        <div style="font-size:11px;font-weight:700;color:#60a5fa;margin-bottom:6px">🤖 Tạo Bot &amp; lấy
+                            Token</div>
+                        <ol style="font-size:11px;color:#94a3b8;margin:0;padding-left:16px;line-height:1.8">
+                            <li>Mở Telegram, tìm <b>@BotFather</b></li>
+                            <li>Gõ <code style="color:#60a5fa">/newbot</code> → đặt tên bot</li>
+                            <li>BotFather gửi lại <b>Token</b> (dạng 1234:ABC...)</li>
+                            <li>Copy token đó vào ô <b>Bot Token</b></li>
+                        </ol>
+                    </div>
+                    <div>
+                        <div style="font-size:11px;font-weight:700;color:#60a5fa;margin-bottom:6px">🔢 Lấy Chat ID</div>
+                        <ol style="font-size:11px;color:#94a3b8;margin:0;padding-left:16px;line-height:1.8">
+                            <li>Tìm <b>@userinfobot</b> trên Telegram</li>
+                            <li>Gõ <code style="color:#60a5fa">/start</code> → bot trả lại ID của bạn</li>
+                            <li>Với Nhóm: Thêm bot vào nhóm → gõ <code>/id</code></li>
+                            <li>ID nhóm bắt đầu bằng dấu <code>-100...</code></li>
+                        </ol>
+                    </div>
+                </div>
+            </div>
+
+            <!-- GOOGLE SHEETS -->
+            <div
+                style="background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);border-radius:12px;padding:20px;margin-bottom:16px">
+                <div style="font-size:13px;font-weight:800;color:#22c55e;margin-bottom:12px">📊 Cách lấy Google Sheets
+                    URL</div>
+                <ol style="font-size:11px;color:#94a3b8;margin:0;padding-left:16px;line-height:2">
+                    <li>Mở Google Sheets của bạn → chọn <b>Extensions → Apps Script</b></li>
+                    <li>Dán script của Strange TTS vào → Nhấn <b>Deploy → New deployment</b></li>
+                    <li>Chọn loại: <b>Web App</b> → <i>Execute as: Me</i>, <i>Who has access: Anyone</i></li>
+                    <li>Nhấn <b>Deploy</b> → Copy URL dạng <code
+                            style="color:#22c55e">https://script.google.com/macros/s/.../exec</code></li>
+                    <li>Dán URL đó vào ô <b>Google Sheets URL</b> trong tab Báo cáo</li>
+                </ol>
+            </div>
+
+            <!-- VPS -->
+            <div
+                style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.2);border-radius:12px;padding:20px">
+                <div style="font-size:13px;font-weight:800;color:#fbbf24;margin-bottom:12px">🖥️ Chạy tự động 24/7 trên
+                    VPS</div>
+                <ol style="font-size:11px;color:#94a3b8;margin:0;padding-left:16px;line-height:2">
+                    <li>Upload thư mục extension lên VPS Windows (RDP vào VPS)</li>
+                    <li>Mở Chrome trên VPS → bẫt Developer Mode → Load unpacked</li>
+                    <li>Chạy <code style="color:#fbbf24">python zlapi_server.py</code> trong folder Zlapi để khởi động
+                        server Zalo</li>
+                    <li>Mở Dashboard → Tab Báo cáo → Điền URL server: <code
+                            style="color:#fbbf24">https://drilling-beverly-reform-optimization.trycloudflare.com</code></li>
+                    <li>Bật Auto Zalo/Sheet/Tele → đặt giờ → nhấn ✅ Áp dụng tất cả</li>
+                    <li>Để nhật ký VPS: xem mục <b>📋 NHẬT KÝ CHẠY NGẦM</b> cuối trang báo cáo</li>
+                </ol>
+            </div>
+
+            <div style="text-align:center;margin-top:20px">
+                <button id="btn-close-guide-footer"
+                    style="background:linear-gradient(135deg,#7c3aed,#a855f7);color:white;border:none;border-radius:10px;padding:10px 32px;font-weight:800;font-size:13px;cursor:pointer">✅
+                    Đã hiểu, bắt đầu dùng!</button>
+            </div>
+        </div>
+    </div>
+
+</body>
+
+</html>

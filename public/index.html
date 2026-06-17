@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Strange TTS PC App</title>
+  <link rel="stylesheet" href="/styles.css?v=20260617-tts">
+</head>
+<body>
+  <main class="shell">
+    <section class="app-hero">
+      <div class="brand-lockup">
+        <div class="brand-logo">S</div>
+        <div>
+          <p class="eyebrow">Local app dashboard</p>
+          <h1>Strange TTS Solution</h1>
+          <p class="brand-sub">TTS preview · TikTok Shop intelligence · Local app runtime</p>
+        </div>
+      </div>
+      <div class="status-pill" id="healthPill">Đang kiểm tra</div>
+    </section>
+
+    <section class="grid" id="appPanel">
+      <article class="popup-home">
+        <div class="user-bar">
+          <div class="user-avatar">S</div>
+          <div>
+            <div class="user-name">Strange</div>
+            <div class="user-role">Admin</div>
+          </div>
+        </div>
+
+        <label class="shop-select-label">Mở nhanh shop</label>
+        <select id="shopQuickSelect" class="shop-select">
+          <option value="">--- Chọn shop để mở ---</option>
+        </select>
+
+        <div class="menu-grid">
+          <button class="menu-card primary-card" id="btnTtsPreview"><span>TTS</span>Tạo giọng đọc</button>
+          <button class="menu-card" id="btnAppDashboard"><span>📊</span>Dashboard</button>
+          <button class="menu-card" id="btnSellerAds"><span>🛒</span>Seller Ads</button>
+          <button class="menu-card" id="btnCloudSync"><span>☁</span>Cloud Sync</button>
+          <button class="menu-card" id="btnAiData"><span>🌐</span>STRANGE TTS AI DATA</button>
+          <button class="menu-card" id="btnBusinessAnalysis"><span>📈</span>Phân tích KD</button>
+          <button class="menu-card" id="btnTikTokCrawler"><span>🧭</span>TikTok Crawler</button>
+          <button class="menu-card" id="btnBusinessPlan"><span>📝</span>Kế hoạch</button>
+          <button class="menu-card" id="btnGuide"><span>?</span>Hướng dẫn</button>
+          <button class="menu-card" id="btnDownloadVideo"><span>↓</span>Tải video</button>
+        </div>
+
+        <button class="wide-action enabled" id="btnProductToggle">Xem sản phẩm: Bật</button>
+        <button class="wide-action" id="btnVideoSettings">Cài đặt xem video</button>
+        <button class="wide-action" id="btnRuntimeStatus">Trạng thái runtime</button>
+      </article>
+
+      <article class="panel" id="workspacePanel">
+        <div class="panel-header">
+          <h2>Workspace app</h2>
+          <p>Mở tác vụ chính trong app. Bắt đầu bằng Tạo giọng đọc để thử nhanh luồng TTS local.</p>
+        </div>
+        <div id="workspaceContent" class="workspace-content"></div>
+      </article>
+
+      <article class="panel wide hidden" id="statusPanel">
+        <div class="panel-header">
+          <h2>Multishop</h2>
+          <p>Shop được tạo trong app, mỗi shop có Chrome profile và cookies riêng.</p>
+        </div>
+        <div class="shop-list" id="shopList"></div>
+      </article>
+
+      <article class="panel wide">
+        <div class="panel-header">
+          <h2>Trạng thái production</h2>
+          <p>Thông tin runtime local, dùng để debug khi cần.</p>
+        </div>
+        <dl class="status-list" id="statusList"></dl>
+      </article>
+
+      <article class="panel wide">
+        <div class="panel-header">
+          <h2>Nhật ký thao tác</h2>
+          <p>Kết quả scan và launcher hiện tại, không ghi token hay cookie ra màn hình.</p>
+        </div>
+        <pre id="outputBox" class="output">Sẵn sàng.</pre>
+      </article>
+    </section>
+  </main>
+  <script src="/app.js?v=20260617-tts" defer></script>
+</body>
+</html>

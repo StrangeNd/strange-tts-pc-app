@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Strange TTS Solution</title>
+  <link rel="stylesheet" href="../styles/login.css">
+  <link rel="stylesheet" href="../styles/strangetts-theme.css">
+</head>
+<body>
+
+<!-- Hiệu ứng nền -->
+<div class="bg-glow"></div>
+<div class="bg-glow2"></div>
+
+<div class="popup-wrap">
+
+  <!-- Header cố định -->
+  <div class="popup-header">
+    <img src="../assets/icons/icon48.png" alt="Strange TTS" class="popup-logo">
+    <div class="popup-header-text">
+      <div class="popup-title">Strange TTS Solution</div>
+      <div class="popup-sub">TikTok Shop Intelligence • Auto Report • 1.0.0</div>
+    </div>
+    <button id="btn-theme-toggle" class="theme-toggle" type="button" title="Đổi giao diện sáng/tối" aria-label="Đổi giao diện sáng/tối">
+      <span id="theme-toggle-icon" class="st-icon st-icon-theme" aria-hidden="true"></span>
+    </button>
+    <div style="display:none" class="popup-version">1.0.0</div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       SECTION: LOGIN
+  ══════════════════════════════════════ -->
+  <div id="section-login" class="section" style="display:none">
+    <div class="login-section">
+      <div class="login-welcome">
+        <span class="login-icon">🔐</span>
+        <div class="login-title">Đăng Nhập</div>
+        <div class="login-hint">Nhập tài khoản Strange TTS Agency của bạn</div>
+      </div>
+
+      <div id="login-msg" class="msg"></div>
+
+      <div class="form-group">
+        <label class="form-label">👤 Tên đăng nhập</label>
+        <input type="text" id="inp-user" class="form-input" placeholder="username..." autocomplete="username" autocorrect="off" spellcheck="false">
+      </div>
+      <div class="form-group">
+        <label class="form-label">🔑 Mật khẩu</label>
+        <div class="pw-wrapper">
+          <input type="password" id="inp-pass" class="form-input pw-input" placeholder="password..." autocomplete="current-password">
+          <span class="pw-toggle" data-target="inp-pass">👁️</span>
+        </div>
+      </div>
+
+      <label class="terms-accept-row">
+        <input type="checkbox" id="terms-accept" checked>
+        <span>
+          Tôi đã đọc và đồng ý với
+          <button type="button" id="btn-open-terms" class="terms-link">Điều khoản sử dụng Strange TTS Solution PRO</button>
+        </span>
+      </label>
+
+      <button id="btn-login" class="btn btn-primary" style="margin-top:4px">
+        🚀 VÀO HỆ THỐNG
+      </button>
+
+      <div style="text-align:center;margin-top:10px">
+        <span style="font-size:10px;color:#7c6fa0">Chưa có tài khoản? </span>
+        <button id="btn-go-register" style="background:none;border:none;color:#a8aaad;font-size:10px;cursor:pointer;font-weight:700;text-decoration:underline;padding:0">Đăng ký ngay</button>
+      </div>
+      <div style="text-align:center;margin-top:6px;font-size:9px;color:#7c6fa0">
+        Liên hệ Admin nếu quên mật khẩu
+      </div>
+      <div class="divider" style="margin:12px 0"></div>
+      <button id="btn-open-guide-login" class="btn btn-secondary full-width" style="padding:8px;font-size:10px;background:rgba(138,141,145,0.05);border-color:rgba(138,141,145,0.2)">
+        📖 HƯỚNG DẪN SỬ DỤNG
+      </button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       SECTION: ĐIỀU KHOẢN SỬ DỤNG
+  ══════════════════════════════════════ -->
+  <div id="section-terms" class="section" style="display:none">
+    <div class="terms-section">
+      <div class="panel-title">
+        <button class="back-btn" id="btn-back-terms">←</button>
+        Điều khoản sử dụng
+      </div>
+      <div class="terms-scroll">
+        <h3>Điều khoản sử dụng Strange TTS Solution PRO</h3>
+        <p>Khi bấm đồng ý, tải về, cài đặt hoặc sử dụng Strange TTS Solution PRO, bạn xác nhận đã đọc, hiểu và chấp thuận các điều khoản dưới đây.</p>
+
+        <h4>1. Phạm vi cấp quyền sử dụng</h4>
+        <p>Strange TTS Solution PRO là phần mềm máy tính được bảo hộ theo quy định pháp luật sở hữu trí tuệ Việt Nam và các quy định liên quan. Phần mềm chỉ được cung cấp qua website này hoặc các kênh phân phối chính thức do Strange TTS Agency xác nhận.</p>
+        <ul>
+          <li>Tài khoản và bản phần mềm chỉ dùng cho cá nhân hoặc đơn vị đã được cấp quyền.</li>
+          <li>Không sao chép, chia sẻ lại, bán lại, cho thuê, phân phối, dịch ngược, bóc tách, chỉnh sửa, can thiệp mã nguồn hoặc tạo bản phái sinh nếu chưa có chấp thuận bằng văn bản.</li>
+        </ul>
+
+        <h4>2. Không tự ý chỉnh sửa phần mềm</h4>
+        <p>Hệ thống gồm nhiều thành phần liên kết với nhau như luồng vận hành, cấu hình tài khoản, đồng bộ dữ liệu, xử lý cookie, báo cáo và các mô-đun hỗ trợ AI. Một thay đổi nhỏ trong tập tin hoặc cấu hình có thể làm sai dữ liệu hoặc gây lỗi vận hành.</p>
+        <ul>
+          <li>Người dùng tự chịu trách nhiệm với mọi thay đổi, can thiệp hoặc sử dụng ngoài hướng dẫn.</li>
+          <li>Nhà phát triển có quyền từ chối hỗ trợ đối với bản đã bị chỉnh sửa, sao chép, chia sẻ trái phép hoặc chạy trong môi trường không được khuyến nghị.</li>
+        </ul>
+
+        <h4>3. Dữ liệu cục bộ, AI và bảo mật thiết bị</h4>
+        <p>Nhiều dữ liệu vận hành, dữ liệu cấu hình, dữ liệu đọc từ tệp và mô-đun hỗ trợ AI được xử lý hoặc lưu trữ cục bộ trên thiết bị của bạn. Bạn cần tự bảo mật máy tính, trình duyệt, tài khoản TikTok, tài khoản STRANGE TTS và dữ liệu kinh doanh đưa vào hệ thống.</p>
+        <ul>
+          <li>Không cài đặt phần mềm trên thiết bị công cộng, thiết bị không tin cậy hoặc máy có nguy cơ nhiễm mã độc.</li>
+          <li>Không chia sẻ thư mục tiện ích, cookie, mã đăng nhập, tài khoản hoặc tệp dữ liệu cho người không có thẩm quyền.</li>
+          <li>Kết quả phân tích, gợi ý AI và cảnh báo vận hành chỉ mang tính hỗ trợ. Người dùng vẫn cần kiểm tra lại trước khi thao tác trên shop hoặc quảng cáo.</li>
+        </ul>
+
+        <h4>4. Đồng bộ tài khoản giữa nhiều máy</h4>
+        <p>Một phần dữ liệu có thể được dùng cho tính năng đồng bộ tài khoản, shop và cấu hình giữa nhiều máy. Nếu không muốn sử dụng, bạn có thể tắt đồng bộ và xóa URL đồng bộ trong popup trước khi vận hành.</p>
+        <ul>
+          <li>Người dùng tự quyết định bật/tắt đồng bộ và tự chịu trách nhiệm với dữ liệu đã chọn đưa lên máy chủ đồng bộ.</li>
+          <li>Nhà phát triển không chịu trách nhiệm đối với rủi ro phát sinh từ việc chia sẻ thiết bị, chia sẻ tài khoản, cấu hình sai URL đồng bộ hoặc dùng máy chủ đồng bộ ngoài khuyến nghị.</li>
+        </ul>
+
+        <h4>5. Tài khoản, mật khẩu và hỗ trợ</h4>
+        <ul>
+          <li>Sau khi được cấp tài khoản, vui lòng đổi mật khẩu trong lần sử dụng đầu tiên.</li>
+          <li>Bạn có trách nhiệm giữ bí mật thông tin đăng nhập và không cho mượn hoặc chia sẻ tài khoản.</li>
+          <li>Hỗ trợ kỹ thuật chỉ áp dụng trong phạm vi tài khoản hợp lệ, bản phần mềm hợp lệ và cách sử dụng đúng hướng dẫn.</li>
+        </ul>
+
+        <h4>6. Giới hạn trách nhiệm</h4>
+        <p>Strange TTS Solution PRO là công cụ hỗ trợ vận hành và phân tích. Phần mềm không thay thế hoàn toàn quyết định của người vận hành, không bảo đảm doanh thu, lợi nhuận, hiệu quả quảng cáo hoặc kết quả kinh doanh cụ thể.</p>
+        <p>Nhà phát triển không chịu trách nhiệm đối với thiệt hại phát sinh từ dữ liệu đầu vào sai, tài khoản nền tảng bị giới hạn, thay đổi chính sách của bên thứ ba, lỗi kết nối, thao tác sai, chỉnh sửa trái phép hoặc sử dụng ngoài phạm vi được hướng dẫn.</p>
+      </div>
+      <label class="terms-accept-row terms-accept-row-bottom">
+        <input type="checkbox" id="terms-accept-bottom" checked>
+        <span>Tôi đồng ý với Điều khoản sử dụng Strange TTS Solution PRO.</span>
+      </label>
+      <button id="btn-terms-done" class="btn btn-primary" style="margin-top:8px">ĐỒNG Ý VÀ QUAY LẠI</button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       SECTION: ĐĂNG KÝ
+  ══════════════════════════════════════ -->
+  <div id="section-register" class="section" style="display:none">
+    <div class="login-section">
+      <div class="login-welcome">
+        <span class="login-icon">✍️</span>
+        <div class="login-title">Đăng Ký</div>
+        <div class="login-hint">Liên hệ Telegram @my_telegram_bot để nhận tài khoản</div>
+      </div>
+
+      <div id="reg-msg" class="msg"></div>
+
+      <div class="form-group">
+        <label class="form-label">👤 Tên đăng nhập</label>
+        <input type="text" id="reg-user" class="form-input" placeholder="vd: nguyenvan.st..." autocorrect="off" spellcheck="false">
+      </div>
+      <div class="form-group">
+        <label class="form-label">📛 Tên hiển thị</label>
+        <input type="text" id="reg-display" class="form-input" placeholder="vd: Nguyễn Văn...">
+      </div>
+      <div class="form-group">
+        <label class="form-label">📱 Số điện thoại</label>
+        <input type="tel" id="reg-phone" class="form-input" placeholder="Dùng để lấy lại mật khẩu...">
+      </div>
+      <div class="form-group">
+        <label class="form-label">🔑 Mật khẩu</label>
+        <div class="pw-wrapper">
+          <input type="password" id="reg-pass" class="form-input pw-input" placeholder="Tối thiểu 6 ký tự...">
+          <span class="pw-toggle" data-target="reg-pass">👁️</span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">🔑 Xác nhận mật khẩu</label>
+        <div class="pw-wrapper">
+          <input type="password" id="reg-pass2" class="form-input pw-input" placeholder="Nhập lại password...">
+          <span class="pw-toggle" data-target="reg-pass2">👁️</span>
+        </div>
+      </div>
+
+      <button id="btn-register" class="btn btn-primary" style="margin-top:4px">
+        ✅ ĐĂNG KÝ
+      </button>
+
+      <div style="text-align:center;margin-top:10px">
+        <span style="font-size:10px;color:#7c6fa0">Đã có tài khoản? </span>
+        <button id="btn-go-login" style="background:none;border:none;color:#a8aaad;font-size:10px;cursor:pointer;font-weight:700;text-decoration:underline;padding:0">Đăng nhập</button>
+      </div>
+      <div style="text-align:center;margin-top:6px;font-size:9px;color:#7c6fa0">
+        💡 Cần cấu hình Server URL trong Cloud Sync để đồng bộ với STRANGE TTS AI DATA
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       SECTION: MENU (Sau đăng nhập)
+  ══════════════════════════════════════ -->
+  <div id="section-menu" class="section" style="display:none">
+
+    <!-- User bar -->
+    <div class="user-bar">
+      <div class="user-avatar">
+        <span id="menu-avatar-letter">S</span>
+      </div>
+      <div class="user-info">
+        <div class="user-name" id="menu-user-name">User</div>
+        <div class="user-role" id="menu-user-role">👤 User</div>
+      </div>
+    </div>
+
+    <!-- Shop dropdown chọn nhanh -->
+    <div id="shop-quick-select-wrap" style="padding:4px 14px 0;display:none">
+      <label style="font-size:10px;color:#a2a5a8;display:block;margin-bottom:4px">🛒 Đăng Nhập Nhanh Vào Shop</label>
+      <select id="shop-quick-select" class="form-input" style="padding:7px 10px;font-size:11px;cursor:pointer;background:rgba(40,42,45,0.9)">
+        <option value="">-- Chọn Shop Để Mở --</option>
+      </select>
+    </div>
+
+    <!-- Menu buttons -->
+    <div class="menu-grid">
+      <button class="menu-btn" id="btn-seller">
+        <span class="icon st-icon st-icon-seller" aria-hidden="true"></span>
+        <span>Seller Ads</span>
+      </button>
+      <button class="menu-btn" id="btn-sync-menu">
+        <span class="icon st-icon st-icon-cloud-up" aria-hidden="true"></span>
+        <span>Cloud Sync</span>
+      </button>
+      <button class="menu-btn" id="btn-open-web" style="display:none" title="Mở STRANGE TTS AI DATA">
+        <span class="icon st-icon st-icon-data" aria-hidden="true"></span>
+        <span>STRANGE TTS AI DATA</span>
+      </button>
+      <button class="menu-btn" id="btn-open-guide-menu">
+        <span class="icon st-icon st-icon-guide" aria-hidden="true"></span>
+        <span>Hướng dẫn</span>
+      </button>
+      <button class="menu-btn" id="btn-video-download">
+        <span class="icon st-icon st-icon-download" aria-hidden="true"></span>
+        <span>Tải video</span>
+      </button>
+      <button class="menu-btn full-width shop-video-toggle is-off" id="btn-shop-video-toggle" title="Bật/tắt module xem video gắn giỏ cũ của STRANGE TTS" style="display:none">
+        <span class="icon" id="shop-video-toggle-icon">🚫📹</span>
+        <span id="shop-video-toggle-text">Xem video gắn giỏ STRANGE TTS: Tắt</span>
+      </button>
+      <button class="menu-btn full-width shop-video-toggle is-on" id="btn-product-viewer-toggle" title="Bật/tắt hiển thị sản phẩm trên video TikTok">
+        <span class="icon" id="product-viewer-toggle-icon">🏷️</span>
+        <span id="product-viewer-toggle-text">Xem sản phẩm: Bật</span>
+      </button>
+      <button class="menu-btn full-width" id="btn-video-tools-settings" title="Mở cài đặt xem video">
+        <span class="icon st-icon st-icon-settings" aria-hidden="true"></span>
+        <span>Cài đặt xem video</span>
+      </button>
+      <button class="menu-btn danger full-width" id="btn-logout">
+        <span class="st-icon st-icon-logout" aria-hidden="true"></span><span>Đăng Xuất</span>
+      </button>
+    </div>
+    <div id="menu-sso-msg" class="msg" style="margin:0 14px 8px"></div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       SECTION: CLOUD SYNC
+  ══════════════════════════════════════ -->
+  <div id="section-sync" class="section" style="display:none">
+    <div style="padding:12px 14px">
+
+      <div class="panel-title">
+        <button class="back-btn" id="btn-back-sync">←</button>
+        ☁️ Cloud Sync
+      </div>
+
+      <div id="sync-msg" class="msg"></div>
+
+      <div class="form-group">
+        <label class="form-label">Server URL (Cloudflare/VPS)</label>
+        <input type="url" id="sync-url" class="form-input"
+          placeholder="https://drilling-beverly-reform-optimization.trycloudflare.com">
+      </div>
+
+      <div class="sync-status">
+        <div class="sync-dot" id="sync-dot"></div>
+        <span id="sync-status-text">Chưa kết nối</span>
+      </div>
+
+      <div style="display:flex;gap:6px;margin-top:8px">
+        <button id="btn-sync-test" class="btn btn-secondary" style="flex:1;padding:7px;font-size:11px">
+          🔗 Test Kết Nối
+        </button>
+      </div>
+
+      <div class="divider" style="margin:10px 0"></div>
+
+      <div style="font-size:10px;color:#7c6fa0;margin-bottom:8px">
+        📦 Upload cookie shop lên cloud để dùng trên máy khác mà không cần import lại
+      </div>
+
+      <div style="display:flex;gap:6px">
+        <button id="btn-sync-upload" class="btn btn-primary" style="flex:1;padding:8px;font-size:11px">
+          ☁️ Upload lên Cloud
+        </button>
+        <button id="btn-sync-download" class="btn btn-secondary" style="flex:1;padding:8px;font-size:11px">
+          ⬇️ Tải từ Cloud
+        </button>
+      </div>
+
+      <button id="btn-sync-delete" class="btn" style="width:100%;margin-top:6px;padding:7px;font-size:10px;background:rgba(220,38,38,0.15);border:1px solid rgba(220,38,38,0.4);color:#f87171;">
+        🗑️ Xóa toàn bộ dữ liệu trên Cloud
+      </button>
+
+      <div class="divider" style="margin:10px 0"></div>
+
+      <!-- Auto-Sync toggle -->
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0">
+        <div>
+          <div style="font-size:11px;font-weight:600;color:#e2d8ff">🔄 Tự Động Đồng Bộ</div>
+          <div style="font-size:9px;color:#7c6fa0;margin-top:2px">Tắt để tránh nhảy shop tự động</div>
+        </div>
+        <label class="strangetts-toggle" style="flex-shrink:0">
+          <input type="checkbox" id="popup-auto-sync-toggle">
+          <span class="strangetts-toggle-slider"></span>
+        </label>
+      </div>
+
+      <div style="margin-top:10px;font-size:9px;color:#7c6fa0;text-align:center">
+        Token bảo mật theo ngày • Chỉ bạn mới đọc được dữ liệu của mình
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="popup-footer">
+    © 2026 Strange TTS Agency · localhost
+  </div>
+
+</div>
+
+<script src="../src/login.js"></script>
+</body>
+</html>

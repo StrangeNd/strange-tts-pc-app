@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="STONK product">
+  <defs>
+    <linearGradient id="bag" x1="10" y1="8" x2="54" y2="58" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#22c55e"/>
+      <stop offset=".55" stop-color="#14b8a6"/>
+      <stop offset="1" stop-color="#f97316"/>
+    </linearGradient>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="2.4" result="blur"/>
+      <feColorMatrix in="blur" type="matrix" values="0 0 0 0 0.08 0 0 0 0 0.85 0 0 0 0 0.66 0 0 0 .55 0"/>
+      <feBlend in="SourceGraphic"/>
+    </filter>
+  </defs>
+  <circle cx="32" cy="32" r="30" fill="#0b1120"/>
+  <circle cx="32" cy="32" r="29" fill="none" stroke="#22c55e" stroke-opacity=".35" stroke-width="2"/>
+  <path filter="url(#glow)" d="M18 24h28l-2.2 27.5a5 5 0 0 1-5 4.5H25.2a5 5 0 0 1-5-4.5L18 24Z" fill="url(#bag)"/>
+  <path d="M24 24v-5a8 8 0 0 1 16 0v5" fill="none" stroke="#ecfeff" stroke-width="4" stroke-linecap="round"/>
+  <path d="M25 36h14M25 44h9" stroke="#ecfeff" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="44" cy="17" r="7" fill="#f97316"/>
+  <path d="M41 17h6M44 14v6" stroke="#fff7ed" stroke-width="2.4" stroke-linecap="round"/>
+</svg>

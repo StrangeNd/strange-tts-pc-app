@@ -1,0 +1,958 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hướng dẫn cài đặt và sử dụng - Strange TTS Solution 1.0.0</title>
+  <style>
+    :root {
+      --bg: #070b16;
+      --bg-soft: #0f1730;
+      --panel: rgba(15, 23, 48, 0.86);
+      --panel-strong: rgba(21, 33, 68, 0.94);
+      --line: rgba(122, 162, 255, 0.18);
+      --line-strong: rgba(122, 162, 255, 0.32);
+      --text: #ebf1ff;
+      --muted: #9fb2d9;
+      --blue: #7aa2ff;
+      --cyan: #55d6ff;
+      --green: #56d38c;
+      --yellow: #f7c75c;
+      --red: #ff7c8d;
+      --pink: #f68cff;
+      --shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+      --radius: 24px;
+    }
+
+    * {
+      box-sizing: border-box;
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(85, 214, 255, 0.16), transparent 28%),
+        radial-gradient(circle at top right, rgba(246, 140, 255, 0.12), transparent 24%),
+        linear-gradient(180deg, #050814 0%, #09101f 100%);
+    }
+
+    a {
+      color: var(--cyan);
+      text-decoration: none;
+    }
+
+    .shell {
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      gap: 28px;
+      max-width: 1480px;
+      margin: 0 auto;
+      padding: 28px;
+    }
+
+    .sidebar {
+      position: sticky;
+      top: 20px;
+      align-self: start;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 22px 18px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px);
+    }
+
+    .brand {
+      display: flex;
+      gap: 14px;
+      align-items: center;
+      margin-bottom: 18px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .brand img {
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
+      box-shadow: 0 0 24px rgba(122, 162, 255, 0.25);
+    }
+
+    .brand h1 {
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 19px;
+      line-height: 1.1;
+      margin: 0 0 4px 0;
+    }
+
+    .brand p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .nav-title {
+      margin: 18px 0 10px;
+      font-size: 12px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 700;
+    }
+
+    .nav {
+      display: grid;
+      gap: 8px;
+    }
+
+    .nav a {
+      display: block;
+      padding: 10px 12px;
+      border-radius: 12px;
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid transparent;
+      font-size: 14px;
+      transition: 0.2s ease;
+    }
+
+    .nav a:hover {
+      border-color: var(--line-strong);
+      background: rgba(122, 162, 255, 0.08);
+      transform: translateX(2px);
+    }
+
+    .content {
+      min-width: 0;
+    }
+
+    .hero {
+      background:
+        linear-gradient(135deg, rgba(85, 214, 255, 0.12), rgba(246, 140, 255, 0.08)),
+        var(--panel-strong);
+      border: 1px solid var(--line);
+      border-radius: 34px;
+      padding: 34px;
+      box-shadow: var(--shadow);
+      margin-bottom: 24px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .hero::after {
+      content: '';
+      position: absolute;
+      right: -80px;
+      top: -80px;
+      width: 260px;
+      height: 260px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(85, 214, 255, 0.18), transparent 70%);
+      pointer-events: none;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      padding: 6px 12px;
+      border: 1px solid var(--line-strong);
+      border-radius: 999px;
+      color: var(--cyan);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+    }
+
+    .hero h2 {
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 40px;
+      line-height: 1.05;
+      margin: 0 0 12px 0;
+      max-width: 900px;
+    }
+
+    .hero p {
+      margin: 0;
+      max-width: 920px;
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1.7;
+    }
+
+    .hero-grid {
+      margin-top: 24px;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .hero-card {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 18px;
+      padding: 16px;
+    }
+
+    .hero-card strong {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 14px;
+    }
+
+    .hero-card span {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .section {
+      margin-bottom: 24px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      padding: 28px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px);
+    }
+
+    .section h3 {
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 28px;
+      margin: 0 0 10px 0;
+    }
+
+    .section > p {
+      margin: 0 0 20px 0;
+      color: var(--muted);
+      line-height: 1.75;
+    }
+
+    .group {
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 20px;
+      padding: 20px;
+      background: rgba(255, 255, 255, 0.025);
+      margin-bottom: 16px;
+    }
+
+    .group:last-child {
+      margin-bottom: 0;
+    }
+
+    .group h4 {
+      margin: 0 0 12px 0;
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .group p {
+      margin: 0 0 14px 0;
+      color: var(--muted);
+      line-height: 1.7;
+      font-size: 14px;
+    }
+
+    .steps,
+    .bullets {
+      margin: 0;
+      padding-left: 20px;
+      line-height: 1.8;
+      color: var(--text);
+    }
+
+    .steps li,
+    .bullets li {
+      margin-bottom: 8px;
+    }
+
+    .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .chip {
+      padding: 7px 11px;
+      border-radius: 999px;
+      background: rgba(122, 162, 255, 0.1);
+      border: 1px solid rgba(122, 162, 255, 0.16);
+      color: #dbe7ff;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .callout {
+      border-left: 4px solid var(--yellow);
+      background: rgba(247, 199, 92, 0.08);
+      border-radius: 16px;
+      padding: 16px 18px;
+      margin-top: 14px;
+      color: #fff5d2;
+      line-height: 1.7;
+      font-size: 14px;
+    }
+
+    .callout.red {
+      border-left-color: var(--red);
+      background: rgba(255, 124, 141, 0.08);
+      color: #ffe4e8;
+    }
+
+    .callout.green {
+      border-left-color: var(--green);
+      background: rgba(86, 211, 140, 0.08);
+      color: #d9ffe8;
+    }
+
+    .matrix {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .box {
+      border-radius: 18px;
+      padding: 18px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .box h5 {
+      margin: 0 0 10px 0;
+      font-size: 15px;
+    }
+
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      background: rgba(255, 255, 255, 0.08);
+      padding: 2px 6px;
+      border-radius: 6px;
+      font-size: 0.95em;
+      color: #f0f6ff;
+    }
+
+    .footer {
+      text-align: center;
+      color: var(--muted);
+      padding: 8px 0 34px;
+      font-size: 13px;
+    }
+
+    @media (max-width: 1100px) {
+      .shell {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        position: relative;
+        top: 0;
+      }
+
+      .hero-grid,
+      .matrix {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .shell {
+        padding: 16px;
+        gap: 18px;
+      }
+
+      .hero,
+      .section,
+      .sidebar {
+        padding: 20px;
+        border-radius: 22px;
+      }
+
+      .hero h2 {
+        font-size: 28px;
+      }
+    }
+  </style>
+  <link rel="stylesheet" href="../styles/strangetts-theme.css">
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <img src="../assets/icons/icon128.png" alt="STRANGE TTS">
+        <div>
+          <h1>Strange TTS Solution</h1>
+          <p>Hướng dẫn cài đặt và sử dụng đầy đủ</p>
+        </div>
+      </div>
+
+      <div class="nav-title">Mục Lục</div>
+      <nav class="nav">
+        <a href="#overview">1. Tổng quan</a>
+        <a href="#install">2. Cài đặt tiện ích</a>
+        <a href="#first-setup">3. Thiết lập ban đầu</a>
+        <a href="#auth-sync">4. Tài khoản và Cloud Sync</a>
+        <a href="#dashboard">5. Dashboard đa shop</a>
+        <a href="#report">6. Report, Zalo, Telegram, Sheets</a>
+        <a href="#seller-tools">7. Công cụ trên Seller Ads</a>
+        <a href="#live-tools">8. Công cụ LIVE</a>
+        <a href="#admin">9. Master Admin</a>
+        <a href="#workflow">10. Quy trình sử dụng chuẩn</a>
+        <a href="#notes">11. Lưu ý và xử lý lỗi</a>
+      </nav>
+    </aside>
+
+    <main class="content">
+      <section class="hero" id="overview">
+        <div class="eyebrow">Hướng dẫn 1.0.0</div>
+        <h2>Hướng dẫn cài đặt và sử dụng Strange TTS Solution 1.0.0 theo từng nhóm tính năng</h2>
+        <p>
+          Tài liệu này dành cho người dùng mới và cả người vận hành nội bộ. Nội dung đi theo đúng thứ tự thực tế:
+          cài extension, đăng nhập, sync dữ liệu, quản lý shop, dùng report, thao tác trên TikTok Seller Ads,
+          dùng bộ công cụ LIVE, và cuối cùng là phần admin cùng các lưu ý an toàn.
+        </p>
+
+        <div class="hero-grid">
+          <div class="hero-card">
+            <strong>Mục tiêu chính</strong>
+            <span>Quản lý nhiều shop TikTok, lấy dữ liệu Ads và Seller, đẩy báo cáo, hỗ trợ chạy camp và LIVE.</span>
+          </div>
+          <div class="hero-card">
+            <strong>Môi trường hoạt động</strong>
+            <span>Chrome extension chạy trên các domain TikTok Seller, TikTok Ads, TikTok Shop và web sync ngoài.</span>
+          </div>
+          <div class="hero-card">
+            <strong>Cách đọc tài liệu</strong>
+            <span>Làm tuần tự từ mục 2 đến mục 6 trước, sau đó mới dùng các tính năng nâng cao ở mục 7-9.</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="install">
+        <h3>2. Cài đặt tiện ích</h3>
+        <p>Phần này áp dụng khi bạn có thư mục mã nguồn extension và cần nạp thủ công vào Chrome.</p>
+
+        <div class="group">
+          <h4>🧩 Bước 1: Nạp extension vào Chrome</h4>
+          <ol class="steps">
+            <li>Tải file <code>.zip</code> của tiện ích về máy.</li>
+            <li>Giải nén file <code>.zip</code> ra một thư mục riêng.</li>
+            <li>Mở Chrome và truy cập <code>chrome://extensions</code>.</li>
+            <li>Bật <code>Developer mode</code> ở góc trên bên phải.</li>
+            <li>Bấm <code>Load unpacked</code>.</li>
+            <li>Chọn đúng thư mục vừa giải nén, là thư mục đang chứa file <code>manifest.json</code> của tiện ích này.</li>
+            <li>Sau khi nạp xong, ghim extension lên thanh công cụ để thao tác nhanh.</li>
+          </ol>
+          <div class="callout">
+            Nếu Chrome báo lỗi khi nạp, kiểm tra lại xem bạn đã chọn đúng thư mục sau khi giải nén và thư mục đó có đủ các file như
+            <code>manifest.json</code>, <code>background.js</code>, <code>content.js</code>,
+            <code>login.html</code>, <code>dashboard.html</code>.
+          </div>
+        </div>
+
+        <div class="group">
+          <h4>🌐 Bước 2: Đăng nhập sẵn vào TikTok</h4>
+          <ol class="steps">
+            <li>Đăng nhập vào các trang TikTok bạn sẽ dùng: Seller Center, Seller Ads, TikTok Ads, TikTok Shop nếu có.</li>
+            <li>Mở ít nhất một lần trang Seller Ads dashboard trong ngày để extension có ngữ cảnh lấy dữ liệu.</li>
+            <li>Nếu bạn dùng LIVE tools, cần mở thêm trang live/streamer tương ứng.</li>
+          </ol>
+          <div class="chip-row">
+            <span class="chip">seller-vn.tiktok.com</span>
+            <span class="chip">seller.tiktok.com</span>
+            <span class="chip">ads.tiktok.com</span>
+            <span class="chip">shop.tiktok.com</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="first-setup">
+        <h3>3. Thiết lập ban đầu</h3>
+        <p>Đây là các bước nên làm ngay sau khi extension đã được nạp thành công.</p>
+
+        <div class="matrix">
+          <div class="box">
+            <h5>3.1 Mở popup và đăng nhập</h5>
+            <ol class="steps">
+              <li>Bấm icon extension.</li>
+              <li>Nhập tài khoản STRANGE TTS của bạn.</li>
+              <li>Nếu chưa có tài khoản, dùng màn hình <code>Đăng ký</code>.</li>
+              <li>Sau khi đăng nhập xong, popup sẽ hiện menu chính.</li>
+            </ol>
+          </div>
+
+          <div class="box">
+            <h5>3.2 Thiết lập Cloud Sync URL</h5>
+            <ol class="steps">
+              <li>Trong popup, vào <code>Cloud Sync</code>.</li>
+              <li>Nhập địa chỉ server sync, ví dụ <code>https://drilling-beverly-reform-optimization.trycloudflare.com</code>.</li>
+              <li>Bấm <code>Test Kết Nối</code> để kiểm tra server phản hồi.</li>
+              <li>Nếu có nhiều máy dùng chung tài khoản, bật <code>Tự Động Đồng Bộ</code> khi cần.</li>
+            </ol>
+          </div>
+        </div>
+
+        <div class="group">
+          <h4>🛒 Bước 3: Mở Seller Ads lần đầu</h4>
+          <ol class="steps">
+            <li>Từ popup, bấm <code>Seller Ads</code> để mở trang dashboard TikTok Seller Ads hôm nay.</li>
+            <li>Chờ extension quét thông tin shop, account và các ID nền.</li>
+            <li>Sau khi đã có dữ liệu, bạn có thể mở <code>Dashboard</code> để bắt đầu quản lý đa shop.</li>
+          </ol>
+        </div>
+      </section>
+
+      <section class="section" id="auth-sync">
+        <h3>4. Nhóm tính năng Tài khoản, phiên đăng nhập và Cloud Sync</h3>
+        <p>Nhóm này giúp đồng bộ dữ liệu giữa nhiều máy và đảm bảo bạn vào đúng môi trường làm việc.</p>
+
+        <div class="group">
+          <h4>🔐 4.1 Tài khoản và xác thực</h4>
+          <ul class="bullets">
+            <li>Đăng nhập bằng tài khoản STRANGE TTS trong popup.</li>
+            <li>Đăng ký tài khoản mới nếu hệ thống cho phép.</li>
+            <li>Đổi mật khẩu trong dashboard khi đã đăng nhập.</li>
+            <li>Đăng xuất sẽ xóa session và xóa phần lớn dữ liệu shop local để tránh lộ dữ liệu.</li>
+            <li>Nếu đang mở dashboard ở tab khác, sự kiện login/logout sẽ được đồng bộ sang tab đó.</li>
+          </ul>
+        </div>
+
+        <div class="group">
+          <h4>☁️ 4.2 Cloud Sync</h4>
+          <p>Cloud Sync dùng để lưu danh sách shop, cookie export và thứ tự shop lên server để dùng trên máy khác.</p>
+          <ol class="steps">
+            <li>Vào popup <code>Cloud Sync</code>.</li>
+            <li>Nhập hoặc kiểm tra lại URL server.</li>
+            <li>Bấm <code>Upload lên Cloud</code> sau khi bạn đã có dữ liệu shop local.</li>
+            <li>Ở máy mới, đăng nhập cùng tài khoản và bấm <code>Tải từ Cloud</code>.</li>
+            <li>Nếu cần xóa dữ liệu đồng bộ trên server, dùng <code>Xóa toàn bộ dữ liệu trên Cloud</code>.</li>
+          </ol>
+          <div class="callout red">
+            Không nên bật auto-sync khi danh sách local đang rỗng nếu bạn chưa chắc dữ liệu cloud còn nguyên.
+            Mục đích là tránh ghi đè dữ liệu cloud bằng danh sách trống.
+          </div>
+        </div>
+
+        <div class="group">
+          <h4>🌐 4.3 SSO với Web Tool</h4>
+          <ul class="bullets">
+            <li>Popup có thể mở STRANGE TTS AI DATA với tham số đăng nhập sẵn.</li>
+            <li>Nếu STRANGE TTS AI DATA đang mở đúng domain sync, extension có thể đọc trạng thái SSO để tự nhận diện.</li>
+            <li>Tính năng này hữu ích khi bạn dùng song song dashboard web và extension.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="section" id="dashboard">
+        <h3>5. Nhóm tính năng Dashboard đa shop</h3>
+        <p>Đây là màn hình trung tâm để quản lý danh sách shop, dữ liệu tổng hợp, truy cập nhanh và cảnh báo.</p>
+
+        <div class="group">
+          <h4>📊 5.1 Mở Dashboard</h4>
+          <ol class="steps">
+            <li>Mở popup của extension.</li>
+            <li>Bấm <code>Dashboard</code>.</li>
+            <li>Nếu dashboard đã mở sẵn, extension sẽ chuyển focus về tab đang mở thay vì mở tab mới.</li>
+          </ol>
+        </div>
+
+        <div class="group">
+          <h4>🏪 5.2 Quản lý danh sách shop</h4>
+          <ul class="bullets">
+            <li>Xem số liệu tổng toàn bộ shop: chi phí, doanh thu, ROI, đơn, CPO.</li>
+            <li>Hiển thị shop ở dạng card hoặc table.</li>
+            <li>Sắp xếp theo tên, GMV, ROI, đơn hàng.</li>
+            <li>Refresh tuần tự toàn bộ shop để tải dữ liệu mới nhất.</li>
+            <li>Bật auto-refresh theo mốc 1, 5, 15, 30 phút.</li>
+            <li>Mở thẳng Seller Ads hôm nay từ dashboard.</li>
+          </ul>
+        </div>
+
+        <div class="group">
+          <h4>📁 5.3 Import, Export và Reset</h4>
+          <ul class="bullets">
+            <li><code>Xuất</code> để lưu shop ra JSON.</li>
+            <li><code>Nhập</code> để load lại shop từ JSON đã export.</li>
+            <li><code>Lên Cloud</code> và <code>Về</code> để đồng bộ với server.</li>
+            <li><code>Xóa</code> để reset sạch dữ liệu local.</li>
+          </ul>
+        </div>
+
+        <div class="group">
+          <h4>💳 5.4 Số dư, ngưỡng và cảnh báo</h4>
+          <ul class="bullets">
+            <li>Xem số dư tiền mặt, credit và ngưỡng postpay của từng shop.</li>
+            <li>Phân biệt prepaid và postpaid.</li>
+            <li>Đánh dấu shop gần hết ngân sách hoặc chạm ngưỡng thanh toán.</li>
+            <li>Cấu hình gửi cảnh báo hạ tầng qua Telegram hoặc Zalo.</li>
+            <li>Có báo cáo chi tiêu đơn giản gửi hằng ngày theo giờ cấu hình.</li>
+          </ul>
+        </div>
+
+        <div class="group">
+          <h4>🔗 5.5 Mở đúng shop bằng cookie</h4>
+          <p>
+            Khi bạn bấm vào shop hoặc các hành động truy cập nhanh, extension có thể dọn cookie TikTok cũ,
+            nạp cookie của shop đã lưu, rồi mở đúng dashboard Seller Ads cho shop đó.
+          </p>
+          <div class="callout green">
+            Đây là nền tảng cho chức năng đa shop. Nếu shop không mở đúng hoặc dữ liệu rỗng, nguyên nhân phổ biến là cookie đã hết hạn hoặc shop chưa được export lại.
+          </div>
+        </div>
+
+        <div class="group">
+          <h4>➕ 5.6 Shop có nhiều tài khoản Ads phụ</h4>
+          <ul class="bullets">
+            <li>Mỗi shop có thể gắn thêm nhiều <code>ads_accounts</code>.</li>
+            <li>Dữ liệu report có thể cộng gộp chi phí và GMV từ các tài khoản phụ này.</li>
+            <li>Hữu ích khi một shop vận hành bằng nhiều aadvid khác nhau.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="section" id="report">
+        <h3>6. Nhóm tính năng Report: Zalo, Telegram, Google Sheets</h3>
+        <p>Tab <code>Send Report</code> là nơi cấu hình và gửi báo cáo theo shop hoặc hàng loạt.</p>
+
+        <div class="group">
+          <h4>📤 6.1 Tải dữ liệu report</h4>
+          <ol class="steps">
+            <li>Vào tab <code>Send Report</code> trong dashboard.</li>
+            <li>Bấm <code>Tải</code> ở từng shop hoặc <code>TẢI LẠI TẤT CẢ</code>.</li>
+            <li>Hệ thống sẽ lấy dữ liệu hôm nay, hôm qua, 7 ngày, tháng, số dư, ngưỡng và tình trạng tài khoản.</li>
+          </ol>
+        </div>
+
+        <div class="group">
+          <h4>💬 6.2 Gửi Zalo</h4>
+          <ul class="bullets">
+            <li>Zalo cần server relay và ID nhận tin riêng, người dùng không tự cấu hình nếu chưa được cấp thông tin.</li>
+            <li>Liên hệ admin để được thiết lập <code>Zalo Group ID</code>, <code>Zalo User ID</code> và URL relay cho tài khoản/shop.</li>
+            <li>Sau khi admin setup xong, bạn có thể gửi ngay từng shop hoặc gửi toàn bộ shop trong tab <code>Send Report</code>.</li>
+            <li>Nếu cần đổi nhóm/cá nhân nhận báo cáo Zalo, liên hệ admin để cập nhật lại cấu hình.</li>
+          </ul>
+        </div>
+
+        <div class="group">
+          <h4>📨 6.3 Gửi Telegram</h4>
+          <ul class="bullets">
+            <li>Bạn có thể tự tạo bot Telegram bằng <code>BotFather</code>, lấy <code>Bot Token</code>, rồi nhập vào tab <code>Send Report</code>.</li>
+            <li>Lấy <code>Chat ID</code> thủ công theo mục 6.3.1, hoặc liên hệ admin để được setup bot/token/chat ID.</li>
+            <li>Nếu gửi vào topic trong group forum, điền <code>ID 1 = Group ID</code> và <code>Topic ID = message_thread_id</code>.</li>
+            <li>Xem preview nội dung trước khi gửi nếu cần.</li>
+            <li>Gửi ngay từng shop hoặc toàn bộ.</li>
+            <li>Có thể bật lịch auto gửi theo ngày và giờ riêng cho Telegram.</li>
+          </ul>
+        </div>
+
+        <div class="group">
+          <h4>🧭 6.3.1 Cách tạo bot, lấy Chat ID và Topic ID thủ công</h4>
+          <div class="callout">
+            Video hướng dẫn tạo bot Telegram:
+            <a href="https://www.youtube.com/shorts/V5l6ZrCYBE4?feature=share" target="_blank" rel="noopener noreferrer">xem tại đây</a>.
+          </div>
+          <ol class="steps">
+            <li>Mở Telegram, tìm <code>BotFather</code>, tạo bot mới bằng lệnh <code>/newbot</code>.</li>
+            <li>Sau khi tạo xong, copy <code>Bot Token</code> BotFather cấp và nhập vào trường Telegram Bot Token.</li>
+            <li>Thêm bot Telegram vào đúng group hoặc group forum cần nhận báo cáo.</li>
+            <li>Gửi một tin nhắn bất kỳ trong chat/group đó. Nếu dùng topic, mở đúng topic của shop rồi gửi tin nhắn trong chính topic đó.</li>
+            <li>Mở link <code>https://api.telegram.org/bot&lt;TOKEN&gt;/getUpdates</code> trên trình duyệt, thay <code>&lt;TOKEN&gt;</code> bằng Bot Token vừa lấy.</li>
+            <li>Tìm update mới nhất của tin nhắn vừa gửi.</li>
+            <li>Lấy <code>chat.id</code> làm <code>Chat ID</code> hoặc <code>Group ID</code>.</li>
+            <li>Nếu là group forum, lấy thêm <code>message_thread_id</code> làm <code>Topic ID</code>.</li>
+            <li>Quay lại tab <code>Send Report</code>:
+              <br><code>ID 1</code> = Group ID / Chat ID
+              <br><code>Topic ID</code> = Topic ID của shop
+            </li>
+          </ol>
+          <div class="callout green">
+            Ví dụ: nếu JSON trả về <code>"chat":{"id":-1003935506583}</code> và <code>"message_thread_id":24</code> thì bạn điền
+            <br><code>ID 1 = -1003935506583</code>
+            <br><code>Topic ID = 24</code>
+          </div>
+          <div class="callout">
+            Nếu không muốn tự tạo bot hoặc tự lấy ID, liên hệ admin để được setup Telegram. Trong bản 1.0.0, card Telegram ở tab report có nút <code>🧭</code> để hỗ trợ lấy nhanh Topic ID từ Telegram updates. Nếu bot đang dùng webhook riêng và Telegram không cho đọc <code>getUpdates</code>, hãy liên hệ admin hoặc lấy thủ công theo các bước ở trên.
+          </div>
+        </div>
+
+        <div class="group">
+          <h4>📊 6.4 Đẩy Google Sheets</h4>
+          <ul class="bullets">
+            <li>Điền URL Apps Script nhận dữ liệu.</li>
+            <li>Gửi dữ liệu từng shop hoặc gửi toàn bộ.</li>
+            <li>Dữ liệu được đóng gói theo các mốc ngày và thông tin tài khoản.</li>
+          </ul>
+        </div>
+
+        <div class="group">
+          <h4>⏰ 6.5 Lịch tự động và scheduler nền</h4>
+          <ul class="bullets">
+            <li>Mỗi shop có thể có giờ gửi riêng cho Zalo, Telegram, Sheets.</li>
+            <li>Có thể chọn ngày gửi trong tuần và thêm nhiều giờ lặp.</li>
+            <li>Background scheduler chạy bằng <code>chrome.alarms</code>.</li>
+            <li>Offscreen page giữ service worker sống để hỗ trợ chạy nền ổn định hơn.</li>
+          </ul>
+          <div class="callout">
+            Khi đang chạy batch thủ công trong tab report, hệ thống có cơ chế lock để scheduler nền không chen ngang làm sai cookie shop.
+          </div>
+        </div>
+
+        <div class="group">
+          <h4>🧾 6.6 Nhật ký và kiểm tra lỗi</h4>
+          <ul class="bullets">
+            <li>Mỗi shop có log trạng thái gửi từng kênh.</li>
+            <li>Phần Background Logs hiển thị alarm, fetch, gửi report và lỗi kết nối.</li>
+            <li>Nếu gửi không thành công, kiểm tra theo thứ tự: cookie shop, Zalo relay, token Telegram, URL Sheets.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="section" id="seller-tools">
+        <h3>7. Nhóm công cụ trên Seller Ads và TikTok Ads</h3>
+        <p>Nhóm này chạy trực tiếp trên trang TikTok thông qua content script.</p>
+
+        <div class="group">
+          <h4>📦 7.1 Export shop và nhận diện ID tự động</h4>
+          <ul class="bullets">
+            <li>Extension tự sniff các request TikTok để lấy <code>aadvid</code>, <code>oec_seller_id</code>, <code>seller_id</code>, <code>bc_id</code>, <code>uid</code>.</li>
+            <li>Shop hiện tại có thể được export ra JSON cùng cookie để đưa vào dashboard đa shop.</li>
+            <li>Đây là bước quan trọng để shop có thể dùng trong dashboard và report.</li>
+          </ul>
+        </div>
+
+        <div class="group">
+          <h4>📈 7.2 Quét campaign và theo dõi performance</h4>
+          <ul class="bullets">
+            <li>Quét danh sách camp đang chạy, camp đã tắt, camp live.</li>
+            <li>Xem nhiều kỳ dữ liệu: hôm nay, hôm qua, 7 ngày.</li>
+            <li>Lọc camp theo trạng thái và điều kiện tên.</li>
+            <li>Reload mềm dashboard thay vì F5 cứng.</li>
+          </ul>
+        </div>
+
+        <div class="group">
+          <h4>✏️ 7.3 Sửa campaign</h4>
+          <ul class="bullets">
+            <li>Sửa nhanh từng camp ngay trong danh sách.</li>
+            <li>Điền nhanh budget và ROI cho nhiều camp đã chọn.</li>
+            <li>Sửa hàng loạt qua API.</li>
+            <li>Bật/tắt trạng thái camp hàng loạt.</li>
+          </ul>
+        </div>
+
+        <div class="group">
+          <h4>🎯 7.4 Tạo camp tự động</h4>
+          <ul class="bullets">
+            <li>Quét danh sách sản phẩm để lên camp.</li>
+            <li>Nhập budget và ROI theo từng sản phẩm hoặc hàng loạt.</li>
+            <li>Tạo camp đơn hoặc camp nhóm.</li>
+            <li>Có queue master/worker để mở tab ẩn và tự hoàn thành quy trình tạo camp.</li>
+          </ul>
+        </div>
+
+        <div class="group">
+          <h4>📹 7.5 Creative và phân tích</h4>
+          <ul class="bullets">
+            <li>Mở nhanh creative của campaign.</li>
+            <li>Tự bấm <code>Xem mẫu quảng cáo</code> nếu link có cờ tự động.</li>
+            <li>Có nút phân tích camp và hiển thị dữ liệu so sánh nhiều kỳ.</li>
+          </ul>
+        </div>
+
+        <div class="group">
+          <h4>🤖 7.6 Điều khiển từ xa qua Telegram hoặc relay</h4>
+          <ul class="bullets">
+            <li>Regular Adjust engine có thể poll lệnh từ Telegram bot hoặc relay server.</li>
+            <li>Hỗ trợ lệnh như xem report, xem status, set ROI, tăng ROI, set ngân sách, tăng ngân sách.</li>
+            <li>Có chế độ auto, confirm hoặc command.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="section" id="live-tools">
+        <h3>8. Nhóm công cụ LIVE</h3>
+        <p>Đây là nhóm nâng cao nhất. Chỉ dùng khi bạn đang vận hành live commerce và muốn tối ưu camp LIVE, chat, pin sản phẩm và tín hiệu chuyển đổi theo thời gian thực.</p>
+
+        <div class="group">
+          <h4>📺 8.1 Thu thập dữ liệu LIVE</h4>
+          <ul class="bullets">
+            <li>Extension tự bắt <code>room_id</code> và <code>ec_streamer_key</code> từ request trên trang live.</li>
+            <li>Bắt dữ liệu từ live dashboard như GPM, viewers, impression, enter rate, avg view duration, comment/follow/like/share rate.</li>
+            <li>Lưu lại để các engine khác sử dụng xuyên tab.</li>
+          </ul>
+        </div>
+
+        <div class="group">
+          <h4>📌 8.2 Ghim sản phẩm trong live</h4>
+          <ul class="bullets">
+            <li>Pin/unpin một sản phẩm thủ công.</li>
+            <li>Chọn nhiều sản phẩm để auto pin.</li>
+            <li>Có các mode auto pin theo vòng lặp, top sales, top clicks, top CTR hoặc giữ liên tục.</li>
+            <li>Có log trạng thái và khả năng gửi thông báo khi ghim thành công.</li>
+          </ul>
+        </div>
+
+        <div class="group">
+          <h4>💬 8.3 Chat AI và mẫu nhắc live</h4>
+          <ul class="bullets">
+            <li>Có bộ template chat theo ngành hàng.</li>
+            <li>Hỗ trợ nhắc trước giveaway, khi giveaway bắt đầu, khi giveaway kết thúc.</li>
+            <li>Tự gửi chat sau khi ghim sản phẩm nếu bật cấu hình.</li>
+            <li>Có cơ chế auto-pin notification sang chat hoặc Telegram.</li>
+          </ul>
+        </div>
+
+        <div class="group">
+          <h4>🔥 8.4 Live Adjust Engine</h4>
+          <ul class="bullets">
+            <li>Đánh giá camp live theo nhiều lớp điểm: Ads, Conversion, Quality của live, Merch.</li>
+            <li>Phát hiện camp đốt ngân sách, live issue, chất lượng live yếu, guardrail budget.</li>
+            <li>Đề xuất hoặc tự sửa budget/ROI qua API.</li>
+            <li>Cho phép lưu cấu hình riêng cho engine live.</li>
+          </ul>
+        </div>
+
+        <div class="group">
+          <h4>🧠 8.5 Chẩn đoán và AI analysis</h4>
+          <ul class="bullets">
+            <li>Phân tích bottleneck GMV trong live.</li>
+            <li>Tạo checklist chất lượng live.</li>
+            <li>Có logic gọi Gemini để phân tích post-live hoặc scheduled review.</li>
+          </ul>
+          <div class="callout red">
+            Nhóm LIVE là nhóm phức tạp nhất. Chỉ nên bật auto-action khi bạn đã hiểu rõ cách hệ thống tính score và kiểm soát ROI.
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="admin">
+        <h3>9. Nhóm tính năng Master Admin</h3>
+        <p>Phần này chỉ xuất hiện khi tài khoản có quyền <code>admin</code>.</p>
+
+        <div class="group">
+          <h4>👑 9.1 Danh sách user và shop</h4>
+          <ul class="bullets">
+            <li>Xem danh sách user trong hệ thống.</li>
+            <li>Xem chi tiết shop theo user.</li>
+            <li>Làm mới danh sách từ nguồn dữ liệu đồng bộ.</li>
+          </ul>
+        </div>
+
+        <div class="group">
+          <h4>🌐 9.2 Master Cookie Manager và hỗ trợ kỹ thuật</h4>
+          <ul class="bullets">
+            <li>Admin có thể nạp cookie của shop được chọn.</li>
+            <li>Mở trực tiếp trang seller của shop đó để hỗ trợ kỹ thuật.</li>
+            <li>Dùng khi cần kiểm tra lỗi trực tiếp trên tài khoản shop.</li>
+          </ul>
+        </div>
+
+        <div class="group">
+          <h4>🧭 9.3 Khi nào nên dùng quyền admin</h4>
+          <ul class="bullets">
+            <li>Khi cần xem tổng pool shop toàn hệ thống.</li>
+            <li>Khi cần truy cập hỗ trợ một shop cụ thể.</li>
+            <li>Khi cần kiểm tra xem dữ liệu của user có sync đúng không.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="section" id="workflow">
+        <h3>10. Quy trình sử dụng khuyến nghị</h3>
+        <p>Nếu bạn là người dùng mới, nên đi theo đúng trình tự dưới đây.</p>
+
+        <div class="group">
+          <h4>🚀 Quy trình chuẩn cho người mới</h4>
+          <ol class="steps">
+            <li>Nạp extension vào Chrome.</li>
+            <li>Đăng nhập STRANGE TTS trong popup.</li>
+            <li>Thiết lập Cloud Sync URL.</li>
+            <li>Mở Seller Ads và export shop đầu tiên.</li>
+            <li>Mở Dashboard để kiểm tra shop đã lên danh sách chưa.</li>
+            <li>Dùng Upload Cloud nếu muốn sao lưu.</li>
+            <li>Thiết lập tab Report nếu cần gửi báo cáo.</li>
+            <li>Sau khi quen rồi mới dùng công cụ tạo/sửa camp và LIVE tools.</li>
+          </ol>
+        </div>
+
+        <div class="group">
+          <h4>📆 Quy trình vận hành hằng ngày</h4>
+          <ol class="steps">
+            <li>Mở Dashboard và refresh toàn bộ shop.</li>
+            <li>Kiểm tra shop gần hết tiền hoặc chạm ngưỡng.</li>
+            <li>Mở tab Report để gửi báo cáo đầu ngày hoặc cuối ngày.</li>
+            <li>Nếu chạy ads, mở Seller Ads và dùng bảng công cụ để quét camp.</li>
+            <li>Nếu có live, mở nhóm LIVE tools sau khi room và dữ liệu đã ổn định.</li>
+          </ol>
+        </div>
+      </section>
+
+      <section class="section" id="notes">
+        <h3>11. Lưu ý quan trọng và xử lý lỗi</h3>
+        <p>Phần này giúp bạn tránh các lỗi phổ biến khi vận hành đa shop bằng cookie và scheduler nền.</p>
+
+        <div class="group">
+          <h4>⚠️ Các lỗi thường gặp</h4>
+          <ul class="bullets">
+            <li>Shop mở không đúng: cookie shop đã hết hạn hoặc export quá cũ.</li>
+            <li>Dữ liệu rỗng: chưa có <code>oec_seller_id</code> hoặc chưa mở đúng trang Seller Ads.</li>
+            <li>Gửi report lỗi: token Telegram sai, relay Zalo sai, URL Sheets sai hoặc server không phản hồi.</li>
+            <li>Auto tác vụ chen nhau: đang có manual batch và scheduler nền cùng chạy.</li>
+            <li>LIVE tools không lấy room: chưa mở đúng trang live hoặc chưa sniff được request gốc.</li>
+          </ul>
+        </div>
+
+        <div class="group">
+          <h4>🛡️ Lưu ý an toàn dữ liệu</h4>
+          <ul class="bullets">
+            <li>Dữ liệu shop trong extension có chứa cookie. Không chia sẻ file export cho người không liên quan.</li>
+            <li>Khi dùng máy chung, luôn đăng xuất sau khi xong việc.</li>
+            <li>Trước khi reset dữ liệu local, nên backup bằng Export JSON hoặc Upload Cloud.</li>
+          </ul>
+        </div>
+
+        <div class="group">
+          <h4>🧰 Cách tự kiểm tra nhanh khi có lỗi</h4>
+          <ol class="steps">
+            <li>Kiểm tra bạn còn đăng nhập TikTok hay không.</li>
+            <li>Mở lại Seller Ads và thử refresh 1 shop.</li>
+            <li>Nếu shop vẫn lỗi, export lại shop từ đúng tài khoản đó.</li>
+            <li>Kiểm tra lại Cloud Sync URL và kết nối mạng.</li>
+            <li>Xem Background Logs trong tab Report để xác định đang lỗi fetch, relay hay scheduler.</li>
+          </ol>
+        </div>
+      </section>
+
+      <div class="footer">
+        Strange TTS Solution 1.0.0 · Hướng dẫn cài đặt và sử dụng · Bản tài liệu nội bộ cho vận hành hằng ngày
+      </div>
+    </main>
+  </div>
+  <script>
+    (() => {
+      const key = 'strangetts_ui_theme';
+      const applyTheme = (theme) => {
+        document.documentElement.dataset.theme = theme === 'light' ? 'light' : 'dark';
+      };
+      try {
+        if (window.chrome?.storage?.local) {
+          chrome.storage.local.get({ [key]: 'dark' }, (store) => applyTheme(store[key]));
+          chrome.storage.onChanged?.addListener((changes, area) => {
+            if (area === 'local' && changes[key]) applyTheme(changes[key].newValue);
+          });
+        } else {
+          applyTheme('dark');
+        }
+      } catch (_) {
+        applyTheme('dark');
+      }
+    })();
+  </script>
+</body>
+</html>

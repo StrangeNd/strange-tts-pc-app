@@ -1,0 +1,29 @@
+{
+  "name": "strange-tts-pc-app",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Local desktop app shell for the Strange TTS Chrome extension runtime.",
+  "scripts": {
+    "start": "node scripts/start-pc-app.mjs",
+    "app": "powershell -ExecutionPolicy Bypass -File scripts/open-desktop-app.ps1",
+    "desktop": "powershell -ExecutionPolicy Bypass -File scripts/open-desktop-app.ps1",
+    "pc:start": "node scripts/start-pc-app.mjs --launch",
+    "stop": "powershell -ExecutionPolicy Bypass -File scripts/stop-pc-app.ps1",
+    "restart": "npm run stop && npm start",
+    "desktop:shortcut": "powershell -ExecutionPolicy Bypass -File scripts/create-desktop-shortcut.ps1",
+    "prod": "node scripts/start-pc-app.mjs --production",
+    "build": "node scripts/build.mjs",
+    "prod:smoke": "node scripts/smoke.mjs",
+    "license:create": "node scripts/license-create.mjs",
+    "security:scan": "node scripts/security-scan.mjs",
+    "parity:audit": "node scripts/parity-audit.mjs",
+    "data:migrate": "node scripts/migrate-cookie-store.mjs"
+  },
+  "engines": {
+    "node": ">=22.12"
+  },
+  "dependencies": {
+    "xlsx": "^0.18.5"
+  }
+}

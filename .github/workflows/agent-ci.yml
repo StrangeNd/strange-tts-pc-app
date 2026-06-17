@@ -1,0 +1,42 @@
+name: Agent CI
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Lint if configured
+        run: node -e "const p=require('./package.json'); process.exit(p.scripts?.lint?0:78)" && npm run lint || test $? -eq 78
+
+      - name: Typecheck if configured
+        run: node -e "const p=require('./package.json'); process.exit(p.scripts?.typecheck?0:78)" && npm run typecheck || test $? -eq 78
+
+      - name: Unit tests if configured
+        run: node -e "const p=require('./package.json'); process.exit(p.scripts?.test?0:78)" && npm test || test $? -eq 78
+
+      - name: Existing smoke if available
+        run: |
+          if test -f scripts/smoke.mjs; then
+            node scripts/smoke.mjs
+          else
+            echo "scripts/smoke.mjs not found; skipping"
+          fi

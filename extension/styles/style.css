@@ -1,0 +1,314 @@
+/* ===================================================
+   Strange TTS Solution MAX — Neon Purple Dark Theme
+   =================================================== */
+
+/* === PANEL === */
+#tt-auto-ext {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    width: 480px;
+    background: #1A0A2E !important;
+    border-radius: 14px;
+    box-shadow: 0 8px 40px rgba(180,74,255,0.25), 0 0 60px rgba(138,141,145,0.08) !important;
+    z-index: 2147483646;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    border: 1px solid rgba(180,74,255,0.3) !important;
+    display: flex;
+    flex-direction: column;
+    max-height: 80vh;
+    color: #E8D5FF !important;
+    overflow: hidden;
+}
+
+/* === HEADER === */
+#tt-auto-ext .tt-header {
+    background: linear-gradient(135deg, #2D0B4E 0%, #5B21B6 50%, #7C3AED 100%) !important;
+    color: white !important;
+    padding: 10px 14px;
+    font-weight: 700;
+    font-size: 14px;
+    border-radius: 13px 13px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: move;
+    user-select: none;
+}
+
+#tt-auto-ext .tt-header span,
+#tt-auto-ext .tt-header a,
+#tt-auto-ext .tt-header div {
+    color: white !important;
+}
+
+#tt-auto-ext .tt-header a {
+    color: rgba(255,255,255,0.7) !important;
+    text-decoration: none;
+    font-size: 10px;
+}
+
+#tt-auto-ext .tt-header a:hover {
+    text-decoration: underline;
+    color: white !important;
+}
+
+/* === BODY === */
+#tt-auto-ext .tt-body {
+    padding: 12px;
+    overflow-y: auto;
+    flex: 1;
+    background: #1A0A2E !important;
+    color: #E8D5FF !important;
+}
+
+/* === BUTTONS === */
+#tt-auto-ext .tt-btn {
+    background: linear-gradient(135deg, #7C3AED, #B44AFF) !important;
+    color: white !important;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    width: 100%;
+    margin-bottom: 10px;
+    transition: all 0.15s ease;
+    box-shadow: 0 0 12px rgba(180,74,255,0.4), 0 2px 8px rgba(0,0,0,0.3);
+    font-size: 13px;
+    letter-spacing: 0.2px;
+}
+
+#tt-auto-ext .tt-btn:hover {
+    background: linear-gradient(135deg, #8B5CF6, #C77DFF) !important;
+    box-shadow: 0 0 20px rgba(180,74,255,0.6), 0 4px 12px rgba(0,0,0,0.3);
+    transform: translateY(-1px);
+}
+
+#tt-auto-ext .tt-btn:active {
+    transform: translateY(0);
+}
+
+/* === CAMPAIGN CARDS — Dark Purple === */
+#tt-auto-ext .tt-product-item {
+    background: #2D1654 !important;
+    border: 1px solid rgba(180,74,255,0.25) !important;
+    border-left: 3px solid #B44AFF !important;
+    padding: 12px 14px;
+    border-radius: 10px;
+    font-size: 12px;
+    margin-bottom: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    transition: box-shadow 0.15s ease, border-color 0.15s ease;
+    color: #E8D5FF !important;
+}
+
+#tt-auto-ext .tt-product-item:hover {
+    box-shadow: 0 0 16px rgba(180,74,255,0.25), 0 4px 12px rgba(0,0,0,0.3);
+    border-color: rgba(199,125,255,0.5) !important;
+}
+
+/* === PRODUCT CONTAINERS === */
+#tt-products-container {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+
+#tt-campaigns-container {
+    color: #E8D5FF !important;
+}
+
+/* === PRODUCT TITLE === */
+#tt-auto-ext .tt-product-title {
+    font-weight: 600;
+    color: #FFFFFF !important;
+    margin-bottom: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 13px;
+}
+
+/* === STATS BADGES — Orange on Dark === */
+.tt-product-stats {
+    display: flex;
+    gap: 6px;
+    color: #FF9F1C !important;
+    margin-bottom: 4px;
+    font-size: 11px;
+}
+
+.tt-product-stats span {
+    background: rgba(255,159,28,0.15) !important;
+    color: #FFB84D !important;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-weight: 700 !important;
+    font-size: 11px !important;
+}
+
+/* === ROWS === */
+.tt-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+/* === INPUTS — Dark === */
+#tt-auto-ext .tt-input {
+    flex: 1;
+    padding: 7px 10px;
+    border: 1px solid rgba(180,74,255,0.3) !important;
+    border-radius: 8px;
+    font-size: 12px;
+    background: #1A0A2E !important;
+    color: #E8D5FF !important;
+    transition: border-color 0.15s ease;
+    outline: none;
+}
+
+#tt-auto-ext .tt-input:focus {
+    border-color: #B44AFF !important;
+    box-shadow: 0 0 8px rgba(180,74,255,0.3);
+}
+
+/* === RUN BUTTON === */
+.tt-btn-run {
+    background: linear-gradient(135deg, #7C3AED, #B44AFF) !important;
+    color: white !important;
+    border: none;
+    padding: 7px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 12px;
+    transition: all 0.15s ease;
+    box-shadow: 0 0 12px rgba(180,74,255,0.3);
+}
+
+.tt-btn-run:hover {
+    background: linear-gradient(135deg, #8B5CF6, #C77DFF) !important;
+    transform: translateY(-1px);
+}
+
+/* === MASS ACTIONS BOX — Dark === */
+#tt-auto-ext .tt-mass-actions,
+#tt-auto-ext .tt-mass-box {
+    background: #2D1654 !important;
+    border: 1px solid rgba(180,74,255,0.25) !important;
+    padding: 12px;
+    border-radius: 10px;
+    color: #E8D5FF !important;
+}
+
+.tt-mass-actions .tt-row {
+    margin-bottom: 8px;
+}
+
+/* === GREEN BUTTON VARIANT === */
+.tt-btn-green {
+    background: linear-gradient(135deg, #7C3AED, #B44AFF) !important;
+}
+
+/* === TAB SWITCHER === */
+#tt-auto-ext #tab-products,
+#tt-auto-ext #tab-campaigns {
+    color: #A78BFA !important;
+    font-weight: 600;
+    transition: all 0.15s ease;
+    border-bottom: 2px solid transparent;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+}
+
+#tt-auto-ext #tab-products:hover,
+#tt-auto-ext #tab-campaigns:hover {
+    color: #C77DFF !important;
+    background: rgba(180,74,255,0.1) !important;
+}
+
+/* === SCROLLBAR === */
+#tt-auto-ext .tt-body::-webkit-scrollbar {
+    width: 4px;
+}
+
+#tt-auto-ext .tt-body::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+#tt-auto-ext .tt-body::-webkit-scrollbar-thumb {
+    background: rgba(180,74,255,0.3);
+    border-radius: 4px;
+}
+
+#tt-auto-ext .tt-body::-webkit-scrollbar-thumb:hover {
+    background: #B44AFF;
+}
+
+/* === RESULTS BOX === */
+#tt-auto-ext #tt-results-box {
+    background: #2D1654 !important;
+    border: 1px solid rgba(180,74,255,0.25) !important;
+    border-radius: 8px;
+    color: #E8D5FF !important;
+}
+
+/* === PROGRESS BAR === */
+#tt-auto-ext #tt-panel-progress {
+    background: rgba(180,74,255,0.15) !important;
+    border-radius: 8px;
+    color: #E8D5FF !important;
+}
+
+#tt-auto-ext #tt-panel-progress-bar {
+    background: linear-gradient(90deg, #7C3AED, #B44AFF) !important;
+}
+
+/* === FORCE TEXT COLORS for dark theme === */
+#tt-auto-ext label,
+#tt-auto-ext p,
+#tt-auto-ext select,
+#tt-auto-ext option {
+    color: #E8D5FF !important;
+}
+
+#tt-auto-ext select {
+    background: #1A0A2E !important;
+    border: 1px solid rgba(180,74,255,0.3) !important;
+}
+
+/* === CUSTOM TOOLTIP (above, fast) === */
+#tt-auto-ext .tt-tip {
+    position: relative;
+}
+#tt-auto-ext .tt-tip::after {
+    content: attr(data-tip);
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 0;
+    background: #1e1b2e;
+    color: #E8D5FF;
+    border: 1px solid rgba(180,74,255,0.4);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 11px;
+    font-weight: 400;
+    line-height: 1.5;
+    white-space: normal;
+    word-break: break-word;
+    max-width: 400px;
+    min-width: 200px;
+    z-index: 999999;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.5);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.15s ease 0.25s, visibility 0.15s ease 0.25s;
+    pointer-events: none;
+}
+#tt-auto-ext .tt-tip:hover::after {
+    opacity: 1;
+    visibility: visible;
+}
