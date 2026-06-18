@@ -79,4 +79,7 @@ Audit note:
 
 ## PR
 
-Pending.
+- URL: https://github.com/StrangeNd/strange-tts-pc-app/pull/8
+- Branch: `ai-agent/clarify-pc-app-shell`
+- Commit: `01207b115992fd83b0d050e52608e609019f06bb`
+- Status: opened, not merged.
