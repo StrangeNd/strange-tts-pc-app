@@ -535,6 +535,46 @@ button:disabled {
   font-weight: 700;
 }
 
+.dashboard-range-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.dashboard-range-tabs button {
+  min-height: 36px;
+  border: 1px solid var(--line);
+  background: #ffffff;
+  color: var(--ink);
+}
+
+.dashboard-range-tabs button.active {
+  border-color: rgba(15, 118, 110, 0.32);
+  background: #ecfdf3;
+  color: var(--accent-strong);
+}
+
+.dashboard-notes {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.dashboard-notes p {
+  margin: 0;
+  border-left: 3px solid var(--accent);
+  background: #f8fbfb;
+  padding: 10px 12px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.dashboard-actions {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
 .analysis-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -825,6 +865,7 @@ code {
     .ops-check-header,
     .summary-grid,
     .context-grid,
+    .dashboard-actions,
     .status-list,
   .extension-item,
   .shop-item,
