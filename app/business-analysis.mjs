@@ -576,7 +576,7 @@ function buildShopOverviewFromCrawler(rootDir, summary, payload = {}) {
   return buildShopOverviewForRun(run, summary, payload);
 }
 
-function buildAllShopOverviewsFromCrawler(rootDir, summary, payload = {}) {
+export function buildAllShopOverviewsFromCrawler(rootDir, summary = {}, payload = {}) {
   const preferredShopId = payload.shopId || payload.crawlerShopId || '';
   const runs = listLatestSellerCenterRuns(rootDir, preferredShopId);
   if (!runs.length) return [buildShopOverviewFromCrawler(rootDir, summary, payload)];

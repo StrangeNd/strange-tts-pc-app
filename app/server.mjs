@@ -6,7 +6,7 @@ import { spawn } from 'node:child_process';
 import { ensureAdmin, hashPassword, randomToken, saveAdmin, verifyPassword } from './auth.mjs';
 import { getAppConfig, updateAppConfig } from './app-config.mjs';
 import { appendAudit, auditLogPath } from './audit-log.mjs';
-import { analyzeBusinessInput, getBusinessCalculationRules, saveBusinessCalculationRules } from './business-analysis.mjs';
+import { analyzeBusinessInput, buildAllShopOverviewsFromCrawler, getBusinessCalculationRules, saveBusinessCalculationRules } from './business-analysis.mjs';
 import { fetchShopDataHeadless, findChromeExecutable, getRuntimePaths, launchChrome, launchChromeAppWindow, launchChromeWithCookies, syncExtensionToRuntime } from './chrome-launcher.mjs';
 import { encryptionStatus } from './crypto-store.mjs';
 import { ensureExtensionLibrary, getExtensionLibrary, importExtensionFromPath, setActiveExtension } from './extension-library.mjs';
@@ -613,6 +613,31 @@ export function createServer({ port = 48731 } = {}) {
           netProfitEstimate: result.kpis?.netProfitEstimate || 0
         });
         return sendJson(res, 200, result);
+      }
+
+      if (url.pathname === '/api/business/shop-overview' && req.method === 'GET') {
+        const shopId = url.searchParams.get('shopId') || '';
+        const sellerId = url.searchParams.get('sellerId') || '';
+        const library = getShopLibrary(rootDir);
+        const shopById = new Map((library.shops || []).map(shop => [shop.id, shop]));
+        const overviews = buildAllShopOverviewsFromCrawler(rootDir, {}, { shopId, sellerId })
+          .map(overview => {
+            const shop = shopById.get(overview.shopId) || shopById.get(shopId) || null;
+            return {
+              ...overview,
+              shopName: shop?.name || overview.shopId || shopId || '',
+              profileId: shop?.id || overview.shopId || shopId || '',
+              adsAccountId: shop?.adsAccountId || '',
+              loginNote: shop?.loginNote || '',
+              sourceStatus: overview.ok ? 'cached-crawler' : 'missing-crawler'
+            };
+          });
+        return sendJson(res, 200, {
+          ok: true,
+          generatedAt: new Date().toISOString(),
+          selectedShopId: shopId,
+          overviews
+        });
       }
 
       if (url.pathname === '/api/tiktokshop-crawler/db' && req.method === 'GET') {

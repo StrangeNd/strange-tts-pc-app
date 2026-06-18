@@ -20,6 +20,8 @@ const state = {
     videoLoop: true
   },
   businessResult: null,
+  dashboardOverview: null,
+  dashboardRangeKey: '',
   shops: [],
   statusVisible: false
 };
@@ -333,8 +335,215 @@ function renderDashboardWorkspace() {
 }
 
 async function openAppDashboard() {
-  renderDashboardWorkspace();
+  renderOperationsDashboardWorkspace();
   await openExtensionPage('pages/dashboard.html');
+}
+
+function dashboardRange(overview) {
+  const ranges = overview?.ranges || [];
+  return ranges.find(item => item.key === state.dashboardRangeKey)
+    || ranges.find(item => item.key === overview?.defaultRangeKey)
+    || ranges.find(item => item.rangeLabel)
+    || ranges[0]
+    || { cards: [], detailSections: [], tasks: {} };
+}
+
+function dashboardCard(title, value, source, format = 'number', available = true, note = '') {
+  return `
+    <div class="${available ? '' : 'is-missing'}">
+      <strong>${metricValue(value, format, available)}</strong>
+      <span>${escapeHtml(title)}</span>
+      <small>${escapeHtml(sourceLabel(source))}${note ? ` | ${escapeHtml(note)}` : ''}</small>
+    </div>
+  `;
+}
+
+function renderDashboardRangeButtons(overview) {
+  const ranges = overview?.ranges || [];
+  if (!ranges.length) return '';
+  const active = dashboardRange(overview).key;
+  return `
+    <div class="dashboard-range-tabs" aria-label="Chon khoang du lieu">
+      ${ranges.map(range => `
+        <button type="button" class="${range.key === active ? 'active' : ''}" data-dashboard-range="${escapeHtml(range.key)}">
+          ${escapeHtml(range.label || range.key)}
+        </button>
+      `).join('')}
+    </div>
+  `;
+}
+
+function renderDashboardCards(range) {
+  const cards = range.cards || [];
+  const preferred = ['gmv', 'orders', 'visitors', 'conversionRate', 'aov', 'storeScore', 'storeViolations', 'tasksRemaining'];
+  const ordered = [
+    ...preferred.map(key => cards.find(card => card.key === key)).filter(Boolean),
+    ...cards.filter(card => !preferred.includes(card.key))
+  ].slice(0, 8);
+  if (!ordered.length) {
+    return `
+      <div class="summary-grid business-kpis">
+        ${dashboardCard('GMV', null, 'missing', 'money', false)}
+        ${dashboardCard('Don hang', null, 'missing', 'number', false)}
+        ${dashboardCard('Shop score', null, 'missing', 'decimal', false)}
+      </div>
+    `;
+  }
+  return `
+    <div class="summary-grid business-kpis">
+      ${ordered.map(card => dashboardCard(card.label, card.value, card.source, card.format, card.available, card.note)).join('')}
+    </div>
+  `;
+}
+
+function renderDashboardMetricTable(range) {
+  const rows = (range.cards || []).map(card => `
+    <tr>
+      <td>${escapeHtml(card.label)}</td>
+      <td class="num">${metricValue(card.value, card.format, card.available)}</td>
+      <td>${statusTag(card.available, card.source)}</td>
+      <td>${card.deltaPct === null || card.deltaPct === undefined ? '<span class="missing-value">Chua co du lieu</span>' : pct(card.deltaPct)}</td>
+      <td>${escapeHtml(card.note || '')}</td>
+    </tr>
+  `).join('');
+  return `
+    <section class="mini-panel">
+      <h3>Nguon tung metric</h3>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead><tr><th>Metric</th><th>Gia tri</th><th>Nguon/status</th><th>So sanh</th><th>Ghi chu</th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="5">Chua co metric crawler cho khoang nay.</td></tr>'}</tbody>
+        </table>
+      </div>
+    </section>
+  `;
+}
+
+function renderDashboardDetails(range) {
+  const sections = (range.detailSections || []).slice(0, 2);
+  if (!sections.length) return '';
+  return `
+    <div class="analysis-grid">
+      ${sections.map(section => `
+        <section class="mini-panel">
+          <h3>${escapeHtml(section.title)}</h3>
+          <dl class="compact-list">
+            ${(section.metrics || []).slice(0, 10).map(metric => `
+              <dt>${escapeHtml(metric.label)}</dt>
+              <dd>${metricValue(metric.value, metric.format, metric.available)}</dd>
+            `).join('')}
+          </dl>
+        </section>
+      `).join('')}
+    </div>
+  `;
+}
+
+function renderDashboardEmpty(selectedShop, shopCount) {
+  return `
+    <div class="panel-header">
+      <h2>Dashboard van hanh shop</h2>
+      <p>Chua co crawler data cho shop/profile dang chon. Dashboard khong tao so lieu gia; hay crawl realtime hoac nap file business.</p>
+    </div>
+    <div class="context-panel">
+      <div class="context-grid">
+        <div><strong>${escapeHtml(selectedShop.label)}</strong><span>Shop/profile dang chon</span></div>
+        <div><strong>${shopCount}</strong><span>Shop trong app</span></div>
+        <div><strong>No crawler data yet</strong><span>Trang thai du lieu</span></div>
+        <div><strong>Chua co</strong><span>Last crawl timestamp</span></div>
+      </div>
+    </div>
+    ${renderDashboardCards({ cards: [] })}
+    <div class="actions dashboard-actions">
+      <button id="dashboardOpenCrawler">Mo TikTok Crawler</button>
+      <button id="dashboardOpenBusinessAnalysis" class="secondary">Nap file Phan tich KD</button>
+      <button id="dashboardOpenChecklist" class="secondary">Checklist van hanh</button>
+      <button id="openDashboardDiagnostic" class="secondary">Mo Dashboard extension</button>
+    </div>
+  `;
+}
+
+function bindDashboardActions() {
+  bindClick('#refreshDashboardInline', renderOperationsDashboardWorkspace);
+  bindClick('#openDashboardDiagnostic', () => openExtensionPage('pages/dashboard.html'));
+  bindClick('#dashboardOpenCrawler', renderTikTokCrawlerWorkspace);
+  bindClick('#dashboardOpenBusinessAnalysis', renderBusinessAnalysisWorkspace);
+  bindClick('#dashboardOpenChecklist', renderOpsChecklistWorkspace);
+}
+
+function renderDashboardView(data) {
+  const selectedShop = selectedShopContext();
+  const shopCount = shopList.querySelectorAll('.shop-item').length;
+  const overview = (data?.overviews || []).find(item => item.profileId === selectedShop.id || item.shopId === selectedShop.id)
+    || (data?.overviews || [])[0]
+    || null;
+  state.dashboardOverview = data || null;
+  if (!overview?.ok) {
+    workspaceContent.innerHTML = renderDashboardEmpty(selectedShop, shopCount);
+    bindDashboardActions();
+    return;
+  }
+  if (!state.dashboardRangeKey) state.dashboardRangeKey = overview.defaultRangeKey || '';
+  const range = dashboardRange(overview);
+  workspaceContent.innerHTML = `
+    <div class="panel-header">
+      <h2>Dashboard van hanh shop</h2>
+      <p>Tong quan doc tu crawler local da normalize. Neu can du lieu moi, bam TikTok Crawler de crawl realtime.</p>
+    </div>
+    <div class="context-panel">
+      <div class="context-grid">
+        <div><strong>${escapeHtml(overview.shopName || selectedShop.label)}</strong><span>Shop/profile</span></div>
+        <div><strong>${escapeHtml(overview.sellerId || selectedShop.sellerId || 'Chua co')}</strong><span>Seller ID</span></div>
+        <div><strong>${escapeHtml(sourceLabel('cached'))}</strong><span>Nguon dang hien thi</span></div>
+        <div><strong>${formatTimestamp(overview.updatedAt || overview.crawlerSummary?.finishedAt || overview.crawlerSummary?.startedAt)}</strong><span>Last crawl timestamp</span></div>
+        <div><strong>${escapeHtml(range.rangeLabel || overview.rangeLabel || 'Chua co')}</strong><span>Khoang du lieu</span></div>
+        <div><strong>${escapeHtml(overview.runId || 'Chua co')}</strong><span>Crawler run ID</span></div>
+        <div><strong>${shopCount}</strong><span>Shop trong app</span></div>
+        <div><strong>${escapeHtml(overview.availableStartDate || 'Chua co')} -> ${escapeHtml(overview.availableEndDate || 'Chua co')}</strong><span>Du lieu co san</span></div>
+      </div>
+    </div>
+    ${renderDashboardRangeButtons(overview)}
+    ${renderDashboardCards(range)}
+    <div class="dashboard-notes">
+      ${(overview.notes || []).map(note => `<p>${escapeHtml(note)}</p>`).join('')}
+    </div>
+    ${renderDashboardMetricTable(range)}
+    ${renderDashboardDetails(range)}
+    <div class="actions dashboard-actions">
+      <button id="refreshDashboardInline">Lam moi dashboard</button>
+      <button id="dashboardOpenCrawler" class="secondary">Mo TikTok Crawler</button>
+      <button id="dashboardOpenBusinessAnalysis" class="secondary">Nap file Phan tich KD</button>
+      <button id="dashboardOpenChecklist" class="secondary">Checklist van hanh</button>
+      <button id="openDashboardDiagnostic" class="secondary">Mo Dashboard extension</button>
+    </div>
+  `;
+  workspaceContent.querySelectorAll('[data-dashboard-range]').forEach(button => {
+    button.addEventListener('click', event => {
+      state.dashboardRangeKey = event.currentTarget.dataset.dashboardRange;
+      renderDashboardView(state.dashboardOverview);
+    });
+  });
+  bindDashboardActions();
+}
+
+async function renderOperationsDashboardWorkspace() {
+  const selectedShop = selectedShopContext();
+  workspaceContent.innerHTML = `
+    <div class="panel-header">
+      <h2>Dashboard van hanh shop</h2>
+      <p>Dang tai tong quan shop tu crawler local.</p>
+    </div>
+  `;
+  try {
+    const query = new URLSearchParams();
+    if (selectedShop.id) query.set('shopId', selectedShop.id);
+    if (selectedShop.sellerId) query.set('sellerId', selectedShop.sellerId);
+    const data = await api(`/api/business/shop-overview${query.toString() ? `?${query}` : ''}`);
+    renderDashboardView(data);
+  } catch (error) {
+    setOutput(error.data || error.message);
+    renderDashboardView({ ok: false, overviews: [] });
+  }
 }
 
 function renderCloudSyncWorkspace() {
@@ -1257,7 +1466,7 @@ async function boot() {
     setOutput(error.data || error.message);
   }
   await refreshStatus();
-  renderDashboardWorkspace();
+  renderOperationsDashboardWorkspace();
 }
 
 loginForm?.addEventListener('submit', async event => {
@@ -1317,7 +1526,7 @@ bindClick('#securityScanBtn', event => runAction(event.currentTarget, '/api/secu
 bindClick('#parityAuditBtn', event => runAction(event.currentTarget, '/api/parity-audit'));
 bindClick('#syncBundledBtn', event => runAction(event.currentTarget, '/api/extensions/sync-bundled'));
 bindClick('#btnSellerAds', sellerAdsWorkspace);
-bindClick('#btnAppDashboard', renderDashboardWorkspace);
+bindClick('#btnAppDashboard', renderOperationsDashboardWorkspace);
 bindClick('#btnCloudSync', renderCloudSyncWorkspace);
 bindClick('#btnAiData', renderAiDataWorkspace);
 bindClick('#btnBusinessAnalysis', renderBusinessAnalysisWorkspace);
