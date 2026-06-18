@@ -79,4 +79,7 @@ Residual risk:
 
 ## PR
 
-Pending.
+- URL: https://github.com/StrangeNd/strange-tts-pc-app/pull/7
+- Branch: `ai-agent/fix-xlsx-audit`
+- Commit: `40d14bffc93c37a20be3ae6880d46042b8353c1c`
+- Status: opened, not merged.
