@@ -535,6 +535,88 @@ button:disabled {
   line-height: 1.45;
 }
 
+.ops-check-header {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.ops-check-header div {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfd;
+  padding: 12px;
+}
+
+.ops-check-header strong,
+.ops-check-header span {
+  display: block;
+}
+
+.ops-check-header strong {
+  color: var(--accent-strong);
+  font-size: 20px;
+}
+
+.ops-check-header span {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.ops-progress {
+  height: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e6eef0;
+}
+
+.ops-progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+}
+
+.ops-check-list {
+  display: grid;
+  gap: 10px;
+}
+
+.ops-check-item {
+  grid-template-columns: 22px minmax(0, 1fr);
+  align-items: start;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 12px;
+}
+
+.ops-check-item input {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  margin-top: 2px;
+}
+
+.ops-check-item strong,
+.ops-check-item small {
+  display: block;
+}
+
+.ops-check-item strong {
+  color: var(--text);
+  font-size: 14px;
+}
+
+.ops-check-item small {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .plan-actions {
   margin: 10px 0 0;
   padding-left: 20px;
@@ -651,10 +733,11 @@ code {
   .form-grid,
   .analysis-grid,
   .path-form,
-  .grid,
-  .actions,
-  .summary-grid,
-  .status-list,
+    .grid,
+    .actions,
+    .ops-check-header,
+    .summary-grid,
+    .status-list,
   .extension-item,
   .shop-item,
   .menu-grid {

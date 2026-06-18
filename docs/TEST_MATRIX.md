@@ -8,6 +8,7 @@ changing product behavior.
 | Desktop launch | User opens the local app from shortcut/script | Healthcheck or smoke script; no license bypass in production mode | in_progress | `scripts/agent-healthcheck.sh` |
 | Product domain guard | Agents understand TTS means TikTok Shop, not Text-To-Speech | Repository audit for speech synthesis, voice/pitch/audio preview assumptions plus syntax and healthcheck | implemented | `REMOVE_SPEECH_SHELL_PR_REPORT.md` on branch `ai-agent/remove-speech-shell` |
 | GMV Max dashboard | User sees loaded shops and shop cards | Manual UI QA plus smoke where available | planned | none |
+| Daily shop ops checklist | User tracks today's TikTok Shop operating tasks for the selected shop/profile | Local storage persistence check, reset check, syntax, healthcheck, UI QA | implemented | `DAILY_SHOP_OPS_CHECKLIST_PR_REPORT.md` on branch `ai-agent/daily-shop-ops-checklist` |
 | Shop overview | User selects date range and reviews shop KPIs | Crawler data fixture or real crawl proof plus UI QA | planned | none |
 | TikTok crawler | Crawl Seller Center/Compass without exposing cookies | Raw/normalized/log outputs, crawl report, no secret logging | in_progress | crawler reports/logs when produced |
 | Business analysis | Combine crawler and XLSX inputs into readable analysis | Fixture-based calculation check plus UI review | planned | none |

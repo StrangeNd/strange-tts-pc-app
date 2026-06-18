@@ -149,6 +149,126 @@ function checked(value) {
   return value ? 'checked' : '';
 }
 
+const OPS_CHECKLIST_ITEMS = [
+  {
+    id: 'seller-center-health',
+    title: 'Kiểm tra tình trạng Seller Center',
+    detail: 'Mở Seller Center và xem nhanh cảnh báo, thông báo, điểm cửa hàng.'
+  },
+  {
+    id: 'orders-risk',
+    title: 'Kiểm tra đơn hàng cần xử lý',
+    detail: 'Ưu tiên đơn sắp quá hạn, đơn lỗi vận chuyển, hủy/hoàn cần phản hồi.'
+  },
+  {
+    id: 'ads-budget',
+    title: 'Kiểm tra ngân sách và GMV Max',
+    detail: 'Đối chiếu chi tiêu, ROI, camp bật/tắt và shop gần hết ngân sách.'
+  },
+  {
+    id: 'content-live-video',
+    title: 'Kiểm tra Live, video và sản phẩm nổi bật',
+    detail: 'Xem nội dung đang phân phối, sản phẩm có GMV, CTR hoặc tồn kho bất thường.'
+  },
+  {
+    id: 'listing-quality',
+    title: 'Kiểm tra listing và giá',
+    detail: 'Soát sản phẩm bị ẩn, lỗi giá, thiếu ảnh, điểm sản phẩm hoặc cơ hội tối ưu.'
+  },
+  {
+    id: 'daily-report',
+    title: 'Chốt ghi chú vận hành trong ngày',
+    detail: 'Ghi lại việc đã làm, việc cần theo dõi và điểm bất thường để ca sau tiếp tục.'
+  }
+];
+
+const OPS_CHECKLIST_PREFIX = 'strange-tiktokshop-ops-checklist';
+
+function todayKey() {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function currentShopKey() {
+  return shopQuickSelect.value || 'default-profile';
+}
+
+function opsChecklistStorageKey() {
+  return `${OPS_CHECKLIST_PREFIX}:${currentShopKey()}:${todayKey()}`;
+}
+
+function readOpsChecklist() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(opsChecklistStorageKey()) || '{}');
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeOpsChecklist(next) {
+  localStorage.setItem(opsChecklistStorageKey(), JSON.stringify(next));
+}
+
+function renderOpsChecklistWorkspace() {
+  const shopId = currentShopKey();
+  const checklist = readOpsChecklist();
+  const doneCount = OPS_CHECKLIST_ITEMS.filter(item => checklist[item.id]).length;
+  const totalCount = OPS_CHECKLIST_ITEMS.length;
+  const progress = Math.round((doneCount / totalCount) * 100);
+  const rows = OPS_CHECKLIST_ITEMS.map(item => `
+    <label class="ops-check-item">
+      <input type="checkbox" data-ops-check="${escapeHtml(item.id)}" ${checked(checklist[item.id])}>
+      <span>
+        <strong>${escapeHtml(item.title)}</strong>
+        <small>${escapeHtml(item.detail)}</small>
+      </span>
+    </label>
+  `).join('');
+
+  workspaceContent.innerHTML = `
+    <div class="panel-header">
+      <h2>Checklist vận hành shop</h2>
+      <p>Theo dõi việc cần làm mỗi ngày cho shop/profile đang chọn. Dữ liệu chỉ lưu local trên máy này.</p>
+    </div>
+    <div class="ops-check-header">
+      <div>
+        <strong>${escapeHtml(doneCount)} / ${escapeHtml(totalCount)}</strong>
+        <span>Đã hoàn thành hôm nay</span>
+      </div>
+      <div>
+        <strong>${escapeHtml(progress)}%</strong>
+        <span>${escapeHtml(shopId)} | ${escapeHtml(todayKey())}</span>
+      </div>
+    </div>
+    <div class="ops-progress" aria-label="Tien do checklist">
+      <span style="width: ${progress}%"></span>
+    </div>
+    <div class="ops-check-list">${rows}</div>
+    <div class="actions">
+      <button id="openSellerFromChecklist" type="button">Mở Seller Ads</button>
+      <button id="resetOpsChecklist" type="button" class="secondary">Reset hôm nay</button>
+    </div>
+  `;
+
+  workspaceContent.querySelectorAll('[data-ops-check]').forEach(input => {
+    input.addEventListener('change', event => {
+      const next = readOpsChecklist();
+      next[event.currentTarget.dataset.opsCheck] = event.currentTarget.checked;
+      writeOpsChecklist(next);
+      renderOpsChecklistWorkspace();
+    });
+  });
+  bindClick('#openSellerFromChecklist', () => openSellerAdsShop(shopQuickSelect.value));
+  bindClick('#resetOpsChecklist', () => {
+    localStorage.removeItem(opsChecklistStorageKey());
+    renderOpsChecklistWorkspace();
+  });
+}
+
 function renderDashboardWorkspace() {
   const selectedShop = shopQuickSelect.value;
   const shopCount = shopList.querySelectorAll('.shop-item').length;
@@ -1033,6 +1153,7 @@ bindClick('#btnCloudSync', renderCloudSyncWorkspace);
 bindClick('#btnAiData', renderAiDataWorkspace);
 bindClick('#btnBusinessAnalysis', renderBusinessAnalysisWorkspace);
 bindClick('#btnTikTokCrawler', renderTikTokCrawlerWorkspace);
+bindClick('#btnOpsChecklist', renderOpsChecklistWorkspace);
 bindClick('#btnBusinessPlan', renderBusinessPlanWorkspace);
 bindClick('#btnGuide', renderGuideWorkspace);
 bindClick('#btnDownloadVideo', renderDownloadWorkspace);

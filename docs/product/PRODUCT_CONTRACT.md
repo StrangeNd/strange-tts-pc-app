@@ -12,6 +12,7 @@ explicitly requests an audio feature.
 - Open the local app from desktop or script.
 - Manage shop/dashboard workflows in a controlled local runtime.
 - Open GMV Max dashboard and shop overview views.
+- Track local daily TikTok Shop operations tasks for the selected shop/profile.
 - Crawl TikTok Seller Center/Compass data with the user's authenticated local
   profile when explicitly requested.
 - Combine crawled TikTok data and uploaded XLSX/CSV files into business

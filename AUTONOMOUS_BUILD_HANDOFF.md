@@ -10,6 +10,32 @@
 
 ## Completed Loop
 
+### Loop 2: Daily Shop Ops Checklist
+
+- Intake: approved by Agent B before implementation.
+- Risk lane: low risk local UI/workflow feature.
+- Branch: `ai-agent/daily-shop-ops-checklist`.
+- Agent A changes:
+  - Added a local TikTok Shop daily operations checklist workspace.
+  - Stored checklist state in browser `localStorage`, scoped by selected
+    shop/profile and local date.
+  - Added progress cards, task rows, reset action, and Seller Ads shortcut.
+  - Updated product contract, test matrix, and architecture decision record.
+- Agent B result: rejected once for unaccented UI copy, then approved after the
+  copy fix.
+
+Validation completed:
+
+- `node --check public/app.js`: passed
+- `node --check scripts/smoke.mjs`: passed
+- `./scripts/agent-healthcheck.sh`: passed
+- Targeted static behavior check: passed
+
+Residual risk:
+
+- Direct Codex Browser/Chrome UI QA was not available in this session. A human
+  should visually click the new checklist card once after PR checks complete.
+
 ### Loop 1: Remove Text-To-Speech Shell Drift
 
 - Intake: approved by Agent B before implementation.
