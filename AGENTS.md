@@ -4,13 +4,14 @@ This repository is agent-ready through a lightweight harness.
 
 Before editing code:
 
-1. Read `agents/guardrails.md`.
-2. Read `agents/risk-policy.md`.
-3. Classify the task with `docs/FEATURE_INTAKE.md`.
-4. Check affected behavior in `docs/PRODUCT_CONTRACT.md` and canonical
+1. Read `SPEC.md`.
+2. Read `agents/guardrails.md`.
+3. Read `agents/risk-policy.md`.
+4. Classify the task with `docs/FEATURE_INTAKE.md`.
+5. Check affected behavior in `docs/PRODUCT_CONTRACT.md` and canonical
    `docs/product/PRODUCT_CONTRACT.md`.
-5. Check boundaries in `docs/ARCHITECTURE.md`.
-6. Check required proof in `docs/TEST_MATRIX.md`.
+6. Check boundaries in `docs/ARCHITECTURE.md`.
+7. Check required proof in `docs/TEST_MATRIX.md`.
 
 ## Default Workflow
 
