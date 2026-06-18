@@ -1,4 +1,4 @@
-import XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -755,17 +755,46 @@ function classifyFile(name = '', type = 'auto') {
   return 'orders';
 }
 
-function workbookRowsFromBuffer(buffer, fileName, fileType = 'auto') {
+function excelCellValue(value) {
+  if (value === null || value === undefined) return '';
+  if (value instanceof Date) return value;
+  if (typeof value !== 'object') return value;
+  if (value.text !== undefined) return value.text;
+  if (value.result !== undefined) return value.result;
+  if (value.richText) return value.richText.map(part => part.text || '').join('');
+  if (value.hyperlink && value.text) return value.text;
+  return String(value);
+}
+
+async function workbookFromBuffer(buffer, fileName) {
   if (buffer.length > MAX_FILE_BYTES) {
     throw new Error(`${fileName} is too large. Limit is ${Math.round(MAX_FILE_BYTES / 1024 / 1024)}MB per file.`);
   }
-  const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: true, raw: false });
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(buffer);
+  return workbook;
+}
+
+function worksheetToMatrix(sheet) {
+  const matrix = [];
+  sheet.eachRow({ includeEmpty: true }, row => {
+    const values = [];
+    row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+      values[colNumber - 1] = excelCellValue(cell.value);
+    });
+    matrix.push(values);
+  });
+  return matrix;
+}
+
+async function workbookRowsFromBuffer(buffer, fileName, fileType = 'auto') {
+  const workbook = await workbookFromBuffer(buffer, fileName);
   const rows = [];
   const sheetNames = fileType === 'product'
-    ? [workbook.SheetNames.find(name => normalizeText(name) === 'template') || workbook.SheetNames[0]].filter(Boolean)
-    : workbook.SheetNames || [];
+    ? [workbook.worksheets.find(sheet => normalizeText(sheet.name) === 'template')?.name || workbook.worksheets[0]?.name].filter(Boolean)
+    : workbook.worksheets.map(sheet => sheet.name);
   for (const sheetName of sheetNames) {
-    const sheet = workbook.Sheets[sheetName];
+    const sheet = workbook.getWorksheet(sheetName);
     const jsonRows = rowsFromSheet(sheet);
     for (const row of jsonRows) rows.push({ ...row, __sheet: sheetName, __file: fileName });
   }
@@ -773,9 +802,15 @@ function workbookRowsFromBuffer(buffer, fileName, fileType = 'auto') {
 }
 
 function rowsFromSheet(sheet) {
-  const matrix = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false });
+  const matrix = worksheetToMatrix(sheet);
+  return rowsFromMatrix(matrix);
+}
+
+function rowsFromMatrix(matrix = []) {
   const headerIdx = detectHeaderRow(matrix);
-  if (headerIdx === -1) return XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false });
+  if (headerIdx === -1) return matrix
+    .map(row => Object.fromEntries(row.map((cell, index) => [`__EMPTY_${index}`, cell ?? ''])))
+    .filter(row => Object.values(row).some(value => String(value ?? '').trim()));
   const headers = matrix[headerIdx].map((cell, idx) => String(cell || `__EMPTY_${idx}`).trim() || `__EMPTY_${idx}`);
   const rows = [];
   for (const row of matrix.slice(headerIdx + 1)) {
@@ -789,6 +824,43 @@ function rowsFromSheet(sheet) {
     if (hasValue) rows.push(obj);
   }
   return rows;
+}
+
+function parseDelimitedLine(line, delimiter = ',') {
+  const cells = [];
+  let current = '';
+  let quoted = false;
+  for (let i = 0; i < line.length; i += 1) {
+    const char = line[i];
+    if (char === '"') {
+      if (quoted && line[i + 1] === '"') {
+        current += '"';
+        i += 1;
+      } else {
+        quoted = !quoted;
+      }
+    } else if (char === delimiter && !quoted) {
+      cells.push(current);
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  cells.push(current);
+  return cells;
+}
+
+function parseDelimitedMatrix(text, delimiter = ',') {
+  return String(text || '')
+    .replace(/^\uFEFF/, '')
+    .split(/\r?\n/)
+    .filter(line => line.trim())
+    .map(line => parseDelimitedLine(line, delimiter));
+}
+
+function rowsFromDelimitedText(text, fileName) {
+  const delimiter = /\.tsv$/i.test(fileName) ? '\t' : ',';
+  return rowsFromMatrix(parseDelimitedMatrix(text, delimiter));
 }
 
 function detectHeaderRow(matrix) {
@@ -806,10 +878,10 @@ function detectHeaderRow(matrix) {
   return -1;
 }
 
-function worksheetMatrixFromBuffer(buffer) {
-  const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: true, raw: false });
-  const sheet = workbook.Sheets[workbook.SheetNames[0]];
-  return XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false });
+async function worksheetMatrixFromBuffer(buffer, fileName = 'price.xlsx') {
+  const workbook = await workbookFromBuffer(buffer, fileName);
+  const sheet = workbook.worksheets[0];
+  return sheet ? worksheetToMatrix(sheet) : [];
 }
 
 async function loadGoogleSheetMatrix(sheetUrl, warnings) {
@@ -838,9 +910,7 @@ async function loadGoogleSheetMatrix(sheetUrl, warnings) {
       if (text) break;
     }
     if (!text) throw new Error(lastError || 'Google Sheet export failed.');
-    const workbook = XLSX.read(text, { type: 'string' });
-    const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    return XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false });
+    return parseDelimitedMatrix(text, ',');
   } catch (error) {
     warnings.push(`Không đọc được Google Sheet giá gốc: ${error.message}`);
     return [];
@@ -957,14 +1027,16 @@ function mergeDedup(rows, preferredKeys = []) {
   return out;
 }
 
-function ingestFiles(files = []) {
+async function ingestFiles(files = []) {
   const grouped = Object.fromEntries([...FILE_TYPES].filter(type => type !== 'auto').map(type => [type, []]));
   const fileSummary = [];
   for (const file of files || []) {
     const name = file.name || 'uploaded-file';
     const type = classifyFile(name, file.type);
     const buffer = Buffer.from(String(file.contentBase64 || ''), 'base64');
-    const rows = workbookRowsFromBuffer(buffer, name, type);
+    const rows = /\.(csv|tsv|txt)$/i.test(name)
+      ? rowsFromDelimitedText(buffer.toString('utf8'), name).map(row => ({ ...row, __sheet: 'text', __file: name }))
+      : await workbookRowsFromBuffer(buffer, name, type);
     grouped[type].push(...rows);
     fileSummary.push({ name, requestedType: file.type || 'auto', type, rows: rows.length });
   }
@@ -1378,7 +1450,7 @@ export async function analyzeBusinessInput(payload = {}, options = {}) {
   const hasPayloadAdsRatio = payload.adsCreditRatio !== undefined && payload.adsCreditRatio !== null && String(payload.adsCreditRatio).trim() !== '';
   const adsCreditRatio = hasPayloadAdsRatio ? Number(payload.adsCreditRatio || 0) : rules.adsCreditRatioPct / 100;
   const priceMatrixFromFile = payload.priceFile?.contentBase64
-    ? worksheetMatrixFromBuffer(Buffer.from(payload.priceFile.contentBase64, 'base64'))
+    ? await worksheetMatrixFromBuffer(Buffer.from(payload.priceFile.contentBase64, 'base64'), payload.priceFile.name || 'price.xlsx')
     : [];
   const priceMatrixFromSheet = priceMatrixFromFile.length
     ? []
@@ -1393,7 +1465,7 @@ export async function analyzeBusinessInput(payload = {}, options = {}) {
     warnings.push('Chưa có bảng giá gốc. Hãy upload file giá gốc hoặc mở mạng một lần để app cache Google Sheet.');
   }
 
-  const { grouped, fileSummary } = ingestFiles(payload.files || []);
+  const { grouped, fileSummary } = await ingestFiles(payload.files || []);
   const productCatalogData = buildProductCatalog(grouped.product, priceMap);
   const productAliasMap = productCatalogData.aliasMap;
   const productCatalog = {

@@ -579,12 +579,12 @@ function renderBusinessAnalysisWorkspace() {
         <input name="priceSheetUrl" value="https://docs.google.com/spreadsheets/d/1RlaQAhHvLdFrYiG3q80DyVWrJZBmrvLPsrCGGRO_AWo/edit?gid=478274778#gid=478274778" autocomplete="off">
       </label>
       <label>
-        Hoac upload file gia goc (.xlsx/.csv) - lay cot A va H
-        <input name="priceFile" type="file" accept=".xlsx,.xls,.csv">
+        Hoac upload file gia goc (.xlsx/.csv/.tsv) - lay cot A va H
+        <input name="priceFile" type="file" accept=".xlsx,.csv,.tsv,.txt">
       </label>
       <label>
-        File TikTok Seller/Ads/KOC (.xlsx/.csv), co the chon nhieu file
-        <input name="businessFiles" type="file" accept=".xlsx,.xls,.csv" multiple required>
+        File TikTok Seller/Ads/KOC (.xlsx/.csv/.tsv), co the chon nhieu file
+        <input name="businessFiles" type="file" accept=".xlsx,.csv,.tsv,.txt" multiple required>
       </label>
       <div class="form-grid">
         <label>Ky du lieu cu<input name="periodLabel" placeholder="VD: Thang 5/2026"></label>
