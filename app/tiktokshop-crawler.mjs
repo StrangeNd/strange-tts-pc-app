@@ -379,9 +379,9 @@ function extractRows(response) {
 
 function pickNumber(values, key) {
   const raw = values?.[String(key)];
-  if (raw === '' || raw == null) return 0;
+  if (raw === '' || raw == null) return null;
   const num = Number(raw);
-  return Number.isFinite(num) ? num : 0;
+  return Number.isFinite(num) ? num : null;
 }
 
 function summarizeRows(rows) {

@@ -20,6 +20,7 @@ const state = {
     videoLoop: true
   },
   businessResult: null,
+  shops: [],
   statusVisible: false
 };
 
@@ -91,6 +92,45 @@ async function saveAppConfig(patch) {
 
 function escapeHtml(value) {
   return String(value || '').replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+}
+
+function hasMetricValue(value) {
+  return value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value));
+}
+
+function formatTimestamp(value) {
+  if (!value) return 'Chua co';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return String(value);
+  return parsed.toLocaleString('vi-VN');
+}
+
+function selectedShopContext() {
+  const selectedId = shopQuickSelect?.value || '';
+  const shop = state.shops.find(item => item.id === selectedId);
+  return {
+    id: selectedId,
+    name: shop?.name || selectedId || '',
+    sellerId: shop?.sellerId || '',
+    adsAccountId: shop?.adsAccountId || '',
+    label: shop?.name ? `${shop.name} (${shop.id})` : (selectedId || 'Chua chon shop/profile')
+  };
+}
+
+function sourceLabel(value) {
+  const labels = {
+    crawler: 'Crawler',
+    computed: 'Tinh tu metric',
+    pending: 'Chua co nguon',
+    orders: 'File don hang',
+    settlement: 'File quyet toan',
+    gmvMax: 'File GMV Max',
+    uploaded: 'File upload',
+    cached: 'Cache local',
+    realtime: 'Realtime crawl',
+    missing: 'Missing'
+  };
+  return labels[value] || value || 'Chua ro';
 }
 
 function renderExtensions(library) {
@@ -270,7 +310,7 @@ function renderOpsChecklistWorkspace() {
 }
 
 function renderDashboardWorkspace() {
-  const selectedShop = shopQuickSelect.value;
+  const selectedShop = selectedShopContext();
   const shopCount = shopList.querySelectorAll('.shop-item').length;
   workspaceContent.innerHTML = `
     <div class="panel-header">
@@ -279,7 +319,8 @@ function renderDashboardWorkspace() {
     </div>
     <div class="summary-grid">
       <div><strong>${shopCount}</strong><span>Shop trong app</span></div>
-      <div><strong>${selectedShop ? escapeHtml(selectedShop) : 'Default'}</strong><span>Profile dang chon</span></div>
+      <div><strong>${escapeHtml(selectedShop.name || 'Default')}</strong><span>Profile dang chon</span></div>
+      <div><strong>${selectedShop.sellerId ? escapeHtml(selectedShop.sellerId) : 'Chua co'}</strong><span>Seller ID</span></div>
       <div><strong>On</strong><span>Bundled extension</span></div>
     </div>
     <div class="actions">
@@ -363,12 +404,34 @@ function renderAiDataWorkspace() {
 }
 
 function money(value) {
-  return Math.round(Number(value || 0)).toLocaleString('vi-VN');
+  if (!hasMetricValue(value)) return 'Chua co du lieu';
+  return Math.round(Number(value)).toLocaleString('vi-VN');
 }
 
 function pct(value) {
-  const n = Number(value || 0);
+  if (!hasMetricValue(value)) return 'Chua co du lieu';
+  const n = Number(value);
   return `${(n * 100).toFixed(1)}%`;
+}
+
+function decimal(value, digits = 2) {
+  if (!hasMetricValue(value)) return 'Chua co du lieu';
+  return Number(value).toFixed(digits);
+}
+
+function metricValue(value, format = 'number', available = true) {
+  if (!available || !hasMetricValue(value)) return '<span class="missing-value">Chua co du lieu</span>';
+  if (format === 'money') return money(value);
+  if (format === 'percent') return pct(value);
+  if (format === 'decimal') return decimal(value);
+  if (format === 'hours') return `${decimal(value, 1)} gio`;
+  return Number(value).toLocaleString('vi-VN');
+}
+
+function statusTag(available, source = '') {
+  const text = available ? sourceLabel(source) : 'Missing';
+  const className = available ? 'metric-status ok' : 'metric-status missing';
+  return `<span class="${className}">${escapeHtml(text)}</span>`;
 }
 
 function csvCell(value) {
@@ -453,6 +516,91 @@ async function buildBusinessPayload(form) {
   };
 }
 
+function groupedRows(result, key) {
+  return Number(result.groupedRows?.[key] || 0);
+}
+
+function businessRevenueAvailable(result) {
+  const source = result.kpis?.revenueSource;
+  if (source === 'orders') return groupedRows(result, 'orders') > 0;
+  if (source === 'settlement') return groupedRows(result, 'income') > 0 || groupedRows(result, 'onhold') > 0;
+  if (source === 'gmvMax') return groupedRows(result, 'gmvMaxCreative') > 0;
+  return hasMetricValue(result.kpis?.revenue);
+}
+
+function businessMetricCard(label, value, source, format = 'money', available = true) {
+  return `
+    <div class="${available ? '' : 'is-missing'}">
+      <strong>${metricValue(value, format, available)}</strong>
+      <span>${escapeHtml(label)}</span>
+      <small>Nguon: ${escapeHtml(sourceLabel(source))}</small>
+    </div>
+  `;
+}
+
+function renderBusinessDataContext(result) {
+  const selectedShop = selectedShopContext();
+  const overview = result.shopOverview || {};
+  const crawlerOk = Boolean(overview.ok);
+  const fileCount = (result.fileSummary || []).length;
+  const uploadedRows = Object.values(result.groupedRows || {}).reduce((sum, value) => sum + Number(value || 0), 0);
+  const priceSource = result.priceRows
+    ? ((result.warnings || []).some(item => /cache/i.test(item)) ? 'cached' : 'uploaded')
+    : 'missing';
+  return `
+    <section class="context-panel">
+      <div class="panel-header">
+        <h3>Data context</h3>
+        <p>Thong tin nay giup biet so lieu dang xem la realtime, cache local, file upload hay dang thieu.</p>
+      </div>
+      <div class="context-grid">
+        <div><strong>${escapeHtml(selectedShop.label)}</strong><span>Shop/profile dang chon</span></div>
+        <div><strong>${fileCount ? `${fileCount} file / ${money(uploadedRows)} dong` : 'Chua upload file'}</strong><span>Nguon uploaded</span></div>
+        <div><strong>${crawlerOk ? 'Cache crawler local' : 'Chua co crawler data'}</strong><span>Trang thai crawler</span></div>
+        <div><strong>${formatTimestamp(overview.updatedAt || overview.crawlerSummary?.finishedAt || overview.crawlerSummary?.startedAt)}</strong><span>Last crawl timestamp</span></div>
+        <div><strong>${escapeHtml(sourceLabel(priceSource))}</strong><span>Bang gia goc</span></div>
+        <div><strong>${overview.runId ? escapeHtml(overview.runId) : 'Chua co'}</strong><span>Crawler run ID</span></div>
+      </div>
+    </section>
+  `;
+}
+
+function renderShopOverviewMetrics(overview = {}) {
+  const cards = Array.isArray(overview.cards) ? overview.cards : [];
+  if (!cards.length) {
+    return `
+      <section class="mini-panel">
+        <h3>Crawler metrics</h3>
+        <p class="hint">Chua co crawler data yet. Bam TikTok Crawler de crawl realtime, hoac upload file trong Phan tich KD.</p>
+      </section>
+    `;
+  }
+  const rows = cards.map(card => `
+    <tr>
+      <td>${escapeHtml(card.label)}</td>
+      <td class="num">${metricValue(card.value, card.format, card.available)}</td>
+      <td>${statusTag(card.available, card.source)}</td>
+      <td>${escapeHtml(card.note || '')}</td>
+    </tr>
+  `).join('');
+  return `
+    <section class="mini-panel">
+      <h3>Crawler metric source</h3>
+      <div class="meta-line">
+        <span>Shop DB: ${escapeHtml(overview.shopId || 'Chua co')}</span>
+        <span>Range: ${escapeHtml(overview.rangeLabel || 'Chua co')}</span>
+        <span>Source: ${escapeHtml(overview.endpoint || 'Chua co endpoint')}</span>
+      </div>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead><tr><th>Metric</th><th>Value</th><th>Source/status</th><th>Note</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </section>
+  `;
+}
+
 function renderBusinessResult(result, mode = 'analysis') {
   state.businessResult = result;
   const warnings = (result.warnings || []).map(item => `<li>${escapeHtml(item)}</li>`).join('');
@@ -475,48 +623,54 @@ function renderBusinessResult(result, mode = 'analysis') {
     </tr>
   `).join('');
   const planActions = (result.plan?.actions || []).map(item => `<li>${escapeHtml(item)}</li>`).join('');
+  const revenueAvailable = businessRevenueAvailable(result);
+  const adsCostAvailable = groupedRows(result, 'adsActual') > 0;
+  const productCostAvailable = groupedRows(result, 'orders') > 0 && Number(result.priceRows || 0) > 0;
+  const affiliateCostAvailable = groupedRows(result, 'affiliate') > 0;
   workspaceContent.innerHTML = `
     <div class="panel-header">
       <h2>${mode === 'plan' ? 'Ke hoach thang/quy toi' : 'Phan tich chi so kinh doanh'}</h2>
       <p>Ket qua duoc tinh tu file TikTok Seller/Ads da nap va bang gia goc cot A/H.</p>
     </div>
+    ${renderBusinessDataContext(result)}
     ${warnings ? `<ul class="warn-list">${warnings}</ul>` : ''}
     <div class="summary-grid business-kpis">
-      <div><strong>${money(result.kpis?.revenue)}</strong><span>Doanh thu</span></div>
-      <div><strong>${money(result.kpis?.netProfitEstimate)}</strong><span>Loi nhuan uoc tinh</span></div>
-      <div><strong>${pct(result.kpis?.netMargin)}</strong><span>Net margin</span></div>
-      <div><strong>${money(result.costs?.adsActualCost)}</strong><span>Ads thuc te</span></div>
-      <div><strong>${money(result.costs?.productCost)}</strong><span>Gia von hang ban</span></div>
-      <div><strong>${money(Number(result.affiliate?.sampleCost || 0) + Number(result.affiliate?.shipping || 0))}</strong><span>Mau + ship affiliate</span></div>
+      ${businessMetricCard('Doanh thu', result.kpis?.revenue, result.kpis?.revenueSource || 'uploaded', 'money', revenueAvailable)}
+      ${businessMetricCard('Loi nhuan uoc tinh', result.kpis?.netProfitEstimate, 'computed', 'money', revenueAvailable)}
+      ${businessMetricCard('Net margin', result.kpis?.netMargin, 'computed', 'percent', revenueAvailable && Number(result.kpis?.revenue || 0) !== 0)}
+      ${businessMetricCard('Ads thuc te', result.costs?.adsActualCost, 'uploaded', 'money', adsCostAvailable)}
+      ${businessMetricCard('Gia von hang ban', result.costs?.productCost, 'uploaded', 'money', productCostAvailable)}
+      ${businessMetricCard('Mau + ship affiliate', Number(result.affiliate?.sampleCost || 0) + Number(result.affiliate?.shipping || 0), 'uploaded', 'money', affiliateCostAvailable)}
     </div>
+    ${renderShopOverviewMetrics(result.shopOverview)}
     <div class="analysis-grid">
       <section class="mini-panel">
         <h3>Ads GMV Max</h3>
         <dl class="compact-list">
-          <dt>Cash + Credit + Ads credit</dt><dd>${money(result.ads?.actual?.actualCost)}</dd>
-          <dt>Chi phi gom chiet khau</dt><dd>${money(result.ads?.gmvMax?.costWithDiscount)}</dd>
-          <dt>GMV ads</dt><dd>${money(result.ads?.gmvMax?.gmv)}</dd>
-          <dt>ROI creative</dt><dd>${Number(result.ads?.gmvMax?.roi || 0).toFixed(2)}</dd>
-          <dt>Dong GMV Max da dung</dt><dd>${money(result.ads?.actual?.rowsUsed)}</dd>
+          <dt>Cash + Credit + Ads credit</dt><dd>${metricValue(result.ads?.actual?.actualCost, 'money', adsCostAvailable)}</dd>
+          <dt>Chi phi gom chiet khau</dt><dd>${metricValue(result.ads?.gmvMax?.costWithDiscount, 'money', groupedRows(result, 'gmvMaxCreative') > 0)}</dd>
+          <dt>GMV ads</dt><dd>${metricValue(result.ads?.gmvMax?.gmv, 'money', groupedRows(result, 'gmvMaxCreative') > 0)}</dd>
+          <dt>ROI creative</dt><dd>${metricValue(result.ads?.gmvMax?.roi, 'decimal', groupedRows(result, 'gmvMaxCreative') > 0)}</dd>
+          <dt>Dong GMV Max da dung</dt><dd>${metricValue(result.ads?.actual?.rowsUsed, 'number', adsCostAvailable)}</dd>
           <dt>Match chi phi</dt><dd>${escapeHtml(result.ads?.actual?.matchMode || '')}</dd>
         </dl>
       </section>
       <section class="mini-panel">
         <h3>Quyet toan</h3>
         <dl class="compact-list">
-          <dt>Da quyet toan</dt><dd>${money(result.settlements?.income?.amount)}</dd>
-          <dt>Se quyet toan</dt><dd>${money(result.settlements?.onhold?.amount)}</dd>
-          <dt>Don hang</dt><dd>${money(result.kpis?.orders)}</dd>
-          <dt>So luong ban</dt><dd>${money(result.kpis?.units)}</dd>
+          <dt>Da quyet toan</dt><dd>${metricValue(result.settlements?.income?.amount, 'money', groupedRows(result, 'income') > 0)}</dd>
+          <dt>Se quyet toan</dt><dd>${metricValue(result.settlements?.onhold?.amount, 'money', groupedRows(result, 'onhold') > 0)}</dd>
+          <dt>Don hang</dt><dd>${metricValue(result.kpis?.orders, 'number', groupedRows(result, 'orders') > 0)}</dd>
+          <dt>So luong ban</dt><dd>${metricValue(result.kpis?.units, 'number', groupedRows(result, 'orders') > 0)}</dd>
         </dl>
       </section>
       <section class="mini-panel">
         <h3>KOC / Creator</h3>
         <dl class="compact-list">
-          <dt>GMV Video</dt><dd>${money(result.content?.video?.gmv)}</dd>
-          <dt>GMV Creator</dt><dd>${money(result.content?.creator?.gmv)}</dd>
-          <dt>Video rows</dt><dd>${money(result.content?.video?.rows)}</dd>
-          <dt>Creator rows</dt><dd>${money(result.content?.creator?.rows)}</dd>
+          <dt>GMV Video</dt><dd>${metricValue(result.content?.video?.gmv, 'money', groupedRows(result, 'video') > 0)}</dd>
+          <dt>GMV Creator</dt><dd>${metricValue(result.content?.creator?.gmv, 'money', groupedRows(result, 'creator') > 0)}</dd>
+          <dt>Video rows</dt><dd>${metricValue(result.content?.video?.rows, 'number', groupedRows(result, 'video') > 0)}</dd>
+          <dt>Creator rows</dt><dd>${metricValue(result.content?.creator?.rows, 'number', groupedRows(result, 'creator') > 0)}</dd>
         </dl>
       </section>
       <section class="mini-panel">
@@ -634,6 +788,7 @@ function renderBusinessPlanWorkspace() {
 function renderCrawlerRows(monthData) {
   const rows = monthData?.daily || [];
   if (!rows.length) return '<p>Chua co du lieu daily cho thang nay.</p>';
+  const crawlTime = monthData?.crawledAt || '';
   return `
     <div class="table-scroll">
       <table class="data-table">
@@ -647,6 +802,8 @@ function renderCrawlerRows(monthData) {
             <th>Lien ket Video</th>
             <th>Truc tiep</th>
             <th>Gian tiep</th>
+            <th>Nguon</th>
+            <th>Last crawl</th>
             <th>Raw fields</th>
           </tr>
         </thead>
@@ -654,14 +811,16 @@ function renderCrawlerRows(monthData) {
           ${rows.map(row => `
             <tr>
               <td>${escapeHtml(row.startDate)}</td>
-              <td>${money(row.totalGmv)}</td>
-              <td>${money(row.contentVideoGmv)}</td>
-              <td>${money(row.contentProductCardGmv)}</td>
-              <td>${money(row.affiliateTotalGmv)}</td>
-              <td>${money(row.affiliateVideoGmv)}</td>
-              <td>${money(row.affiliateVideoDirectGmv)}</td>
-              <td>${money(row.affiliateVideoIndirectGmv)}</td>
-              <td>${money(row.rawFieldCount)}</td>
+              <td>${metricValue(row.totalGmv, 'money', hasMetricValue(row.totalGmv))}</td>
+              <td>${metricValue(row.contentVideoGmv, 'money', hasMetricValue(row.contentVideoGmv))}</td>
+              <td>${metricValue(row.contentProductCardGmv, 'money', hasMetricValue(row.contentProductCardGmv))}</td>
+              <td>${metricValue(row.affiliateTotalGmv, 'money', hasMetricValue(row.affiliateTotalGmv))}</td>
+              <td>${metricValue(row.affiliateVideoGmv, 'money', hasMetricValue(row.affiliateVideoGmv))}</td>
+              <td>${metricValue(row.affiliateVideoDirectGmv, 'money', hasMetricValue(row.affiliateVideoDirectGmv))}</td>
+              <td>${metricValue(row.affiliateVideoIndirectGmv, 'money', hasMetricValue(row.affiliateVideoIndirectGmv))}</td>
+              <td>${statusTag(true, 'cached')}</td>
+              <td>${escapeHtml(formatTimestamp(crawlTime))}</td>
+              <td>${metricValue(row.rawFieldCount, 'number', hasMetricValue(row.rawFieldCount))}</td>
             </tr>
           `).join('')}
         </tbody>
@@ -682,13 +841,17 @@ function renderCrawlerBusinessInsight(database, activeMonth) {
   const directShare = current.affiliateVideoGmv ? current.affiliateVideoDirectGmv / current.affiliateVideoGmv : 0;
   return `
     <div class="summary-grid business-kpis">
-      <div><strong>${money(current.totalGmv)}</strong><span>GMV ${escapeHtml(activeMonth)}</span></div>
-      <div><strong>${previous ? pct(growth) : '-'}</strong><span>Tang truong so voi ${escapeHtml(previousMonth || '')}</span></div>
-      <div><strong>${pct(affiliateShare)}</strong><span>Ty trong lien ket</span></div>
-      <div><strong>${pct(videoShare)}</strong><span>Ty trong video</span></div>
-      <div><strong>${pct(directShare)}</strong><span>Video lien ket truc tiep</span></div>
+      ${businessMetricCard(`GMV ${activeMonth}`, current.totalGmv, 'cached', 'money', hasMetricValue(current.totalGmv))}
+      ${businessMetricCard(`Tang truong so voi ${previousMonth || 'ky truoc'}`, growth, 'computed', 'percent', Boolean(previous))}
+      ${businessMetricCard('Ty trong lien ket', affiliateShare, 'computed', 'percent', hasMetricValue(current.affiliateTotalGmv) && hasMetricValue(current.totalGmv))}
+      ${businessMetricCard('Ty trong video', videoShare, 'computed', 'percent', hasMetricValue(current.contentVideoGmv) && hasMetricValue(current.totalGmv))}
+      ${businessMetricCard('Video lien ket truc tiep', directShare, 'computed', 'percent', hasMetricValue(current.affiliateVideoDirectGmv) && hasMetricValue(current.affiliateVideoGmv))}
     </div>
   `;
+}
+
+function latestCompassTimestamp(database = {}, activeMonth = '') {
+  return database.months?.[activeMonth]?.crawledAt || database.updatedAt || '';
 }
 
 async function renderTikTokCrawlerWorkspaceLegacy() {
@@ -777,7 +940,9 @@ async function renderTikTokCrawlerWorkspaceLegacy() {
 }
 
 async function renderTikTokCrawlerWorkspace() {
-  const shopId = 'little-apricot-hawaii-fashion';
+  const selectedShop = selectedShopContext();
+  const shopId = selectedShop.id || 'little-apricot-hawaii-fashion';
+  const defaultSellerId = selectedShop.sellerId || '7494478078863902049';
   let database = { months: {} };
   let sellerCenter = { summary: {}, modules: [], unresolved: [] };
   try {
@@ -810,12 +975,15 @@ async function renderTikTokCrawlerWorkspace() {
         <div><strong>${escapeHtml(shopId)}</strong><span>Shop DB</span></div>
         <div><strong>${months.length}</strong><span>Tháng Compass đã lưu</span></div>
         <div><strong>${active?.daily?.length || 0}</strong><span>Dòng daily</span></div>
+        <div><strong>${escapeHtml(selectedShop.label)}</strong><span>Shop/profile dang chon</span></div>
+        <div><strong>${months.length ? 'Cache Compass local' : 'No crawler data yet'}</strong><span>Nguon dang hien thi</span></div>
+        <div><strong>${formatTimestamp(latestCompassTimestamp(database, activeMonth) || sellerCenter.startedAt)}</strong><span>Last crawl timestamp</span></div>
         <div><strong>${money(sellerCenter.summary?.apiEndpoints)}</strong><span>API Seller Center</span></div>
         <div><strong>${money(sellerCenter.summary?.rawFiles)}</strong><span>Raw files</span></div>
         <div><strong>${money(sellerCenter.summary?.exportRequests)}</strong><span>Lệnh export</span></div>
       </div>
       <label>CDP port của profile TikTok<input name="cdpPort" value="58849" autocomplete="off"></label>
-      <label>Seller ID<input name="sellerId" value="7494478078863902049" autocomplete="off"></label>
+      <label>Seller ID<input name="sellerId" value="${escapeHtml(defaultSellerId)}" autocomplete="off"></label>
       <label>URL gốc Seller Center<input name="baseUrl" value="https://seller-vn.tiktok.com/homepage?shop_region=VN" autocomplete="off"></label>
       <label>Tháng cần crawl Compass<input name="months" value="2026-04,2026-05" autocomplete="off"></label>
       <label>Giới hạn module Seller Center (0 = toàn bộ)<input name="maxModules" value="0" autocomplete="off"></label>
@@ -973,6 +1141,7 @@ function toggleRuntimeStatus() {
 
 function renderShops(library) {
   const shops = library.shops || [];
+  state.shops = shops;
   shopQuickSelect.innerHTML = '<option value="">--- Chọn shop để mở ---</option>' + shops
     .map(shop => `<option value="${escapeHtml(shop.id)}">${escapeHtml(shop.name)}</option>`)
     .join('');
