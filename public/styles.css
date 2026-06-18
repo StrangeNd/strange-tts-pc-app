@@ -444,8 +444,95 @@ button:disabled {
   font-weight: 800;
 }
 
+.summary-grid small {
+  display: block;
+  margin-top: 6px;
+  color: #475467;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.summary-grid .is-missing {
+  border-color: rgba(180, 35, 24, 0.2);
+  background: #fff8f6;
+}
+
 .business-kpis {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.context-panel {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f8fbfb;
+  padding: 14px;
+}
+
+.context-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.context-grid div {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #ffffff;
+  padding: 10px;
+}
+
+.context-grid strong,
+.context-grid span {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.context-grid strong {
+  color: var(--accent-strong);
+  font-size: 14px;
+}
+
+.context-grid span {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.missing-value {
+  color: var(--danger);
+  font-weight: 900;
+}
+
+.metric-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  border-radius: 999px;
+  padding: 0 8px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.metric-status.ok {
+  background: #ecfdf3;
+  color: #05603a;
+}
+
+.metric-status.missing {
+  background: #fff4f2;
+  color: #b42318;
+}
+
+.meta-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-bottom: 10px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .analysis-grid {
@@ -737,6 +824,7 @@ code {
     .actions,
     .ops-check-header,
     .summary-grid,
+    .context-grid,
     .status-list,
   .extension-item,
   .shop-item,

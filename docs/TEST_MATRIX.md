@@ -11,6 +11,7 @@ changing product behavior.
 | Daily shop ops checklist | User tracks today's TikTok Shop operating tasks for the selected shop/profile | Local storage persistence check, reset check, syntax, healthcheck, UI QA | implemented | `DAILY_SHOP_OPS_CHECKLIST_PR_REPORT.md` on branch `ai-agent/daily-shop-ops-checklist` |
 | Shop overview | User selects date range and reviews shop KPIs | Crawler data fixture or real crawl proof plus UI QA | planned | none |
 | TikTok crawler | Crawl Seller Center/Compass without exposing cookies | Raw/normalized/log outputs, crawl report, no secret logging | in_progress | crawler reports/logs when produced |
+| Crawler/business data clarity | Operator can see selected shop/profile, data source/status, last crawl timestamp, and missing metrics without fake values | Syntax checks, healthcheck, high audit check, button ID verification, mojibake/replacement-character diff check, and UI/status review | in_progress | `CRAWLER_DATA_STATUS_CLARITY_PR_REPORT.md` on branch `ai-agent/crawler-data-status-clarity` |
 | Business analysis | Combine crawler and XLSX inputs into readable analysis | Fixture-based calculation check plus UI review | in_progress | `scripts/spreadsheet-smoke.mjs`; `XLSX_AUDIT_FIX_PR_REPORT.md` |
 | Agent loop | Agent A fixes, Agent B rejects/approves, max 5 rounds | Healthcheck plus reports: `BUG_REPORT.md`, `FINAL_AGENT_RUN_REPORT.md` | implemented | agent workflow files |
 
