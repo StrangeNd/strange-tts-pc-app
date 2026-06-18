@@ -1,7 +1,7 @@
 # Architecture Notes
 
 This is a local desktop app shell plus bundled Chrome/Edge extension runtime for
-Strange TTS workflows.
+Strange TikTok Shop operations workflows.
 
 ## Current Surfaces
 

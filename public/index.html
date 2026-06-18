@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Strange TikTok Shop PC App</title>
-  <link rel="stylesheet" href="/styles.css?v=20260618-tiktokshop">
+  <link rel="stylesheet" href="/styles.css?v=20260618-tiktokshop-shell">
 </head>
 <body>
   <main class="shell">
@@ -12,9 +12,9 @@
       <div class="brand-lockup">
         <div class="brand-logo">S</div>
         <div>
-          <p class="eyebrow">Local app dashboard</p>
+          <p class="eyebrow">TikTok Shop PC App</p>
           <h1>Strange TikTok Shop</h1>
-          <p class="brand-sub">TikTok Shop intelligence � Operations workflow � Local app runtime</p>
+          <p class="brand-sub">Quản lý shop, mở dashboard, phân tích dữ liệu và hỗ trợ vận hành trên PC.</p>
         </div>
       </div>
       <div class="status-pill" id="healthPill">Đang kiểm tra</div>
@@ -26,7 +26,7 @@
           <div class="user-avatar">S</div>
           <div>
             <div class="user-name">Strange</div>
-            <div class="user-role">Admin</div>
+            <div class="user-role">Local Admin</div>
           </div>
         </div>
 
@@ -35,15 +35,20 @@
           <option value="">--- Chọn shop để mở ---</option>
         </select>
 
+        <div class="start-hint">
+          <strong>Bắt đầu đơn giản</strong>
+          <span>Chọn shop, mở Dashboard để xem số liệu, hoặc mở Seller Ads để thao tác trong profile đã đăng nhập.</span>
+        </div>
+
         <div class="menu-grid">
           <button class="menu-card primary-card" id="btnAppDashboard"><span>📊</span>Dashboard</button>
           <button class="menu-card" id="btnSellerAds"><span>🛒</span>Seller Ads</button>
-          <button class="menu-card" id="btnCloudSync"><span>☁</span>Cloud Sync</button>
-          <button class="menu-card" id="btnAiData"><span>🌐</span>STRANGE TTS AI DATA</button>
+          <button class="menu-card" id="btnOpsChecklist"><span>✓</span>Checklist vận hành</button>
           <button class="menu-card" id="btnBusinessAnalysis"><span>📈</span>Phân tích KD</button>
           <button class="menu-card" id="btnTikTokCrawler"><span>🧭</span>TikTok Crawler</button>
-          <button class="menu-card" id="btnOpsChecklist"><span>&#10003;</span>Checklist v&#7853;n h&#224;nh</button>
           <button class="menu-card" id="btnBusinessPlan"><span>📝</span>Kế hoạch</button>
+          <button class="menu-card" id="btnCloudSync"><span>☁</span>Cloud Sync</button>
+          <button class="menu-card" id="btnAiData"><span>🌐</span>AI Data</button>
           <button class="menu-card" id="btnGuide"><span>?</span>Hướng dẫn</button>
           <button class="menu-card" id="btnDownloadVideo"><span>↓</span>Tải video</button>
         </div>
@@ -55,24 +60,24 @@
 
       <article class="panel" id="workspacePanel">
         <div class="panel-header">
-          <h2>Workspace app</h2>
-          <p>Mo tac vu chinh trong app cho quan ly, van hanh va toi uu TikTok Shop tren PC.</p>
+          <h2>Không gian làm việc</h2>
+          <p>Chọn một tác vụ bên trái. App chạy local, dùng profile trình duyệt riêng để giữ phiên đăng nhập shop.</p>
         </div>
         <div id="workspaceContent" class="workspace-content"></div>
       </article>
 
       <article class="panel wide hidden" id="statusPanel">
         <div class="panel-header">
-          <h2>Multishop</h2>
-          <p>Shop được tạo trong app, mỗi shop có Chrome profile và cookies riêng.</p>
+          <h2>Danh sách shop</h2>
+          <p>Mỗi shop có profile trình duyệt và cookie riêng trong máy này.</p>
         </div>
         <div class="shop-list" id="shopList"></div>
       </article>
 
       <article class="panel wide">
         <div class="panel-header">
-          <h2>Trạng thái production</h2>
-          <p>Thông tin runtime local, dùng để debug khi cần.</p>
+          <h2>Trạng thái app</h2>
+          <p>Thông tin runtime local để kiểm tra khi cần hỗ trợ kỹ thuật.</p>
         </div>
         <dl class="status-list" id="statusList"></dl>
       </article>
@@ -80,7 +85,7 @@
       <article class="panel wide">
         <div class="panel-header">
           <h2>Nhật ký thao tác</h2>
-          <p>Kết quả scan và launcher hiện tại, không ghi token hay cookie ra màn hình.</p>
+          <p>Kết quả lệnh gần nhất. App không hiển thị token, cookie hoặc khóa bí mật tại đây.</p>
         </div>
         <pre id="outputBox" class="output">Sẵn sàng.</pre>
       </article>

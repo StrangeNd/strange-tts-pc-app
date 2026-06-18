@@ -189,6 +189,27 @@ h2 {
   font-weight: 800;
 }
 
+.start-hint {
+  display: grid;
+  gap: 5px;
+  margin-top: 14px;
+  border: 1px solid rgba(246, 196, 83, 0.22);
+  border-radius: 8px;
+  background: rgba(246, 196, 83, 0.08);
+  padding: 12px;
+}
+
+.start-hint strong {
+  color: #fef3c7;
+  font-size: 14px;
+}
+
+.start-hint span {
+  color: #d9dee7;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .menu-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
