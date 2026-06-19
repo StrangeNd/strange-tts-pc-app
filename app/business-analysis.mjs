@@ -30,9 +30,13 @@ const DEFAULT_METRIC_DEFINITIONS = Object.freeze([
   { key: 'refundCancelRate', section: 'settlement', sectionTitle: 'Quyet toan', sectionKind: 'list', label: 'Refund/cancel rate', format: 'percent', mode: 'path', path: 'orders.refundCancel.affectedRate', visible: true },
   { key: 'refundCancelAmount', section: 'settlement', sectionTitle: 'Quyet toan', sectionKind: 'list', label: 'Refund/cancel amount', format: 'money', mode: 'path', path: 'orders.refundCancel.amount', visible: true },
   { key: 'videoGmv', section: 'content', sectionTitle: 'KOC / Creator', sectionKind: 'list', label: 'GMV Video', format: 'money', mode: 'path', path: 'content.video.gmv', visible: true },
+  { key: 'livestreamGmv', section: 'content', sectionTitle: 'KOC / Creator', sectionKind: 'list', label: 'GMV Livestream', format: 'money', mode: 'path', path: 'content.livestream.gmv', visible: true },
   { key: 'creatorGmv', section: 'content', sectionTitle: 'KOC / Creator', sectionKind: 'list', label: 'GMV Creator', format: 'money', mode: 'path', path: 'content.creator.gmv', visible: true },
   { key: 'videoRows', section: 'content', sectionTitle: 'KOC / Creator', sectionKind: 'list', label: 'Video rows', format: 'number', mode: 'path', path: 'content.video.rows', visible: true },
+  { key: 'livestreamRows', section: 'content', sectionTitle: 'KOC / Creator', sectionKind: 'list', label: 'Livestream rows', format: 'number', mode: 'path', path: 'content.livestream.rows', visible: true },
   { key: 'creatorRows', section: 'content', sectionTitle: 'KOC / Creator', sectionKind: 'list', label: 'Creator rows', format: 'number', mode: 'path', path: 'content.creator.rows', visible: true },
+  { key: 'affiliateProductGmv', section: 'content', sectionTitle: 'KOC / Creator', sectionKind: 'list', label: 'GMV product affiliate', format: 'money', mode: 'path', path: 'affiliate.performance.gmv', visible: true },
+  { key: 'affiliateProductRows', section: 'content', sectionTitle: 'KOC / Creator', sectionKind: 'list', label: 'Product affiliate rows', format: 'number', mode: 'path', path: 'affiliate.performance.rows', visible: true },
   { key: 'revenueSource', section: 'logic', sectionTitle: 'Logic đang áp dụng', sectionKind: 'list', label: 'Nguồn doanh thu', format: 'text', mode: 'path', path: 'kpis.revenueSource', visible: true },
   { key: 'marketplaceFee', section: 'logic', sectionTitle: 'Logic đang áp dụng', sectionKind: 'list', label: 'Phí sàn', format: 'money', mode: 'path', path: 'costs.marketplaceFee', visible: true },
   { key: 'paymentFee', section: 'logic', sectionTitle: 'Logic đang áp dụng', sectionKind: 'list', label: 'Phí thanh toán', format: 'money', mode: 'path', path: 'costs.paymentFee', visible: true },
@@ -107,6 +111,7 @@ const FILE_TYPES = new Set([
   'adsActual',
   'gmvMaxCreative',
   'video',
+  'livestream',
   'creator'
 ]);
 
@@ -120,6 +125,10 @@ const HEADER_HINTS = [
   'cash cost',
   'credit cost',
   'ad credit cost',
+  'live gmv',
+  'livestream gmv',
+  'affiliate gmv',
+  'commission',
   'tong so tien quyet toan',
   'so tien quyet toan',
   'order status',
@@ -132,7 +141,11 @@ const HEADER_HINTS = [
   'sku id',
   'seller sku',
   'ten san pham',
+  'video name',
+  'live name',
+  'creator name',
   'gmv',
+  'orders',
   'chi phi',
   'doanh thu gop'
 ];
@@ -876,6 +889,7 @@ function classifyFile(name = '', type = 'auto') {
   if (n.includes('income')) return 'income';
   if (n.includes('onhold') || n.includes('on hold')) return 'onhold';
   if (n.includes('affiliate')) return 'affiliate';
+  if (n.includes('live stream') || n.includes('livestream') || n.includes('live list')) return 'livestream';
   if (n.includes('video list')) return 'video';
   if (n.includes('creator list')) return 'creator';
   if (n.startsWith('cost ')) return 'adsActual';
@@ -1178,6 +1192,7 @@ async function ingestFiles(files = []) {
     adsActual: mergeDedup(grouped.adsActual, ['campaign id', 'campaign name', 'date']),
     gmvMaxCreative: mergeDedup(grouped.gmvMaxCreative, ['campaign id', 'ad id', 'date']),
     video: mergeDedup(grouped.video, ['video id', 'content id', 'video link']),
+    livestream: mergeDedup(grouped.livestream, ['live id', 'livestream id', 'session id', 'date']),
     creator: mergeDedup(grouped.creator, ['creator id', 'creator name'])
   };
   return { grouped: deduped, fileSummary };
@@ -1429,17 +1444,59 @@ function summarizeAffiliate(rows, priceMap, aliasMap) {
   let sampleUnits = 0;
   let sampleCost = 0;
   let shipping = 0;
+  let performanceRows = 0;
+  let gmv = 0;
+  let orders = 0;
+  let commission = 0;
+  const byProduct = new Map();
   for (const row of rows) {
     const productName = firstText(row, ['product_name', 'product name', 'ten san pham', 'item name']);
     const skuName = firstText(row, ['variation_value', 'sku name', 'seller sku', 'sku']);
     const qty = firstNumber(row, ['quantity', 'qty', 'sample quantity', 'so luong']) || 1;
     const ship = firstMoney(row, ['shipping fee', 'shipping', 'ship', 'phi van chuyen', 'tien ship']);
     const costItem = findCostForRow(row, priceMap, aliasMap);
+    const rowGmv = firstMoney(row, ['affiliate gmv', 'gmv', 'gross merchandise value', 'doanh thu', 'revenue']);
+    const rowOrders = firstNumber(row, ['affiliate orders', 'orders', 'order count', 'don hang', 'don']);
+    const rowCommission = firstMoney(row, ['commission', 'estimated commission', 'hoa hong uoc tinh', 'affiliate commission']);
+    const creatorName = firstText(row, ['creator name', 'affiliate name', 'ten nguoi dung cua nha sang tao', 'nickname']);
+    const hasPerformance = hasHeaderValue(row, ['affiliate gmv', 'gmv', 'gross merchandise value', 'doanh thu', 'revenue'])
+      || hasHeaderValue(row, ['affiliate orders', 'orders', 'order count', 'don hang', 'don'])
+      || hasHeaderValue(row, ['commission', 'estimated commission', 'hoa hong uoc tinh', 'affiliate commission']);
     sampleUnits += qty;
     shipping += ship;
     sampleCost += qty * (costItem?.cost || 0);
+    if (hasPerformance) {
+      performanceRows += 1;
+      gmv += rowGmv;
+      orders += rowOrders;
+      commission += rowCommission;
+      const key = compactKey(productName || skuName || creatorName || 'unknown');
+      const current = byProduct.get(key) || { productName: productName || skuName || 'Unknown', creatorName, rows: 0, gmv: 0, orders: 0, commission: 0 };
+      current.rows += 1;
+      current.gmv += rowGmv;
+      current.orders += rowOrders;
+      current.commission += rowCommission;
+      if (!current.creatorName && creatorName) current.creatorName = creatorName;
+      byProduct.set(key, current);
+    }
   }
-  return { sampleUnits, sampleCost, shipping, rows: rows.length };
+  return {
+    sampleUnits,
+    sampleCost,
+    shipping,
+    rows: rows.length,
+    performance: {
+      available: performanceRows > 0,
+      source: performanceRows > 0 ? 'uploaded' : 'missing',
+      rows: performanceRows,
+      gmv: performanceRows > 0 ? gmv : null,
+      orders: performanceRows > 0 ? orders : null,
+      commission: performanceRows > 0 ? commission : null,
+      topProducts: [...byProduct.values()]
+        .sort((a, b) => b.gmv - a.gmv)
+        .slice(0, 10)
+    }
+  };
 }
 
 function isGmvMax(row) {
@@ -1579,10 +1636,19 @@ function summarizeContent(rows, kind) {
   const items = rows.map(row => ({
     name: firstText(row, kind === 'video'
       ? ['ten video', 'video name', 'video title', 'content name', 'title']
-      : ['ten nguoi dung cua nha sang tao', 'creator name', 'name', 'nickname']),
-    gmv: firstMoney(row, ['gmv', 'revenue', 'doanh thu']),
-    orders: firstNumber(row, ['don hang lien ket', 'orders', 'order', 'don']),
-    views: firstNumber(row, ['luot hien thi san pham', 'luot hien thi cua video link ban hang', 'views', 'view', 'video views']),
+      : (kind === 'livestream'
+          ? ['live name', 'livestream name', 'session name', 'live title', 'title']
+          : ['ten nguoi dung cua nha sang tao', 'creator name', 'name', 'nickname'])),
+    gmv: firstMoney(row, kind === 'livestream'
+      ? ['live gmv', 'livestream gmv', 'gmv', 'revenue', 'doanh thu']
+      : ['gmv', 'revenue', 'doanh thu']),
+    orders: firstNumber(row, kind === 'livestream'
+      ? ['live orders', 'livestream orders', 'orders', 'order', 'don']
+      : ['don hang lien ket', 'orders', 'order', 'don']),
+    views: firstNumber(row, kind === 'livestream'
+      ? ['views', 'viewers', 'peak viewers', 'live viewers', 'livestream views']
+      : ['luot hien thi san pham', 'luot hien thi cua video link ban hang', 'views', 'view', 'video views']),
+    durationMinutes: firstNumber(row, ['duration minutes', 'live duration', 'duration', 'thoi luong live']),
     cost: firstMoney(row, ['hoa hong uoc tinh', 'phi co dinh uoc tinh', 'cost', 'commission', 'chi phi'])
   }));
   return {
@@ -1591,6 +1657,7 @@ function summarizeContent(rows, kind) {
     gmv: items.reduce((sum, item) => sum + item.gmv, 0),
     orders: items.reduce((sum, item) => sum + item.orders, 0),
     views: items.reduce((sum, item) => sum + item.views, 0),
+    durationMinutes: items.reduce((sum, item) => sum + item.durationMinutes, 0),
     top: items.filter(item => item.name).sort((a, b) => b.gmv - a.gmv).slice(0, 10)
   };
 }
@@ -1790,6 +1857,7 @@ export async function analyzeBusinessInput(payload = {}, options = {}) {
     warnings.push('Ads actual file co dong GMV Max nhung thieu cot Cash/Credit/Ads credit. Ads Spend duoc hien la missing.');
   }
   const video = summarizeContent(grouped.video, 'video');
+  const livestream = summarizeContent(grouped.livestream, 'livestream');
   const creator = summarizeContent(grouped.creator, 'creator');
 
   const revenueSelection = selectBusinessRevenue(rules, orders, income, onhold, gmvMax);
@@ -1843,7 +1911,7 @@ export async function analyzeBusinessInput(payload = {}, options = {}) {
     settlements: { income, onhold },
     affiliate,
     ads: { actual: adsActual, gmvMax },
-    content: { video, creator },
+    content: { video, livestream, creator },
     productCatalog,
     warnings
   };

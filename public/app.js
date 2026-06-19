@@ -785,6 +785,9 @@ function exportBusinessPlanCsv(result) {
     ['Orders', 'Refund/cancel orders', result.orders?.refundCancel?.available ? Number(result.orders.refundCancel.affectedOrders || 0) : 'missing'],
     ['Orders', 'Refund/cancel rate', result.orders?.refundCancel?.available ? pct(result.orders.refundCancel.affectedRate || 0) : 'missing'],
     ['Orders', 'Refund/cancel amount', result.orders?.refundCancel?.available ? Math.round(Number(result.orders.refundCancel.amount || 0)) : 'missing'],
+    ['Content', 'GMV Video', groupedRows(result, 'video') > 0 ? Math.round(Number(result.content?.video?.gmv || 0)) : 'missing'],
+    ['Content', 'GMV Livestream', groupedRows(result, 'livestream') > 0 ? Math.round(Number(result.content?.livestream?.gmv || 0)) : 'missing'],
+    ['Content', 'GMV Product affiliate', result.affiliate?.performance?.available ? Math.round(Number(result.affiliate.performance.gmv || 0)) : 'missing'],
     ['Ke hoach', 'Muc tieu doanh thu', Math.round(Number(result.plan?.targetRevenue || 0))],
     ['Ke hoach', 'Ngan sach ads goi y', Math.round(Number(result.plan?.suggestedAdsBudget || 0))],
     ['Ke hoach', 'ROI hoa von', Number(result.plan?.breakEvenRoi || 0).toFixed(2)]
@@ -1009,6 +1012,15 @@ function renderBusinessResult(result, mode = 'analysis') {
       <td class="num">${money(item.grossProfit)}</td>
     </tr>
   `).join('');
+  const topVideoRows = (result.content?.video?.top || []).slice(0, 6).map(item => `
+    <tr><td>${escapeHtml(item.name)}</td><td class="num">${metricValue(item.gmv, 'money', true)}</td><td class="num">${metricValue(item.orders, 'number', true)}</td></tr>
+  `).join('');
+  const topLivestreamRows = (result.content?.livestream?.top || []).slice(0, 6).map(item => `
+    <tr><td>${escapeHtml(item.name)}</td><td class="num">${metricValue(item.gmv, 'money', true)}</td><td class="num">${metricValue(item.orders, 'number', true)}</td></tr>
+  `).join('');
+  const topAffiliateRows = (result.affiliate?.performance?.topProducts || []).slice(0, 6).map(item => `
+    <tr><td>${escapeHtml(item.productName)}</td><td>${escapeHtml(item.creatorName || '')}</td><td class="num">${metricValue(item.gmv, 'money', true)}</td><td class="num">${metricValue(item.orders, 'number', true)}</td></tr>
+  `).join('');
   const planActions = (result.plan?.actions || []).map(item => `<li>${escapeHtml(item)}</li>`).join('');
   const revenueAvailable = businessRevenueAvailable(result);
   const adsCostAvailable = adsSpendAvailable(result);
@@ -1060,12 +1072,17 @@ function renderBusinessResult(result, mode = 'analysis') {
       </section>
       ${renderRefundCancelBreakdown(result)}
       <section class="mini-panel">
-        <h3>KOC / Creator</h3>
+        <h3>Content / KOC</h3>
         <dl class="compact-list">
           <dt>GMV Video</dt><dd>${metricValue(result.content?.video?.gmv, 'money', groupedRows(result, 'video') > 0)}</dd>
+          <dt>GMV Livestream</dt><dd>${metricValue(result.content?.livestream?.gmv, 'money', groupedRows(result, 'livestream') > 0)}</dd>
           <dt>GMV Creator</dt><dd>${metricValue(result.content?.creator?.gmv, 'money', groupedRows(result, 'creator') > 0)}</dd>
+          <dt>GMV Product affiliate</dt><dd>${metricValue(result.affiliate?.performance?.gmv, 'money', Boolean(result.affiliate?.performance?.available))}</dd>
+          <dt>Affiliate commission</dt><dd>${metricValue(result.affiliate?.performance?.commission, 'money', Boolean(result.affiliate?.performance?.available))}</dd>
           <dt>Video rows</dt><dd>${metricValue(result.content?.video?.rows, 'number', groupedRows(result, 'video') > 0)}</dd>
+          <dt>Livestream rows</dt><dd>${metricValue(result.content?.livestream?.rows, 'number', groupedRows(result, 'livestream') > 0)}</dd>
           <dt>Creator rows</dt><dd>${metricValue(result.content?.creator?.rows, 'number', groupedRows(result, 'creator') > 0)}</dd>
+          <dt>Product affiliate rows</dt><dd>${metricValue(result.affiliate?.performance?.rows, 'number', Boolean(result.affiliate?.performance?.available))}</dd>
         </dl>
       </section>
       <section class="mini-panel">
@@ -1083,6 +1100,18 @@ function renderBusinessResult(result, mode = 'analysis') {
       <section class="mini-panel">
         <h3>Top SKU</h3>
         <table class="data-table"><thead><tr><th>SKU</th><th>SL</th><th>DT</th><th>Lai gop</th><th>Refund/cancel</th><th>Net DT est.</th></tr></thead><tbody>${topSkuRows || '<tr><td colspan="6">Chua co du lieu</td></tr>'}</tbody></table>
+      </section>
+      <section class="mini-panel">
+        <h3>Top content / affiliate</h3>
+        <div class="table-scroll">
+          <table class="data-table"><thead><tr><th>Video</th><th>GMV</th><th>Orders</th></tr></thead><tbody>${topVideoRows || '<tr><td colspan="3">Chua co video performance</td></tr>'}</tbody></table>
+        </div>
+        <div class="table-scroll">
+          <table class="data-table"><thead><tr><th>Livestream</th><th>GMV</th><th>Orders</th></tr></thead><tbody>${topLivestreamRows || '<tr><td colspan="3">Chua co livestream performance</td></tr>'}</tbody></table>
+        </div>
+        <div class="table-scroll">
+          <table class="data-table"><thead><tr><th>Product affiliate</th><th>Creator</th><th>GMV</th><th>Orders</th></tr></thead><tbody>${topAffiliateRows || '<tr><td colspan="4">Chua co product affiliate performance</td></tr>'}</tbody></table>
+        </div>
       </section>
       <section class="mini-panel">
         <h3>Ke hoach goi y</h3>
