@@ -7,6 +7,7 @@ changing product behavior.
 | --- | --- | --- | --- | --- |
 | Desktop launch | User opens the local app from shortcut/script | Healthcheck or smoke script; no license bypass in production mode | in_progress | `scripts/agent-healthcheck.sh` |
 | Product domain guard | Agents understand TTS means TikTok Shop, not Text-To-Speech | Repository audit for speech synthesis, voice/pitch/audio preview assumptions plus syntax and healthcheck | implemented | `REMOVE_SPEECH_SHELL_PR_REPORT.md` on branch `ai-agent/remove-speech-shell` |
+| External AI Data link | User sees AI Data as an external/out-of-scope link, not a native local metric or crawler feature | Button ID verification, syntax, smoke, browser UI QA, no Text-To-Speech/audio behavior added | in_progress | `AI_DATA_EXTERNAL_LINK_PR_REPORT.md`; `docs/stories/US-008-ai-data-external-link-clarity.md` |
 | GMV Max dashboard | User sees loaded shops and shop cards | Manual UI QA plus smoke where available | planned | none |
 | Daily shop ops checklist | User tracks today's TikTok Shop operating tasks for the selected shop/profile | Local storage persistence check, reset check, syntax, healthcheck, UI QA | implemented | `DAILY_SHOP_OPS_CHECKLIST_PR_REPORT.md` on branch `ai-agent/daily-shop-ops-checklist` |
 | Shop profile/session safety | User confirms the intended shop/profile before opening Seller Ads | Syntax, healthcheck, browser UI QA, localStorage metadata review, no secret/cookie exposure review | in_progress | `SHOP_PROFILE_SESSION_SAFETY_PR_REPORT.md`; `docs/stories/US-004-shop-profile-session-safety.md` |

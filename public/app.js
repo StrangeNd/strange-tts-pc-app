@@ -81,7 +81,7 @@ function renderStatus(status) {
     ['Runtime extension', status.runtime.runtimeExtensionDir],
     ['Profiles base', status.runtime.profilesBase],
     ['Cloud sync', state.appConfig.cloudSyncUrl],
-    ['AI DATA', state.appConfig.aiDataUrl],
+    ['External AI Data', state.appConfig.aiDataUrl],
     ['Host permissions', (status.hostPermissions || []).join(', ')]
   ];
   statusList.innerHTML = rows
@@ -690,16 +690,16 @@ function renderAiDataWorkspace() {
   workspaceContent.innerHTML = `
     <form id="aiDataForm" class="workspace-content">
       <div class="panel-header">
-        <h2>STRANGE TTS AI DATA</h2>
-        <p>Quan ly link AI DATA trong app de team non-tech khong phai mo extension popup.</p>
+        <h2>External AI Data</h2>
+        <p>External link only. Out of scope for local TikTok Shop metrics, crawler data, and business analysis.</p>
       </div>
       <label>
-        AI DATA URL
+        External AI Data URL
         <input name="aiDataUrl" value="${escapeHtml(state.appConfig.aiDataUrl)}" autocomplete="off" placeholder="https://...">
       </label>
       <div class="actions">
         <button type="submit">Luu URL</button>
-        <button type="button" class="secondary" id="openAiDataUrl">Mo AI DATA</button>
+        <button type="button" class="secondary" id="openAiDataUrl">Mo external link</button>
       </div>
     </form>
   `;
@@ -716,7 +716,7 @@ function renderAiDataWorkspace() {
   });
   bindClick('#openAiDataUrl', () => {
     const url = state.appConfig.aiDataUrl;
-    if (!url) return setOutput('Chua co AI DATA URL.');
+    if (!url) return setOutput('Chua co External AI Data URL.');
     window.open(url, '_blank', 'noopener,noreferrer');
   });
 }

@@ -33,7 +33,7 @@ Khong can vao folder WSL, khong can chay `npm start` thu cong, khong can dang nh
 - `Dashboard`: dashboard goc cua extension dang nam ngay trong cua so desktop app. Day chinh la man hinh chinh cua app.
 - `Seller Ads`: tao shop moi, import cookies, sau do mo Seller Ads bang profile rieng cua shop do.
 - `Cloud Sync`: luu endpoint sync de app/extension dung chung cau hinh.
-- `STRANGE TTS AI DATA`: luu va mo link AI DATA.
+- `External AI Data`: luu va mo link AI DATA ben ngoai. Link nay nam ngoai pham vi crawler, metric kinh doanh va du lieu local cua app.
 - `Huong dan`: xem lai quy trinh dung app ngay trong app.
 - `Tai video`: dan link TikTok va tai video ve `Downloads\STRANGETTS_Downloads`.
 - `Xem san pham`: bat/tat cau hinh xem san pham.
