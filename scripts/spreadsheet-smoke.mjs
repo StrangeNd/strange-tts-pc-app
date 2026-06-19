@@ -10,9 +10,10 @@ async function workbookBase64(rows) {
 }
 
 const orderFile = await workbookBase64([
-  ['Order ID', 'Product Name', 'Seller SKU', 'GMV', 'Quantity'],
-  ['ORDER-1', 'Demo TikTok Shop product', 'SKU-1', 120000, 2],
-  ['ORDER-2', 'Demo TikTok Shop product', 'SKU-1', 80000, 1]
+  ['Order ID', 'Product Name', 'Seller SKU', 'GMV', 'Quantity', 'Order Status', 'Refund Amount', 'Cancel Amount'],
+  ['ORDER-1', 'Demo TikTok Shop product', 'SKU-1', 120000, 2, 'Completed', '', ''],
+  ['ORDER-2', 'Demo TikTok Shop product', 'SKU-1', 80000, 1, 'Refunded', 20000, ''],
+  ['ORDER-3', 'Demo TikTok Shop product', 'SKU-1', 50000, 1, 'Cancelled', '', 50000]
 ]);
 
 const priceFile = await workbookBase64([
@@ -61,8 +62,8 @@ const result = await analyzeBusinessInput({
 });
 
 const orderSummary = result.fileSummary.find(item => item.name === 'orders.xlsx');
-if (!orderSummary || orderSummary.rows !== 2) {
-  throw new Error(`Expected 2 parsed order rows, got ${orderSummary?.rows ?? 'none'}`);
+if (!orderSummary || orderSummary.rows !== 3) {
+  throw new Error(`Expected 3 parsed order rows, got ${orderSummary?.rows ?? 'none'}`);
 }
 
 if (!result.orders?.topSkus?.length) {
@@ -91,6 +92,27 @@ if (result.ads?.actual?.actualCost !== 12750) {
 
 if (!result.ads?.actual?.hasSpendComponent || result.ads?.actual?.skippedNonGmv !== 1) {
   throw new Error('Expected ads component availability and non-GMV row skip to be reported.');
+}
+
+if (!result.orders?.refundCancel?.available) {
+  throw new Error('Expected refund/cancel metrics to be available from order status columns.');
+}
+
+if (result.orders.refundCancel.affectedOrders !== 2) {
+  throw new Error(`Expected 2 refund/cancel orders, got ${result.orders.refundCancel.affectedOrders}`);
+}
+
+if (result.orders.refundCancel.amount !== 70000) {
+  throw new Error(`Expected refund/cancel amount 70000, got ${result.orders.refundCancel.amount}`);
+}
+
+if (Math.abs(result.orders.refundCancel.affectedRate - (2 / 3)) > 0.000001) {
+  throw new Error(`Expected refund/cancel rate 2/3, got ${result.orders.refundCancel.affectedRate}`);
+}
+
+const topSku = result.orders.topSkus[0];
+if (topSku.netRevenueEstimate !== 180000) {
+  throw new Error(`Expected top SKU net revenue estimate 180000, got ${topSku.netRevenueEstimate}`);
 }
 
 console.log('Spreadsheet smoke passed');

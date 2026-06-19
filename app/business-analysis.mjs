@@ -26,6 +26,9 @@ const DEFAULT_METRIC_DEFINITIONS = Object.freeze([
   { key: 'onholdAmount', section: 'settlement', sectionTitle: 'Quyết toán', sectionKind: 'list', label: 'Sẽ quyết toán', format: 'money', mode: 'path', path: 'settlements.onhold.amount', visible: true },
   { key: 'orderCount', section: 'settlement', sectionTitle: 'Quyết toán', sectionKind: 'list', label: 'Đơn hàng', format: 'number', mode: 'path', path: 'kpis.orders', visible: true },
   { key: 'unitCount', section: 'settlement', sectionTitle: 'Quyết toán', sectionKind: 'list', label: 'Số lượng bán', format: 'number', mode: 'path', path: 'kpis.units', visible: true },
+  { key: 'refundCancelOrders', section: 'settlement', sectionTitle: 'Quyet toan', sectionKind: 'list', label: 'Refund/cancel orders', format: 'number', mode: 'path', path: 'orders.refundCancel.affectedOrders', visible: true },
+  { key: 'refundCancelRate', section: 'settlement', sectionTitle: 'Quyet toan', sectionKind: 'list', label: 'Refund/cancel rate', format: 'percent', mode: 'path', path: 'orders.refundCancel.affectedRate', visible: true },
+  { key: 'refundCancelAmount', section: 'settlement', sectionTitle: 'Quyet toan', sectionKind: 'list', label: 'Refund/cancel amount', format: 'money', mode: 'path', path: 'orders.refundCancel.amount', visible: true },
   { key: 'videoGmv', section: 'content', sectionTitle: 'KOC / Creator', sectionKind: 'list', label: 'GMV Video', format: 'money', mode: 'path', path: 'content.video.gmv', visible: true },
   { key: 'creatorGmv', section: 'content', sectionTitle: 'KOC / Creator', sectionKind: 'list', label: 'GMV Creator', format: 'money', mode: 'path', path: 'content.creator.gmv', visible: true },
   { key: 'videoRows', section: 'content', sectionTitle: 'KOC / Creator', sectionKind: 'list', label: 'Video rows', format: 'number', mode: 'path', path: 'content.video.rows', visible: true },
@@ -119,6 +122,9 @@ const HEADER_HINTS = [
   'ad credit cost',
   'tong so tien quyet toan',
   'so tien quyet toan',
+  'order status',
+  'refund amount',
+  'cancel reason',
   'product id',
   'product id',
   'product name',
@@ -1240,37 +1246,174 @@ function looksLikeOrderInstructionRow(row) {
     || quantity.includes('sku sold quantity');
 }
 
+const ORDER_STATUS_CANDIDATES = Object.freeze([
+  'order status',
+  'status',
+  'sub status',
+  'fulfillment status',
+  'trang thai don hang',
+  'trang thai',
+  'cancel reason',
+  'cancellation reason',
+  'refund status',
+  'return status'
+]);
+
+const REFUND_AMOUNT_CANDIDATES = Object.freeze([
+  'refund amount',
+  'refunded amount',
+  'return refund amount',
+  'refund',
+  'refund total',
+  'so tien hoan',
+  'hoan tien'
+]);
+
+const CANCEL_AMOUNT_CANDIDATES = Object.freeze([
+  'cancel amount',
+  'cancelled amount',
+  'canceled amount',
+  'cancellation amount',
+  'so tien huy',
+  'tien huy'
+]);
+
+function orderStatusText(row) {
+  return ORDER_STATUS_CANDIDATES.map(candidate => firstText(row, [candidate])).filter(Boolean).join(' ');
+}
+
+function isRefundLikeStatus(statusText) {
+  const status = normalizeText(statusText);
+  return status.includes('refund')
+    || status.includes('return')
+    || status.includes('returned')
+    || status.includes('hoan tien')
+    || status.includes('tra hang');
+}
+
+function isCancelLikeStatus(statusText) {
+  const status = normalizeText(statusText);
+  return status.includes('cancel')
+    || status.includes('cancelled')
+    || status.includes('canceled')
+    || status.includes('huy');
+}
+
+function statusLabel(statusText) {
+  const cleaned = String(statusText || '').replace(/\s+/g, ' ').trim();
+  return cleaned || 'No status';
+}
+
 function summarizeOrders(rows, priceMap, aliasMap) {
   let revenue = 0;
   let units = 0;
   let productCost = 0;
+  let rowsUsed = 0;
+  let statusRows = 0;
+  let refundAmountRows = 0;
+  let cancelAmountRows = 0;
+  let refundAmount = 0;
+  let cancelAmount = 0;
   const orderIds = new Set();
+  const refundOrders = new Set();
+  const cancelOrders = new Set();
+  const affectedOrders = new Set();
+  const statusBreakdown = new Map();
   const bySku = new Map();
   for (const row of rows) {
     if (looksLikeOrderInstructionRow(row)) continue;
+    rowsUsed += 1;
     const orderId = firstText(row, ['order id', 'ma don hang', 'don hang id']);
     const productName = firstText(row, ['product_name', 'product name', 'ten san pham', 'item name']);
     const skuName = firstText(row, ['variation_value', 'sku name', 'ten phan loai', 'seller sku', 'sku']);
     const qty = firstNumber(row, ['quantity', 'qty', 'so luong', 'sku quantity']) || 1;
     const amount = firstMoney(row, ['order amount', 'buyer paid', 'payment amount', 'sku subtotal', 'total amount', 'gmv', 'doanh thu', 'tong tien']);
+    const orderKey = orderId || `row:${rowsUsed}`;
+    const statusText = orderStatusText(row);
+    const hasStatus = statusText.trim() !== '';
+    const hasRefundAmount = hasHeaderValue(row, REFUND_AMOUNT_CANDIDATES);
+    const hasCancelAmount = hasHeaderValue(row, CANCEL_AMOUNT_CANDIDATES);
+    const rowRefundAmount = Math.abs(firstMoney(row, REFUND_AMOUNT_CANDIDATES));
+    const rowCancelAmount = Math.abs(firstMoney(row, CANCEL_AMOUNT_CANDIDATES));
+    const isRefund = hasRefundAmount || isRefundLikeStatus(statusText);
+    const isCancel = hasCancelAmount || isCancelLikeStatus(statusText);
+    const rowAffectedAmount = (hasRefundAmount ? rowRefundAmount : 0)
+      + (hasCancelAmount ? rowCancelAmount : (isCancel ? Math.abs(amount) : 0));
     const costItem = findCostForRow(row, priceMap, aliasMap);
     revenue += amount;
     units += qty;
     productCost += qty * (costItem?.cost || 0);
     if (orderId) orderIds.add(orderId);
+    if (hasStatus) {
+      statusRows += 1;
+      const label = statusLabel(statusText);
+      const currentStatus = statusBreakdown.get(label) || { status: label, rows: 0, orders: new Set() };
+      currentStatus.rows += 1;
+      currentStatus.orders.add(orderKey);
+      statusBreakdown.set(label, currentStatus);
+    }
+    if (hasRefundAmount) {
+      refundAmountRows += 1;
+      refundAmount += rowRefundAmount;
+    }
+    if (hasCancelAmount || isCancel) {
+      cancelAmountRows += 1;
+      cancelAmount += hasCancelAmount ? rowCancelAmount : Math.abs(amount);
+    }
+    if (isRefund) refundOrders.add(orderKey);
+    if (isCancel) cancelOrders.add(orderKey);
+    if (isRefund || isCancel) affectedOrders.add(orderKey);
     const skuKey = compactKey(skuName || productName || 'unknown');
-    const current = bySku.get(skuKey) || { skuName: skuName || productName || 'Unknown', units: 0, revenue: 0, cost: 0 };
+    const current = bySku.get(skuKey) || { skuName: skuName || productName || 'Unknown', units: 0, revenue: 0, cost: 0, refundCancelOrders: 0, refundAmount: 0, cancelAmount: 0, affectedAmount: 0 };
     current.units += qty;
     current.revenue += amount;
     current.cost += qty * (costItem?.cost || 0);
+    if (isRefund || isCancel) current.refundCancelOrders += 1;
+    current.refundAmount += hasRefundAmount ? rowRefundAmount : 0;
+    current.cancelAmount += hasCancelAmount ? rowCancelAmount : (isCancel ? Math.abs(amount) : 0);
+    current.affectedAmount += rowAffectedAmount;
     bySku.set(skuKey, current);
   }
+  const orders = orderIds.size || rowsUsed;
+  const hasRefundCancelSource = Boolean(statusRows || refundAmountRows || cancelAmountRows);
+  const affectedOrderCount = hasRefundCancelSource ? (affectedOrders.size || 0) : null;
+  const refundOrderCount = hasRefundCancelSource ? (refundOrders.size || 0) : null;
+  const cancelOrderCount = hasRefundCancelSource ? (cancelOrders.size || 0) : null;
+  const affectedAmount = hasRefundCancelSource ? refundAmount + cancelAmount : null;
+  const topSkus = [...bySku.values()]
+    .map(item => ({
+      ...item,
+      netRevenueEstimate: hasRefundCancelSource ? item.revenue - item.affectedAmount : null,
+      grossProfitAfterRefundCancel: hasRefundCancelSource ? item.revenue - item.cost - item.affectedAmount : null
+    }))
+    .sort((a, b) => b.revenue - a.revenue)
+    .slice(0, 15);
   return {
     revenue,
-    orders: orderIds.size || rows.length,
+    orders,
     units,
     productCost,
-    topSkus: [...bySku.values()].sort((a, b) => b.revenue - a.revenue).slice(0, 15)
+    refundCancel: {
+      available: hasRefundCancelSource,
+      source: hasRefundCancelSource ? 'uploaded' : 'missing',
+      affectedOrders: affectedOrderCount,
+      refundOrders: refundOrderCount,
+      cancelOrders: cancelOrderCount,
+      affectedRate: hasRefundCancelSource && orders ? affectedOrderCount / orders : null,
+      refundRate: hasRefundCancelSource && orders ? refundOrderCount / orders : null,
+      cancelRate: hasRefundCancelSource && orders ? cancelOrderCount / orders : null,
+      amount: affectedAmount,
+      refundAmount: hasRefundCancelSource ? refundAmount : null,
+      cancelAmount: hasRefundCancelSource ? cancelAmount : null,
+      statusRows,
+      refundAmountRows,
+      cancelAmountRows,
+      statusBreakdown: [...statusBreakdown.values()]
+        .map(item => ({ status: item.status, rows: item.rows, orders: item.orders.size || item.rows }))
+        .sort((a, b) => b.rows - a.rows)
+        .slice(0, 12)
+    },
+    topSkus
   };
 }
 
@@ -1676,6 +1819,8 @@ export async function analyzeBusinessInput(payload = {}, options = {}) {
       onholdAmount: onhold.amount,
       orders: orders.orders,
       units: orders.units,
+      refundCancelOrders: orders.refundCancel.affectedOrders,
+      refundCancelRate: orders.refundCancel.affectedRate,
       netProfitEstimate,
       netMargin: revenue ? netProfitEstimate / revenue : 0
     },

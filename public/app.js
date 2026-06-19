@@ -782,6 +782,9 @@ function exportBusinessPlanCsv(result) {
     ['Ads', 'Credit', Math.round(Number(result.ads?.actual?.credit || 0))],
     ['Ads', 'Ads credit direct', Math.round(Number(result.ads?.actual?.adsCreditDirect || 0))],
     ['Ads', 'Ads credit prorated', Math.round(Number(result.ads?.actual?.adsCreditProrated || 0))],
+    ['Orders', 'Refund/cancel orders', result.orders?.refundCancel?.available ? Number(result.orders.refundCancel.affectedOrders || 0) : 'missing'],
+    ['Orders', 'Refund/cancel rate', result.orders?.refundCancel?.available ? pct(result.orders.refundCancel.affectedRate || 0) : 'missing'],
+    ['Orders', 'Refund/cancel amount', result.orders?.refundCancel?.available ? Math.round(Number(result.orders.refundCancel.amount || 0)) : 'missing'],
     ['Ke hoach', 'Muc tieu doanh thu', Math.round(Number(result.plan?.targetRevenue || 0))],
     ['Ke hoach', 'Ngan sach ads goi y', Math.round(Number(result.plan?.suggestedAdsBudget || 0))],
     ['Ke hoach', 'ROI hoa von', Number(result.plan?.breakEvenRoi || 0).toFixed(2)]
@@ -888,6 +891,37 @@ function renderAdsSpendComponents(result) {
   `;
 }
 
+function renderRefundCancelBreakdown(result) {
+  const refundCancel = result.orders?.refundCancel || {};
+  const available = Boolean(refundCancel.available);
+  const rows = (refundCancel.statusBreakdown || []).map(item => `
+    <tr>
+      <td>${escapeHtml(item.status)}</td>
+      <td class="num">${metricValue(item.orders, 'number', available)}</td>
+      <td class="num">${metricValue(item.rows, 'number', available)}</td>
+    </tr>
+  `).join('');
+  return `
+    <section class="mini-panel">
+      <h3>Refund / Cancel</h3>
+      <dl class="compact-list">
+        <dt>Don anh huong</dt><dd>${metricValue(refundCancel.affectedOrders, 'number', available)}</dd>
+        <dt>Ty le anh huong</dt><dd>${metricValue(refundCancel.affectedRate, 'percent', available)}</dd>
+        <dt>So tien refund/cancel</dt><dd>${metricValue(refundCancel.amount, 'money', available)}</dd>
+        <dt>Refund orders</dt><dd>${metricValue(refundCancel.refundOrders, 'number', available)}</dd>
+        <dt>Cancel orders</dt><dd>${metricValue(refundCancel.cancelOrders, 'number', available)}</dd>
+        <dt>Nguon</dt><dd>${statusTag(available, refundCancel.source || 'missing')}</dd>
+      </dl>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead><tr><th>Status</th><th>Orders</th><th>Rows</th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="3">Chua co cot status/refund/cancel trong file don hang.</td></tr>'}</tbody>
+        </table>
+      </div>
+    </section>
+  `;
+}
+
 function renderBusinessDataContext(result) {
   const selectedShop = selectedShopContext();
   const overview = result.shopOverview || {};
@@ -957,12 +991,15 @@ function renderBusinessResult(result, mode = 'analysis') {
   const fileRows = (result.fileSummary || []).map(file => `
     <tr><td>${escapeHtml(file.name)}</td><td>${escapeHtml(file.type)}</td><td>${file.rows}</td></tr>
   `).join('');
+  const refundCancelAvailable = Boolean(result.orders?.refundCancel?.available);
   const topSkuRows = (result.orders?.topSkus || []).slice(0, 8).map(item => `
     <tr>
       <td>${escapeHtml(item.skuName)}</td>
       <td class="num">${money(item.units)}</td>
       <td class="num">${money(item.revenue)}</td>
       <td class="num">${money(item.revenue - item.cost)}</td>
+      <td class="num">${metricValue(item.refundCancelOrders, 'number', refundCancelAvailable)}</td>
+      <td class="num">${metricValue(item.netRevenueEstimate, 'money', refundCancelAvailable)}</td>
     </tr>
   `).join('');
   const planRows = (result.plan?.focusSkus || []).map(item => `
@@ -990,6 +1027,7 @@ function renderBusinessResult(result, mode = 'analysis') {
       ${businessMetricCard('Loi nhuan uoc tinh', result.kpis?.netProfitEstimate, 'computed', 'money', revenueAvailable)}
       ${businessMetricCard('Net margin', result.kpis?.netMargin, 'computed', 'percent', revenueAvailable && Number(result.kpis?.revenue || 0) !== 0)}
       ${businessMetricCard('Ads thuc te', result.costs?.adsActualCost, 'uploaded', 'money', adsCostAvailable)}
+      ${businessMetricCard('Refund/cancel', result.orders?.refundCancel?.affectedOrders, result.orders?.refundCancel?.source || 'missing', 'number', refundCancelAvailable)}
       ${businessMetricCard('Gia von hang ban', result.costs?.productCost, 'uploaded', 'money', productCostAvailable)}
       ${businessMetricCard('Mau + ship affiliate', Number(result.affiliate?.sampleCost || 0) + Number(result.affiliate?.shipping || 0), 'uploaded', 'money', affiliateCostAvailable)}
     </div>
@@ -1017,8 +1055,10 @@ function renderBusinessResult(result, mode = 'analysis') {
           <dt>Se quyet toan</dt><dd>${metricValue(result.settlements?.onhold?.amount, 'money', groupedRows(result, 'onhold') > 0)}</dd>
           <dt>Don hang</dt><dd>${metricValue(result.kpis?.orders, 'number', groupedRows(result, 'orders') > 0)}</dd>
           <dt>So luong ban</dt><dd>${metricValue(result.kpis?.units, 'number', groupedRows(result, 'orders') > 0)}</dd>
+          <dt>Refund/cancel rate</dt><dd>${metricValue(result.orders?.refundCancel?.affectedRate, 'percent', refundCancelAvailable)}</dd>
         </dl>
       </section>
+      ${renderRefundCancelBreakdown(result)}
       <section class="mini-panel">
         <h3>KOC / Creator</h3>
         <dl class="compact-list">
@@ -1042,7 +1082,7 @@ function renderBusinessResult(result, mode = 'analysis') {
     <div class="analysis-grid">
       <section class="mini-panel">
         <h3>Top SKU</h3>
-        <table class="data-table"><thead><tr><th>SKU</th><th>SL</th><th>DT</th><th>Lai gop</th></tr></thead><tbody>${topSkuRows || '<tr><td colspan="4">Chua co du lieu</td></tr>'}</tbody></table>
+        <table class="data-table"><thead><tr><th>SKU</th><th>SL</th><th>DT</th><th>Lai gop</th><th>Refund/cancel</th><th>Net DT est.</th></tr></thead><tbody>${topSkuRows || '<tr><td colspan="6">Chua co du lieu</td></tr>'}</tbody></table>
       </section>
       <section class="mini-panel">
         <h3>Ke hoach goi y</h3>
