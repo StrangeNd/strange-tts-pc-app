@@ -1,5 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import {
+  buildCrawlerSnapshotContract,
+  sanitizeCrawlerText,
+  sanitizeCrawlerUrl,
+  scrubCrawlerPayload
+} from './crawler-contract.mjs';
 
 const DEFAULT_COMPASS_URL = 'https://seller-vn.tiktok.com/compass/data-overview?shop_region=VN';
 const DEFAULT_READY_TIME = 'auto';
@@ -415,6 +421,10 @@ function writeJson(file, data) {
   fs.writeFileSync(file, JSON.stringify(data, null, 2), { mode: 0o600 });
 }
 
+function writeCrawlerContract(file, options) {
+  writeJson(file, buildCrawlerSnapshotContract(options));
+}
+
 function readJson(file, fallback) {
   if (!fs.existsSync(file)) return fallback;
   const raw = fs.readFileSync(file, 'utf8');
@@ -443,6 +453,18 @@ export async function crawlCompassMonths({
   const dbFile = path.join(dir, 'compass-overview-db.json');
   const db = readJson(dbFile, { shopId, sellerId, updatedAt: '', months: {}, metricLabels: COMPASS_METRIC_LABELS });
   const results = [];
+  const startedAt = new Date().toISOString();
+  writeCrawlerContract(path.join(dir, 'snapshot-contract.json'), {
+    shopId,
+    sellerId,
+    runId: `compass-${startedAt.replace(/[:.]/g, '-')}`,
+    startedAt,
+    rawDir: 'raw',
+    normalizedDir: '.',
+    source: 'tiktokshop-crawler:compass',
+    status: 'running',
+    summary: { months: months.length }
+  });
 
   for (const month of months) {
     const range = monthRange(month);
@@ -479,14 +501,26 @@ export async function crawlCompassMonths({
       }
     };
 
-    writeJson(path.join(dir, normalized.rawFiles.aggregate), aggregate);
-    writeJson(path.join(dir, normalized.rawFiles.daily), daily);
+    writeJson(path.join(dir, normalized.rawFiles.aggregate), scrubCrawlerPayload(aggregate));
+    writeJson(path.join(dir, normalized.rawFiles.daily), scrubCrawlerPayload(daily));
     db.months[range.month] = normalized;
     results.push(normalized);
   }
 
   db.updatedAt = new Date().toISOString();
   writeJson(dbFile, db);
+  writeCrawlerContract(path.join(dir, 'snapshot-contract.json'), {
+    shopId,
+    sellerId,
+    runId: `compass-${startedAt.replace(/[:.]/g, '-')}`,
+    startedAt,
+    finishedAt: db.updatedAt,
+    rawDir: 'raw',
+    normalizedDir: '.',
+    source: 'tiktokshop-crawler:compass',
+    status: 'done',
+    summary: { months: results.length, rawFiles: results.length * 2 }
+  });
   return { ok: true, shopId, sellerId, databaseDir: dir, databaseFile: dbFile, results };
 }
 
@@ -808,24 +842,24 @@ function saveRawApiResponse({ dir, rawDir, rawEntries, apiLog, dataDictionary, u
   let parsed = null;
   if (isJson) {
     try {
-      parsed = JSON.parse(rawText);
+      parsed = scrubCrawlerPayload(JSON.parse(rawText));
       writeJson(file, parsed);
     } catch {
-      fs.writeFileSync(file, rawText, { mode: 0o600 });
+      fs.writeFileSync(file, sanitizeCrawlerText(rawText), { mode: 0o600 });
     }
   } else {
-    fs.writeFileSync(file, rawText, { mode: 0o600 });
+    fs.writeFileSync(file, sanitizeCrawlerText(rawText), { mode: 0o600 });
   }
   const rows = parsed ? countRows(parsed) : String(rawText || '').split(/\r?\n/).filter(Boolean).length;
   const entry = {
     file: path.relative(dir, file),
-    url,
+    url: sanitizeCrawlerUrl(url),
     method,
     status,
     type,
     contentType,
     rows,
-    requestPostData,
+    requestPostData: requestPostData ? sanitizeCrawlerText(requestPostData) : '',
     capturedAt: new Date().toISOString()
   };
   rawEntries.push(entry);
@@ -943,9 +977,21 @@ export async function crawlSellerCenterDeep({
   const rawDir = path.join(dir, 'raw');
   const normalizedDir = path.join(dir, 'normalized');
   const logsDir = path.join(dir, 'logs');
+  const startedAt = new Date().toISOString();
   ensureDir(rawDir);
   ensureDir(normalizedDir);
   ensureDir(logsDir);
+  writeCrawlerContract(path.join(dir, 'snapshot-contract.json'), {
+    shopId,
+    sellerId,
+    runId: id,
+    startedAt,
+    rawDir: path.relative(dir, rawDir),
+    normalizedDir: path.relative(dir, normalizedDir),
+    source: 'tiktokshop-crawler:seller-center',
+    status: 'running',
+    summary: { apiEndpoints: 0, rawFiles: 0, normalizedRows: 0, exportRequests: 0 }
+  });
   writeJson(path.join(shopDir, 'seller-center-latest.json'), {
     ok: false,
     status: 'running',
@@ -955,7 +1001,7 @@ export async function crawlSellerCenterDeep({
     baseUrl: baseUrl || config.baseUrl,
     dateRange: range,
     outputDir: path.relative(shopDir, dir),
-    startedAt: new Date().toISOString(),
+    startedAt,
     summary: { apiEndpoints: 0, rawFiles: 0, normalizedRows: 0, exportRequests: 0 },
     modules: [],
     unresolved: []
@@ -1081,7 +1127,7 @@ export async function crawlSellerCenterDeep({
         }
 
         const snapshot = await cdpEval(cdp, `(async () => { ${browserHelperSource()} return snapshot(); })()`);
-        writeJson(path.join(rawDir, `${fileSafePart(module.id)}-ui-snapshot.json`), snapshot);
+        writeJson(path.join(rawDir, `${fileSafePart(module.id)}-ui-snapshot.json`), scrubCrawlerPayload(snapshot));
         await captureBrowserResources({ cdp, shouldCapture, dir, rawDir, rawEntries, apiLog, dataDictionary, actionLog, moduleId: module.id, limit: 80 });
 
         const filters = snapshot.filters || [];
@@ -1133,11 +1179,11 @@ export async function crawlSellerCenterDeep({
             safeClickNumber += 1;
             if (safeClickNumber % 6 === 0) {
               const deepSnapshot = await cdpEval(cdp, `(async () => { ${browserHelperSource()} return snapshot(); })()`).catch(() => null);
-              if (deepSnapshot) writeJson(path.join(rawDir, `${fileSafePart(module.id)}-deep-${String(safeClickNumber).padStart(2, '0')}-ui-snapshot.json`), deepSnapshot);
+              if (deepSnapshot) writeJson(path.join(rawDir, `${fileSafePart(module.id)}-deep-${String(safeClickNumber).padStart(2, '0')}-ui-snapshot.json`), scrubCrawlerPayload(deepSnapshot));
             }
           }
           const finalDeepSnapshot = await cdpEval(cdp, `(async () => { ${browserHelperSource()} return snapshot(); })()`).catch(() => null);
-          if (finalDeepSnapshot) writeJson(path.join(rawDir, `${fileSafePart(module.id)}-deep-final-ui-snapshot.json`), finalDeepSnapshot);
+          if (finalDeepSnapshot) writeJson(path.join(rawDir, `${fileSafePart(module.id)}-deep-final-ui-snapshot.json`), scrubCrawlerPayload(finalDeepSnapshot));
         }
 
         for (let pageIndex = 0; pageIndex < Number(config.maxPaginationPages || 30); pageIndex += 1) {
@@ -1193,9 +1239,9 @@ export async function crawlSellerCenterDeep({
       const parsed = readJson(path.join(dir, entry.file), null);
       normalizedRows.push(...flattenRecords(parsed, entry.url));
     }
-    writeJson(path.join(logsDir, 'api-log.json'), apiLog);
-    writeJson(path.join(logsDir, 'action-log.json'), actionLog);
-    writeJson(path.join(rawDir, 'export-requests.json'), exportRequests);
+    writeJson(path.join(logsDir, 'api-log.json'), scrubCrawlerPayload(apiLog));
+    writeJson(path.join(logsDir, 'action-log.json'), scrubCrawlerPayload(actionLog));
+    writeJson(path.join(rawDir, 'export-requests.json'), scrubCrawlerPayload(exportRequests));
     writeJson(path.join(dir, 'data_dictionary.json'), {
       generatedAt: new Date().toISOString(),
       fields: Object.values(dataDictionary).sort((a, b) => a.path.localeCompare(b.path))
@@ -1211,6 +1257,7 @@ export async function crawlSellerCenterDeep({
       baseUrl: targetUrl,
       dateRange: range,
       outputDir: dir,
+      snapshotContract: 'snapshot-contract.json',
       modules: moduleReports,
       unresolved: reportUnresolved,
       summary: {
@@ -1220,6 +1267,18 @@ export async function crawlSellerCenterDeep({
         exportRequests: exportRequests.length
       }
     };
+    writeCrawlerContract(path.join(dir, 'snapshot-contract.json'), {
+      shopId,
+      sellerId,
+      runId: id,
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      rawDir: path.relative(dir, rawDir),
+      normalizedDir: path.relative(dir, normalizedDir),
+      source: 'tiktokshop-crawler:seller-center',
+      status: 'done',
+      summary: report.summary
+    });
     writeJson(path.join(dir, 'crawl_report.json'), report);
     fs.writeFileSync(path.join(dir, 'crawl_report.md'), makeReport(report), { mode: 0o600 });
     writeJson(path.join(shopDir, 'seller-center-latest.json'), {
@@ -1250,8 +1309,9 @@ export function loadSellerCenterLatest(rootDir, shopId) {
     if (run) {
       const report = readJson(path.join(run.full, 'crawl_report.json'), null);
       if (report) {
-        writeJson(latestFile, { ...report, outputDir: path.relative(dir, run.full) });
-        return { ...report, outputDir: path.relative(dir, run.full) };
+        const snapshotContract = readJson(path.join(run.full, 'snapshot-contract.json'), null);
+        writeJson(latestFile, { ...report, outputDir: path.relative(dir, run.full), snapshotContract });
+        return { ...report, outputDir: path.relative(dir, run.full), snapshotContract };
       }
       const rawDir = path.join(run.full, 'raw');
       const normalizedDir = path.join(run.full, 'normalized');
