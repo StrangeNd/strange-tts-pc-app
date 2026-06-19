@@ -6,6 +6,7 @@ changing product behavior.
 | Area | Critical Flow | Required Proof | Status | Evidence |
 | --- | --- | --- | --- | --- |
 | Desktop launch | User opens the local app from shortcut/script | Healthcheck or smoke script; no license bypass in production mode | in_progress | `scripts/agent-healthcheck.sh` |
+| UI shell smoke harness | Main shell keeps required IDs, health pill, asset links, and click bindings intact | `npm run ui:shell-smoke`, healthcheck integration, diff hygiene, replacement-character check | implemented | `scripts/ui-shell-smoke.mjs`; `UI_SHELL_SMOKE_HARNESS_PR_REPORT.md`; `docs/stories/US-010-ui-shell-smoke-harness.md` |
 | Product domain guard | Agents understand TTS means TikTok Shop, not Text-To-Speech | Repository audit for speech synthesis, voice/pitch/audio preview assumptions plus syntax and healthcheck | implemented | `REMOVE_SPEECH_SHELL_PR_REPORT.md` on branch `ai-agent/remove-speech-shell` |
 | External AI Data link | User sees AI Data as an external/out-of-scope link, not a native local metric or crawler feature | Button ID verification, syntax, smoke, browser UI QA, no Text-To-Speech/audio behavior added | in_progress | `AI_DATA_EXTERNAL_LINK_PR_REPORT.md`; `docs/stories/US-008-ai-data-external-link-clarity.md` |
 | GMV Max dashboard | User sees loaded shops and shop cards | Manual UI QA plus smoke where available | planned | none |

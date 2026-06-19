@@ -15,6 +15,7 @@
     "prod": "node scripts/start-pc-app.mjs --production",
     "build": "node scripts/build.mjs",
     "prod:smoke": "node scripts/smoke.mjs",
+    "ui:shell-smoke": "node scripts/ui-shell-smoke.mjs",
     "license:create": "node scripts/license-create.mjs",
     "security:scan": "node scripts/security-scan.mjs",
     "parity:audit": "node scripts/parity-audit.mjs",
