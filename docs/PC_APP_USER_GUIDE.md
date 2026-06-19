@@ -1,6 +1,10 @@
-# Huong dan su dung Strange TTS PC App cho nguoi non-tech
+# Huong dan su dung Strange TikTok Shop PC App cho nguoi non-tech
 
 ## 0. Luu y quan trong
+
+Trong repo/app nay, `TTS` la ten viet tat legacy cua TikTok Shop, khong phai
+Text-To-Speech. App nay khong co workflow tao giong noi, pitch, speed, audio
+preview, hay speech synthesis.
 
 App chi mo/chay tu Windows local:
 
@@ -12,13 +16,15 @@ Khong mo app tu `\\wsl.localhost\...`. Folder WSL chi la ban mirror code/backup 
 
 ## 1. Mo app
 
-Double click shortcut tren Desktop:
+Double click shortcut legacy tren Desktop:
 
 ```text
 Strange TTS PC App
 ```
 
-Shortcut se mo cua so app `Strange TTS PC App`. Man hinh dau tien la dashboard goc cua extension:
+Shortcut se mo cua so app legacy `Strange TTS PC App`. Ten nay la nhan runtime
+cu; y nghia san pham la TikTok Shop operations. Man hinh dau tien la dashboard
+goc cua extension:
 
 ```text
 chrome-extension://<extension-id>/pages/dashboard.html

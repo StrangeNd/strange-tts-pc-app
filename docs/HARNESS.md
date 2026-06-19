@@ -1,8 +1,11 @@
-# Strange TTS Repository Harness
+# Strange TikTok Shop Repository Harness
 
 This repository uses a lightweight agent workflow inspired by
 `hoangnb24/repository-harness`: the app is what users touch; the harness is what
 agents touch before they change the app.
+
+`TTS` is a legacy acronym in file names and runtime labels. In this repository it
+means TikTok Shop, not Text-To-Speech.
 
 The goal is to make every agent loop answer four questions before editing:
 
