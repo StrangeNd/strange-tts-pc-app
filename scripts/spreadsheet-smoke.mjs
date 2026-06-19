@@ -34,6 +34,24 @@ const gmvMaxFile = await workbookBase64([
   ['C2', 'Product GMV Max', 250, 2000, 1]
 ]);
 
+const videoFile = await workbookBase64([
+  ['Video Name', 'GMV', 'Orders', 'Views'],
+  ['Launch video', 40000, 3, 1000],
+  ['Demo clip', 10000, 1, 300]
+]);
+
+const livestreamFile = await workbookBase64([
+  ['Live Name', 'Live GMV', 'Live Orders', 'Views', 'Duration Minutes'],
+  ['Morning live', 90000, 6, 1500, 120],
+  ['Evening live', 30000, 2, 700, 60]
+]);
+
+const affiliateFile = await workbookBase64([
+  ['Product Name', 'Creator Name', 'Affiliate GMV', 'Affiliate Orders', 'Commission'],
+  ['Demo TikTok Shop product', 'Creator A', 70000, 5, 7000],
+  ['Second product', 'Creator B', 20000, 2, 2000]
+]);
+
 const result = await analyzeBusinessInput({
   priceFile: {
     name: 'price.xlsx',
@@ -55,6 +73,21 @@ const result = await analyzeBusinessInput({
       name: 'gmv-max-creative-data.xlsx',
       type: 'gmvMaxCreative',
       contentBase64: gmvMaxFile
+    },
+    {
+      name: 'video-list.xlsx',
+      type: 'video',
+      contentBase64: videoFile
+    },
+    {
+      name: 'livestream-list.xlsx',
+      type: 'livestream',
+      contentBase64: livestreamFile
+    },
+    {
+      name: 'affiliate-performance.xlsx',
+      type: 'affiliate',
+      contentBase64: affiliateFile
     }
   ]
 }, {
@@ -113,6 +146,22 @@ if (Math.abs(result.orders.refundCancel.affectedRate - (2 / 3)) > 0.000001) {
 const topSku = result.orders.topSkus[0];
 if (topSku.netRevenueEstimate !== 180000) {
   throw new Error(`Expected top SKU net revenue estimate 180000, got ${topSku.netRevenueEstimate}`);
+}
+
+if (result.content?.video?.gmv !== 50000 || result.content?.video?.orders !== 4) {
+  throw new Error(`Expected video GMV/orders 50000/4, got ${result.content?.video?.gmv}/${result.content?.video?.orders}`);
+}
+
+if (result.content?.livestream?.gmv !== 120000 || result.content?.livestream?.orders !== 8) {
+  throw new Error(`Expected livestream GMV/orders 120000/8, got ${result.content?.livestream?.gmv}/${result.content?.livestream?.orders}`);
+}
+
+if (!result.affiliate?.performance?.available || result.affiliate.performance.gmv !== 90000) {
+  throw new Error(`Expected product affiliate GMV 90000, got ${result.affiliate?.performance?.gmv}`);
+}
+
+if (result.affiliate.performance.commission !== 9000 || result.affiliate.performance.topProducts?.[0]?.productName !== 'Demo TikTok Shop product') {
+  throw new Error('Expected affiliate commission and top product performance to be reported.');
 }
 
 console.log('Spreadsheet smoke passed');
