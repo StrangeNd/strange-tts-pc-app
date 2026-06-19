@@ -322,6 +322,48 @@ h2 {
   font-size: 12px;
 }
 
+.shop-session-card {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 12px;
+  background: #fbfcfd;
+}
+
+.shop-session-card strong,
+.shop-session-card span {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.shop-session-card span {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.confirmation-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.confirmation-grid button {
+  display: grid;
+  gap: 4px;
+  min-height: 64px;
+  text-align: left;
+}
+
+.confirmation-grid small {
+  color: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0.82;
+  overflow-wrap: anywhere;
+}
+
 .textarea-input {
   width: 100%;
   min-height: 120px;
@@ -910,6 +952,7 @@ code {
     .context-grid,
     .dashboard-actions,
     .status-list,
+  .confirmation-grid,
   .extension-item,
   .shop-item,
   .menu-grid {

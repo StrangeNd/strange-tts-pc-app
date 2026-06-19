@@ -26,6 +26,15 @@ const state = {
   statusVisible: false
 };
 
+const SHOP_SESSION_CONFIRMATION_PREFIX = 'strange-tiktokshop-session-confirmation';
+const SHOP_SESSION_STATUSES = [
+  { id: 'correct-shop', label: 'Correct shop', detail: 'The opened session matches the selected shop.', opensProfile: true },
+  { id: 'wrong-shop', label: 'Wrong shop', detail: 'Stop and switch profile before operating this shop.', opensProfile: false },
+  { id: 'not-logged-in', label: 'Not logged in', detail: 'Open the selected profile so the operator can log in.', opensProfile: true },
+  { id: 'needs-relogin', label: 'Needs re-login', detail: 'Open the selected profile for manual re-login.', opensProfile: true },
+  { id: 'needs-session-restore', label: 'Needs session restore', detail: 'Do not restore here; this requires a future approved PR.', opensProfile: false }
+];
+
 function setOutput(value) {
   outputBox.textContent = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
 }
@@ -117,6 +126,43 @@ function selectedShopContext() {
     adsAccountId: shop?.adsAccountId || '',
     label: shop?.name ? `${shop.name} (${shop.id})` : (selectedId || 'Chua chon shop/profile')
   };
+}
+
+function shopSessionConfirmationKey(shopId) {
+  return `${SHOP_SESSION_CONFIRMATION_PREFIX}:${shopId || 'default'}`;
+}
+
+function readShopSessionConfirmation(shopId) {
+  try {
+    const raw = localStorage.getItem(shopSessionConfirmationKey(shopId));
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeShopSessionConfirmation(shop, statusId) {
+  const status = SHOP_SESSION_STATUSES.find(item => item.id === statusId) || SHOP_SESSION_STATUSES[0];
+  const metadata = {
+    shopId: shop.id,
+    shopName: shop.name || '',
+    profileId: shop.id,
+    sellerId: shop.sellerId || '',
+    adsAccountId: shop.adsAccountId || '',
+    status: status.id,
+    statusLabel: status.label,
+    confirmedAt: new Date().toISOString()
+  };
+  localStorage.setItem(shopSessionConfirmationKey(shop.id), JSON.stringify(metadata));
+  return metadata;
+}
+
+function shopById(shopId) {
+  return state.shops.find(shop => shop.id === shopId) || null;
+}
+
+function confirmationLabel(value) {
+  return SHOP_SESSION_STATUSES.find(item => item.id === value)?.label || value || 'No confirmation yet';
 }
 
 function sourceLabel(value) {
@@ -1477,8 +1523,8 @@ async function createSellerAdsShop(event) {
     const shop = created.library.shops.at(-1);
     await refreshStatus();
     if (shop?.id) {
-      const opened = await api('/api/shops/open-seller-ads', { method: 'POST', body: { shopId: shop.id } });
-      setOutput(opened);
+      renderShopSessionSafety(shop.id);
+      setOutput('Shop created. Confirm the selected shop/profile before opening Seller Ads.');
     } else {
       setOutput(created);
     }
@@ -1487,11 +1533,68 @@ async function createSellerAdsShop(event) {
   }
 }
 
-async function openSellerAdsShop(shopId) {
+function renderShopSessionSafety(shopId) {
   if (!shopId) {
     sellerAdsWorkspace();
     return;
   }
+  const shop = shopById(shopId);
+  if (!shop) {
+    setOutput(`Shop not found: ${shopId}`);
+    sellerAdsWorkspace();
+    return;
+  }
+  if (shopQuickSelect) shopQuickSelect.value = shop.id;
+  const confirmation = readShopSessionConfirmation(shop.id);
+  workspaceContent.innerHTML = `
+    <section class="workspace-content">
+      <div class="panel-header">
+        <h2>Shop/profile check</h2>
+        <p>Confirm the selected shop before opening Seller Ads. This stores local metadata only and never reads or exports cookies.</p>
+      </div>
+      <div class="shop-session-card">
+        <div>
+          <strong>${escapeHtml(shop.name || shop.id)}</strong>
+          <span>Profile: ${escapeHtml(shop.id)}</span>
+        </div>
+        <dl class="compact-list">
+          <dt>Seller ID</dt><dd>${escapeHtml(shop.sellerId || 'Missing')}</dd>
+          <dt>Ads account</dt><dd>${escapeHtml(shop.adsAccountId || 'Missing')}</dd>
+          <dt>Cookie storage</dt><dd>${escapeHtml(shop.cookieStorage || 'Missing')}</dd>
+          <dt>Last confirmation</dt><dd>${escapeHtml(confirmation ? `${confirmationLabel(confirmation.status)} at ${formatTimestamp(confirmation.confirmedAt)}` : 'No confirmation yet')}</dd>
+        </dl>
+      </div>
+      <div class="confirmation-grid">
+        ${SHOP_SESSION_STATUSES.map(status => `
+          <button type="button" class="${status.opensProfile ? '' : 'secondary'}" data-session-status="${escapeHtml(status.id)}">
+            <span>${escapeHtml(status.label)}</span>
+            <small>${escapeHtml(status.detail)}</small>
+          </button>
+        `).join('')}
+      </div>
+      <div class="actions">
+        <button type="button" id="backToSellerAdsSetup" class="secondary">Manage shops</button>
+      </div>
+    </section>
+  `;
+  document.querySelectorAll('[data-session-status]').forEach(button => {
+    button.addEventListener('click', async event => {
+      const statusId = event.currentTarget.dataset.sessionStatus;
+      const metadata = writeShopSessionConfirmation(shop, statusId);
+      const status = SHOP_SESSION_STATUSES.find(item => item.id === statusId);
+      setOutput({ ok: true, confirmation: metadata });
+      if (status?.opensProfile) await openSellerAdsShopDirect(shop.id);
+      else renderShopSessionSafety(shop.id);
+    });
+  });
+  bindClick('#backToSellerAdsSetup', sellerAdsWorkspace);
+}
+
+async function openSellerAdsShop(shopId) {
+  renderShopSessionSafety(shopId);
+}
+
+async function openSellerAdsShopDirect(shopId) {
   try {
     const opened = await api('/api/shops/open-seller-ads', { method: 'POST', body: { shopId } });
     setOutput(opened);
