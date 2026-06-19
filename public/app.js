@@ -419,6 +419,67 @@ function renderDashboardMetricTable(range) {
   `;
 }
 
+function renderHealthDependencyList(dependencies = []) {
+  return dependencies.map(item => `
+    <li class="${item.available ? 'available' : 'missing'}">
+      <strong>${escapeHtml(item.label)}</strong>
+      <span>${metricValue(item.value, item.format, item.available)}</span>
+      ${statusTag(item.available, item.source)}
+    </li>
+  `).join('');
+}
+
+function renderShopHealthCenter(range) {
+  const health = range.healthCenter;
+  if (!health) {
+    return `
+      <section class="mini-panel">
+        <h3>Shop Health / Score</h3>
+        <p class="hint">Chua co du lieu Shop Score hoac violations tu crawler.</p>
+      </section>
+    `;
+  }
+  const violationRows = (health.violations?.items || []).slice(0, 8).map(item => `
+    <tr>
+      <td>${escapeHtml(item.title)}</td>
+      <td>${escapeHtml(item.status || 'Chua co trang thai')}</td>
+      <td class="num">${metricValue(item.count, 'number', item.count !== null && item.count !== undefined)}</td>
+      <td>${escapeHtml(item.source || health.violations?.source || 'Chua co')}</td>
+    </tr>
+  `).join('');
+  return `
+    <section class="mini-panel shop-health-panel">
+      <h3>Shop Health / Score</h3>
+      <div class="summary-grid shop-health-summary">
+        ${dashboardCard('Shop Score', health.score?.value, health.score?.source || 'crawler', health.score?.format || 'decimal', health.score?.available, health.score?.note || '')}
+        ${dashboardCard('Shop Violations', health.violations?.summary?.value, health.violations?.summary?.source || 'crawler', health.violations?.summary?.format || 'number', health.violations?.summary?.available, health.violations?.risk || '')}
+        ${dashboardCard('Missing dependencies', health.missingDependencies?.length || 0, 'computed', 'number', true)}
+      </div>
+      <div class="analysis-grid">
+        ${(health.components || []).map(component => `
+          <section class="mini-panel health-component">
+            <h3>${escapeHtml(component.title)}</h3>
+            <dl class="compact-list">
+              <dt>Formula</dt><dd>${escapeHtml(component.formula)}</dd>
+              <dt>Weight</dt><dd>${escapeHtml(component.weight || '')}</dd>
+              <dt>Status</dt><dd>${statusTag(component.available, component.available ? 'computed' : 'missing')}</dd>
+              <dt>Score</dt><dd>${metricValue(component.value, component.format, component.available)}</dd>
+            </dl>
+            <p class="hint">${escapeHtml(component.unitNote || '')}</p>
+            <ul class="health-dependencies">${renderHealthDependencyList(component.dependencies || [])}</ul>
+          </section>
+        `).join('')}
+      </div>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead><tr><th>Violation title/type</th><th>Status tag</th><th>Count</th><th>Source</th></tr></thead>
+          <tbody>${violationRows || '<tr><td colspan="4">Chua co violation detail. Neu co vi pham, app se hien title/status/source khi crawler lay duoc.</td></tr>'}</tbody>
+        </table>
+      </div>
+    </section>
+  `;
+}
+
 function renderDashboardDetails(range) {
   const sections = (range.detailSections || []).slice(0, 2);
   if (!sections.length) return '';
@@ -454,6 +515,7 @@ function renderDashboardEmpty(selectedShop, shopCount) {
       </div>
     </div>
     ${renderDashboardCards({ cards: [] })}
+    ${renderShopHealthCenter({})}
     <div class="actions dashboard-actions">
       <button id="dashboardOpenCrawler">Mo TikTok Crawler</button>
       <button id="dashboardOpenBusinessAnalysis" class="secondary">Nap file Phan tich KD</button>
@@ -507,6 +569,7 @@ function renderDashboardView(data) {
     <div class="dashboard-notes">
       ${(overview.notes || []).map(note => `<p>${escapeHtml(note)}</p>`).join('')}
     </div>
+    ${renderShopHealthCenter(range)}
     ${renderDashboardMetricTable(range)}
     ${renderDashboardDetails(range)}
     <div class="actions dashboard-actions">

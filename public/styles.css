@@ -575,6 +575,49 @@ button:disabled {
   grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
+.shop-health-panel {
+  display: grid;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.shop-health-summary {
+  margin-top: 0;
+}
+
+.health-component {
+  box-shadow: none;
+}
+
+.health-dependencies {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.health-dependencies li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px;
+  background: #fbfcfd;
+  font-size: 12px;
+}
+
+.health-dependencies li.missing {
+  border-color: rgba(180, 35, 24, 0.2);
+  background: #fff8f6;
+}
+
+.health-dependencies strong {
+  overflow-wrap: anywhere;
+}
+
 .analysis-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

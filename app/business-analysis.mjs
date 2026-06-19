@@ -316,13 +316,31 @@ function findIndicatorValue(performanceBodies, titleNeedles = [], nameNeedles = 
 
 function latestViolationSummary(violationBodies) {
   const entry = violationBodies[violationBodies.length - 1];
+  if (!entry) {
+    return {
+      score: null,
+      count: null,
+      risk: '',
+      source: '',
+      items: [],
+      available: false
+    };
+  }
   const data = entry?.body?.data || {};
   const points = Array.isArray(data.violation_points_v2) ? data.violation_points_v2 : [];
   return {
     score: data.violation_score ?? null,
     count: points.reduce((sum, item) => sum + Number(item.count || 0), 0),
     risk: data.section_infos?.find?.(item => Number(data.violation_score || 0) >= Number(item.left_node || 0) && Number(data.violation_score || 0) <= Number(item.right_node || 0))?.risk_level || '',
-    source: entry?.log?.url || ''
+    source: entry?.log?.url || '',
+    available: true,
+    items: points.map((item, index) => ({
+      id: String(item.id || item.key || item.violation_type || item.type || `violation-${index + 1}`),
+      title: String(item.title || item.name || item.violation_name || item.violation_type || item.type || 'Chua co tieu de'),
+      status: String(item.status || item.appeal_status || item.appealStatus || item.state || item.risk_level || 'Chua co trang thai'),
+      count: Number(item.count || 0),
+      source: entry?.log?.url || ''
+    }))
   };
 }
 
@@ -412,8 +430,8 @@ function buildRangeMetricCards(stats = {}, compareStats = {}, performanceBodies 
     buildShopCard({ key: 'refunds', label: 'Hoàn tiền', icon: 'st-icon-trend-down', value: refunds, source: 'crawler', available: refunds !== null }),
     buildShopCard({ key: 'conversionRate', label: 'Tỷ lệ chuyển đổi', icon: 'st-icon-trend-up', value: ratioValue(orders, visitors), previousValue: ratioValue(statNumber(compareStats.orders_cnt), statNumber(compareStats.visitors_cnt)), format: 'percent', source: 'computed' }),
     buildShopCard({ key: 'aov', label: 'AOV', icon: 'st-icon-revenue', value: ratioValue(gmv, orders), previousValue: ratioValue(statNumber(compareStats.gmv), statNumber(compareStats.orders_cnt)), format: 'money', source: 'computed' }),
-    buildShopCard({ key: 'storeViolations', label: 'Vi phạm cửa hàng', icon: 'st-icon-report', value: violation.count, source: 'crawler', note: violation.risk, available: violation.count !== null }),
-    buildShopCard({ key: 'storeScore', label: 'Điểm cửa hàng', icon: 'st-icon-cpo', value: violation.score, format: 'decimal', source: 'crawler', note: violation.risk, available: violation.score !== null }),
+    buildShopCard({ key: 'storeViolations', label: 'Vi phạm cửa hàng', icon: 'st-icon-report', value: violation.count, source: 'crawler', note: violation.risk, available: violation.available && violation.count !== null }),
+    buildShopCard({ key: 'storeScore', label: 'Điểm cửa hàng', icon: 'st-icon-cpo', value: violation.score, format: 'decimal', source: 'crawler', note: violation.risk, available: violation.available && violation.score !== null }),
     buildShopCard({ key: 'negativeReviewRate', label: 'Tỷ lệ đánh giá tiêu cực', icon: 'st-icon-trend-down', value: sellerFaultNegativeReview?.value, format: 'percent', source: 'crawler', note: sellerFaultNegativeReview?.explanation || '', available: Boolean(sellerFaultNegativeReview) }),
     buildShopCard({ key: 'sellerFaultRefundReturnRate', label: 'Trả hàng/hoàn tiền lỗi người bán', icon: 'st-icon-trend-down', value: sellerFaultRefundReturn?.value, format: 'percent', source: 'crawler', note: sellerFaultRefundReturn?.explanation || '', available: Boolean(sellerFaultRefundReturn) }),
     buildShopCard({ key: 'fastDispatchRate30d', label: 'Tỷ lệ gửi hàng nhanh 30 ngày', icon: 'st-icon-rocket', value: fastDispatch?.value, format: 'percent', source: 'crawler', note: fastDispatch?.explanation || '', available: Boolean(fastDispatch) }),
@@ -423,6 +441,99 @@ function buildRangeMetricCards(stats = {}, compareStats = {}, performanceBodies 
     buildShopCard({ key: 'tasksCompleted', label: 'Nhiệm vụ đã hoàn thành', icon: 'st-icon-check', value: tasks.completed, source: 'crawler', available: tasks.completed !== null }),
     buildShopCard({ key: 'tasksRemaining', label: 'Nhiệm vụ còn lại', icon: 'st-icon-guide', value: tasks.remaining, source: 'crawler', available: tasks.remaining !== null })
   ];
+}
+
+function healthCard(cards, key) {
+  return (cards || []).find(card => card.key === key) || null;
+}
+
+function scoreDependency(card, label) {
+  return {
+    key: card?.key || label,
+    label,
+    value: card?.value ?? null,
+    format: card?.format || 'number',
+    available: Boolean(card?.available),
+    source: card?.source || 'missing',
+    note: card?.note || ''
+  };
+}
+
+function canComputeScore(dependencies) {
+  return dependencies.every(item => item.available && Number.isFinite(Number(item.value)));
+}
+
+function computedComponentScore(dependencies, weight) {
+  if (!canComputeScore(dependencies)) return null;
+  const values = dependencies.map(item => Number(item.value));
+  const score = (5 - values.reduce((sum, value) => sum + value, 0)) * weight;
+  return Number.isFinite(score) ? score : null;
+}
+
+function buildShopHealthCenter(cards = [], violationSummary = {}) {
+  const storeScore = healthCard(cards, 'storeScore');
+  const storeViolations = healthCard(cards, 'storeViolations');
+  const productSatisfactionDeps = [
+    scoreDependency(healthCard(cards, 'negativeReviewRate'), 'Negative review rate in 60 days'),
+    scoreDependency(healthCard(cards, 'sellerFaultRefundReturnRate'), 'Return/refund rate due to seller fault in 60 days')
+  ];
+  const fulfillmentDeps = [
+    scoreDependency(healthCard(cards, 'fastDispatchRate30d'), 'Fast shipping rate in 30 days'),
+    scoreDependency(healthCard(cards, 'sellerFaultCancelRate'), 'Cancellation rate due to seller fault in 30 days')
+  ];
+  const serviceDeps = [
+    scoreDependency(healthCard(cards, 'aftersaleHandleTime'), 'Seller after-sales handling time in 60 days'),
+    scoreDependency(healthCard(cards, 'reply12hRate30d'), '12-hour response rate in 30 days')
+  ];
+  return {
+    score: storeScore || { key: 'storeScore', label: 'Diem cua hang', value: null, format: 'decimal', available: false, source: 'missing' },
+    violations: {
+      summary: storeViolations || { key: 'storeViolations', label: 'Vi pham cua hang', value: null, format: 'number', available: false, source: 'missing' },
+      risk: violationSummary.risk || storeViolations?.note || '',
+      source: violationSummary.source || storeViolations?.source || '',
+      items: violationSummary.items || []
+    },
+    components: [
+      {
+        key: 'productSatisfaction',
+        title: 'Product Satisfaction',
+        formula: '(5 - negative_review_rate_60d - seller_fault_return_refund_rate_60d) * 70%',
+        weight: '70%',
+        value: computedComponentScore(productSatisfactionDeps, 0.7),
+        format: 'decimal',
+        available: canComputeScore(productSatisfactionDeps),
+        unitNote: 'Uses crawler source numeric units as-is; if TikTok changes rate units, keep this component missing until source is reviewed.',
+        dependencies: productSatisfactionDeps
+      },
+      {
+        key: 'fulfillmentLogistics',
+        title: 'Fulfillment and Logistics',
+        formula: '(((fast_shipping_rate_30d * 5) / 100) - seller_fault_cancel_rate_30d) * 15%',
+        weight: '15%',
+        value: canComputeScore(fulfillmentDeps)
+          ? (((Number(fulfillmentDeps[0].value) * 5) / 100) - Number(fulfillmentDeps[1].value)) * 0.15
+          : null,
+        format: 'decimal',
+        available: canComputeScore(fulfillmentDeps),
+        unitNote: 'Fast shipping is treated as a 0-100 percentage value per SPEC; cancel rate uses crawler source numeric units.',
+        dependencies: fulfillmentDeps
+      },
+      {
+        key: 'customerService',
+        title: 'Customer Service',
+        formula: 'No complete formula yet; display component metrics only.',
+        weight: 'component metrics',
+        value: null,
+        format: 'decimal',
+        available: false,
+        unitNote: 'SPEC has no complete Customer Service formula, so the app does not invent a score.',
+        dependencies: serviceDeps
+      }
+    ],
+    missingDependencies: [...productSatisfactionDeps, ...fulfillmentDeps, ...serviceDeps]
+      .filter(item => !item.available)
+      .map(item => item.label)
+  };
 }
 
 function emptyDetailMetric(label, key, format = 'number') {
@@ -513,6 +624,8 @@ function rangeDescriptor(key, label, interval = {}, compare = {}, performanceBod
   const stats = interval.stats || {};
   const compareStats = compare.stats || {};
   const tasks = latestTaskSummary(taskBodies, noviceBodies);
+  const cards = buildRangeMetricCards(stats, compareStats, performanceBodies, violationBodies, taskBodies, noviceBodies);
+  const violation = latestViolationSummary(violationBodies);
   return {
     key,
     label,
@@ -521,7 +634,8 @@ function rangeDescriptor(key, label, interval = {}, compare = {}, performanceBod
     rangeLabel: interval.start_date && interval.end_date ? `${interval.start_date} -> ${interval.end_date}` : '',
     compareLabel: compare.start_date && compare.end_date ? `${compare.start_date} -> ${compare.end_date}` : '',
     updatedAt: stats.updated_time || '',
-    cards: buildRangeMetricCards(stats, compareStats, performanceBodies, violationBodies, taskBodies, noviceBodies),
+    cards,
+    healthCenter: buildShopHealthCenter(cards, violation),
     detailSections: buildShopDetailSections(stats, summary),
     tasks
   };
