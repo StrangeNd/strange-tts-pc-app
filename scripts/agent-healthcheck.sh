@@ -70,6 +70,12 @@ else
   echo "SKIP: scripts/smoke.mjs not found"
 fi
 
-echo "SKIP: Browser UI QA is manual/Codex Browser based for this repository."
+if [[ -f package.json ]] && has_script "ui:shell-smoke"; then
+  run_step "UI shell smoke" "$PM" run ui:shell-smoke || CHECK_CODE=$?
+else
+  echo "SKIP: npm script 'ui:shell-smoke' not configured"
+fi
+
+echo "NOTE: Browser UI QA remains manual/Codex Browser based when a task changes runtime interactions."
 
 exit "$CHECK_CODE"
