@@ -722,6 +722,136 @@ function makeReport(report) {
   return `${lines.join('\n')}\n`;
 }
 
+export function buildSellerCenterFixtureRun({
+  rootDir,
+  shopId = 'fixture-shop',
+  sellerId = 'fixture-seller',
+  baseUrl = 'https://seller-vn.tiktok.com/fixture',
+  dateRange = { start: '2026-06-19', end: '2026-06-19', label: 'Fixture' },
+  rawResponses = [],
+  fixtureRunId = `fixture-${runId()}`
+} = {}) {
+  if (!rootDir) throw new Error('rootDir is required.');
+  if (!Array.isArray(rawResponses) || !rawResponses.length) {
+    throw new Error('rawResponses[] is required for fixture runs.');
+  }
+
+  const range = normalizeSellerCenterDateRange(dateRange);
+  const startedAt = new Date().toISOString();
+  const dir = sellerCenterDir(rootDir, shopId, fixtureRunId);
+  const shopDir = databaseDir(rootDir, shopId);
+  const rawDir = path.join(dir, 'raw');
+  const normalizedDir = path.join(dir, 'normalized');
+  const logsDir = path.join(dir, 'logs');
+  ensureDir(rawDir);
+  ensureDir(normalizedDir);
+  ensureDir(logsDir);
+
+  writeCrawlerContract(path.join(dir, 'snapshot-contract.json'), {
+    shopId,
+    sellerId,
+    runId: fixtureRunId,
+    startedAt,
+    rawDir: path.relative(dir, rawDir),
+    normalizedDir: path.relative(dir, normalizedDir),
+    source: 'tiktokshop-crawler:seller-center-fixture',
+    status: 'running',
+    summary: { apiEndpoints: 0, rawFiles: 0, normalizedRows: 0, exportRequests: 0 }
+  });
+
+  const apiLog = [];
+  const actionLog = [{
+    module: 'fixture',
+    action: 'build-fixture-run',
+    rawResponses: rawResponses.length,
+    at: startedAt
+  }];
+  const rawEntries = [];
+  const dataDictionary = {};
+  for (const [index, response] of rawResponses.entries()) {
+    const rawText = typeof response.rawText === 'string'
+      ? response.rawText
+      : JSON.stringify(response.body ?? response.data ?? {});
+    saveRawApiResponse({
+      dir,
+      rawDir,
+      rawEntries,
+      apiLog,
+      dataDictionary,
+      url: response.url || `${baseUrl}/api/fixture/${index + 1}`,
+      method: response.method || 'GET',
+      status: response.status ?? 200,
+      type: response.type || 'Fixture',
+      contentType: response.contentType || 'application/json',
+      rawText,
+      requestPostData: response.requestPostData || ''
+    });
+  }
+
+  const normalizedRows = [];
+  for (const entry of rawEntries) {
+    if (!entry.file.endsWith('.json')) continue;
+    const parsed = readJson(path.join(dir, entry.file), null);
+    normalizedRows.push(...flattenRecords(parsed, entry.url));
+  }
+
+  writeJson(path.join(logsDir, 'api-log.json'), scrubCrawlerPayload(apiLog));
+  writeJson(path.join(logsDir, 'action-log.json'), scrubCrawlerPayload(actionLog));
+  writeJson(path.join(rawDir, 'export-requests.json'), []);
+  writeJson(path.join(dir, 'data_dictionary.json'), {
+    generatedAt: new Date().toISOString(),
+    fields: Object.values(dataDictionary).sort((a, b) => a.path.localeCompare(b.path))
+  });
+  writeJson(path.join(normalizedDir, 'records.json'), normalizedRows);
+  writeCsv(path.join(normalizedDir, 'records.csv'), normalizedRows);
+
+  const report = {
+    ok: true,
+    runId: fixtureRunId,
+    shopId,
+    sellerId,
+    baseUrl,
+    dateRange: range,
+    outputDir: dir,
+    snapshotContract: 'snapshot-contract.json',
+    modules: [{
+      id: 'fixture',
+      name: 'Sanitized fixture',
+      status: 'ok',
+      apiCount: rawEntries.length,
+      exportCount: 0,
+      rowCount: normalizedRows.length,
+      notes: 'Generated from local sanitized fixture responses; no live TikTok crawl.'
+    }],
+    unresolved: [],
+    summary: {
+      apiEndpoints: new Set(apiLog.map(item => item.url)).size,
+      rawFiles: rawEntries.length,
+      normalizedRows: normalizedRows.length,
+      exportRequests: 0
+    }
+  };
+  writeCrawlerContract(path.join(dir, 'snapshot-contract.json'), {
+    shopId,
+    sellerId,
+    runId: fixtureRunId,
+    startedAt,
+    finishedAt: new Date().toISOString(),
+    rawDir: path.relative(dir, rawDir),
+    normalizedDir: path.relative(dir, normalizedDir),
+    source: 'tiktokshop-crawler:seller-center-fixture',
+    status: 'done',
+    summary: report.summary
+  });
+  writeJson(path.join(dir, 'crawl_report.json'), report);
+  fs.writeFileSync(path.join(dir, 'crawl_report.md'), makeReport(report), { mode: 0o600 });
+  writeJson(path.join(shopDir, 'seller-center-latest.json'), {
+    ...report,
+    outputDir: path.relative(shopDir, dir)
+  });
+  return report;
+}
+
 async function findSellerCenterPage({ cdpPort, url } = {}) {
   if (!cdpPort) throw new Error('cdpPort is required.');
   const tabs = await cdpTabs(cdpPort);
