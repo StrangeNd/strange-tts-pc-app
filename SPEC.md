@@ -557,7 +557,25 @@ Logs/reports must not expose:
 
 ## Current GitHub/PR State
 
-Known recently opened PRs:
+This section is a handoff snapshot, not an authoritative live source. Before
+answering "what next?" or starting a new task, verify the current state with:
+
+```sh
+git fetch --all --prune
+git log --oneline --decorate --graph --all -20
+git status --short --branch
+```
+
+If `gh` is available, also check current PR state:
+
+```sh
+gh pr list --state all --limit 20
+```
+
+If `gh` is unavailable, check GitHub in the browser. Do not assume older
+`SPEC.md` roadmap entries are still current when newer PRs have merged.
+
+Known recent PR state as of 2026-06-19:
 
 ### PR #7
 
@@ -569,9 +587,9 @@ Purpose:
 
 Fixes high severity `xlsx` audit issue.
 
-Status requirement:
+Status:
 
-Should be merged before claiming main is free of high severity audit issues.
+Merged into `main` on 2026-06-18.
 
 After PR #7:
 
@@ -589,19 +607,81 @@ Purpose:
 
 Improves the PC app shell copy/UI for non-technical operators.
 
-Independent from PR #7, but healthcheck on this branch may still show the old `xlsx` high issue until PR #7 reaches main.
+Status:
+
+Still open/stale as of the 2026-06-19 handoff. It is not the latest merged
+product baseline and must not be treated as the blocker for current product
+work unless a human explicitly revives it.
+
+### PR #9
+
+Branch:
+
+`ai-agent/adopt-current-spec`
+
+Purpose:
+
+Adopts the current repository SPEC for agent handoff.
+
+Status:
+
+Merged into `main`.
+
+### PR #10
+
+Branch:
+
+`ai-agent/crawler-data-status-clarity`
+
+Purpose:
+
+Clarifies crawler data status in the local UI.
+
+Status:
+
+Merged into `main`.
+
+### PR #11
+
+Branch:
+
+`ai-agent/shop-overview-operations-dashboard`
+
+Purpose:
+
+Adds a read-only shop overview operations dashboard and `/api/business/shop-overview`.
+
+Status:
+
+Merged into `main` on 2026-06-18.
+
+After PR #11:
+
+* The Dashboard is the shop operations overview.
+* The app can show selected profile context, data source/status, last crawl
+  timestamp, KPI cards, metric-source table, missing states, and next-action
+  buttons.
+* The next in-progress branch is expected to build on this overview, not restart
+  from the older PR #7/#8 sequence.
 
 ### Current Local State When This Spec Was Written
 
 Branch:
 
-`ai-agent/clarify-pc-app-shell`
+`ai-agent/shop-health-score-center`
 
-Working tree contains untracked harness docs and schema files.
+Current branch is based on `main` after PR #11.
 
-`.gitignore` is modified.
+Working tree may contain in-progress Shop Health / Shop Score Center changes in:
 
-These untracked harness files should be reviewed and committed in a dedicated harness stabilization PR, not mixed into product feature PRs.
+* `app/business-analysis.mjs`
+* `public/app.js`
+* `public/styles.css`
+* `docs/TEST_MATRIX.md`
+* `docs/stories/US-003-shop-health-score-center.md`
+
+Do not discard or overwrite these local changes. Finish, stash, or intentionally
+separate them before switching tasks.
 
 ---
 
@@ -799,20 +879,20 @@ When video downloader behavior is touched:
 
 ### P0 — Domain, Security, and Current PRs
 
-1. Merge PR #7.
-2. Pull main.
-3. Verify:
+1. Verify the latest merged PR and open PR state before choosing next work.
+2. Pull `main`.
+3. Verify the current baseline:
 
 ```sh
 npm audit --audit-level=high
 ./scripts/agent-healthcheck.sh
 ```
 
-4. Merge PR #8.
-5. Pull main.
-6. Clean README/domain wording.
+4. Treat PR #11 as the current merged product baseline unless newer PRs have merged.
+5. If local work exists on `ai-agent/shop-health-score-center`, finish or park that branch before starting another feature.
+6. Clean README/domain wording when doing a dedicated docs cleanup.
 7. Ensure all docs preserve the rule: `TTS = TikTok Shop, not Text-To-Speech`.
-8. Remove or mark AI Data as out-of-scope/external.
+8. Remove or mark AI Data as out-of-scope/external in a scoped product/UI PR.
 9. Do not mix harness stabilization with product feature PRs.
 
 ### P1 — Shop Profile and Session Safety
@@ -962,7 +1042,8 @@ scripts/bin/harness-cli audit
 A new agent is ready to continue when:
 
 * `main` is pulled and clean.
-* PR #7 and PR #8 status is known.
+* The latest merged PR and currently open PRs are known from GitHub or `gh`.
+* The agent has compared the live PR/git state against this `SPEC.md` snapshot and adjusted next-step advice accordingly.
 * Untracked harness docs are either committed in a dedicated PR or intentionally left untouched.
 * The agent has read:
 
@@ -1009,23 +1090,26 @@ A PR is not done until:
 
 ## Immediate Recommended Next Task
 
-After PR #7 and PR #8 are merged and main is clean, the next product task should be:
+After PR #11 is merged and `main` is current, the next in-progress product task is:
 
-`ai-agent/shop-profile-session-safety`
+`ai-agent/shop-health-score-center`
 
 Reason:
 
-This is the safest and highest-value next step. It directly addresses the known failure mode where Shop A opens into Shop B because of mixed cookies/session state.
+PR #11 added the shop overview operations dashboard. The next logical slice is to expose Shop Health / Shop Score detail from the same local, read-only, missing-data-safe foundation.
 
 This PR should build the foundation for:
 
-* Correct shop selection.
-* Correct browser profile opening.
-* Shop health status.
-* Login note.
-* Human shop verification.
-* Mismatch warning.
-* Future crawler correctness.
-* Future authorized session restore.
+* Shop Score component visibility.
+* Missing dependency display for health formulas.
+* Shop violation status display.
+* Source/status/timestamp clarity for health data.
+* Dashboard-to-health drilldown without inventing missing metrics.
 
-It must not implement cookie/session restore yet. That belongs in a later high-risk dedicated PR.
+It must not implement cookie/session restore, auth, payment, billing, license enforcement, production deployment, database migrations, or raw session/cookie handling.
+
+The later shop/profile safety task remains important:
+
+`ai-agent/shop-profile-session-safety`
+
+Start that task only after the current Shop Health branch is finished, parked, or explicitly superseded.
