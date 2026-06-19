@@ -1,7 +1,8 @@
 # Architecture Notes
 
 This is a local desktop app shell plus bundled Chrome/Edge extension runtime for
-Strange TTS workflows.
+Strange TikTok Shop workflows. `TTS` is a legacy acronym in file names and
+runtime labels; it does not mean Text-To-Speech in this repository.
 
 ## Current Surfaces
 

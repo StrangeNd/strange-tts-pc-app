@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Local desktop app shell for the Strange TTS Chrome extension runtime.",
+  "description": "Local desktop app shell for Strange TikTok Shop operations.",
   "scripts": {
     "start": "node scripts/start-pc-app.mjs",
     "app": "powershell -ExecutionPolicy Bypass -File scripts/open-desktop-app.ps1",

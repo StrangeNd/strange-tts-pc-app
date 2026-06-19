@@ -1,6 +1,12 @@
-# Strange TTS PC App
+# Strange TikTok Shop PC App
 
-Day la ban PC app duoc tach rieng tu extension goc `Strange_TTS_Solution`. Thu muc goc chi duoc copy, khong bi sua truc tiep.
+Day la local PC companion app cho van hanh TikTok Shop. Trong repo nay, `TTS`
+la ten viet tat legacy cua TikTok Shop, khong phai Text-To-Speech. Khong them
+speech synthesis, voice, pitch, speed, audio preview, hay tinh nang tao am thanh
+neu khong co yeu cau rieng.
+
+App duoc tach rieng tu extension goc `Strange_TTS_Solution`. Thu muc goc chi
+duoc copy, khong bi sua truc tiep.
 
 ## Nguyen tac chay app
 
@@ -22,13 +28,17 @@ cd "C:\Users\Stephen Strange\StrangeTTS-PC-App"
 
 ## Mo bang shortcut Desktop
 
-Shortcut da tao tren Desktop:
+Shortcut legacy da tao tren Desktop:
 
 ```text
 C:\Users\Stephen Strange\OneDrive\Desktop\Strange TTS PC App.lnk
 ```
 
-Shortcut nay chay `scripts\open-desktop-app.ps1` va mo cua so app-window ten `Strange TTS PC App`. Cua so nay load thang dashboard goc cua extension, khong hien thanh dia chi browser va khong bat nguoi dung mo `localhost`.
+Shortcut nay chay `scripts\open-desktop-app.ps1` va mo cua so app-window legacy
+ten `Strange TTS PC App`. Ten nay van la nhan runtime/shortcut cu; y nghia san
+pham la TikTok Shop operations. Cua so nay load thang dashboard goc cua
+extension, khong hien thanh dia chi browser va khong bat nguoi dung mo
+`localhost`.
 
 ```text
 chrome-extension://<extension-id>/pages/dashboard.html
