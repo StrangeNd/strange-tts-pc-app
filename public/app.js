@@ -778,6 +778,10 @@ function exportBusinessPlanCsv(result) {
     ['KPI', 'Loi nhuan uoc tinh', Math.round(Number(result.kpis?.netProfitEstimate || 0))],
     ['KPI', 'Net margin', pct(result.kpis?.netMargin)],
     ['Ads', 'Chi phi thuc te', Math.round(Number(result.costs?.adsActualCost || 0))],
+    ['Ads', 'Cash', Math.round(Number(result.ads?.actual?.cash || 0))],
+    ['Ads', 'Credit', Math.round(Number(result.ads?.actual?.credit || 0))],
+    ['Ads', 'Ads credit direct', Math.round(Number(result.ads?.actual?.adsCreditDirect || 0))],
+    ['Ads', 'Ads credit prorated', Math.round(Number(result.ads?.actual?.adsCreditProrated || 0))],
     ['Ke hoach', 'Muc tieu doanh thu', Math.round(Number(result.plan?.targetRevenue || 0))],
     ['Ke hoach', 'Ngan sach ads goi y', Math.round(Number(result.plan?.suggestedAdsBudget || 0))],
     ['Ke hoach', 'ROI hoa von', Number(result.plan?.breakEvenRoi || 0).toFixed(2)]
@@ -846,12 +850,40 @@ function businessRevenueAvailable(result) {
   return hasMetricValue(result.kpis?.revenue);
 }
 
+function adsSpendAvailable(result) {
+  return Boolean(result.ads?.actual?.hasSpendComponent);
+}
+
 function businessMetricCard(label, value, source, format = 'money', available = true) {
   return `
     <div class="${available ? '' : 'is-missing'}">
       <strong>${metricValue(value, format, available)}</strong>
       <span>${escapeHtml(label)}</span>
       <small>Nguon: ${escapeHtml(sourceLabel(source))}</small>
+    </div>
+  `;
+}
+
+function renderAdsSpendComponents(result) {
+  const components = Array.isArray(result.ads?.actual?.components) ? result.ads.actual.components : [];
+  if (!components.length) {
+    return '<p class="hint">Chua co chi tiet Cash/Credit/Ads credit.</p>';
+  }
+  const rows = components.map(component => `
+    <tr>
+      <td>${escapeHtml(component.label)}</td>
+      <td class="num">${metricValue(component.value, 'money', component.available)}</td>
+      <td>${statusTag(component.available, component.source)}</td>
+      <td class="num">${component.available ? metricValue(component.rows, 'number', true) : '<span class="missing-value">Chua co du lieu</span>'}</td>
+      <td>${escapeHtml(component.note || '')}</td>
+    </tr>
+  `).join('');
+  return `
+    <div class="table-scroll spend-component-table">
+      <table class="data-table">
+        <thead><tr><th>Component</th><th>Value</th><th>Source/status</th><th>Rows</th><th>Note</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
     </div>
   `;
 }
@@ -942,7 +974,8 @@ function renderBusinessResult(result, mode = 'analysis') {
   `).join('');
   const planActions = (result.plan?.actions || []).map(item => `<li>${escapeHtml(item)}</li>`).join('');
   const revenueAvailable = businessRevenueAvailable(result);
-  const adsCostAvailable = groupedRows(result, 'adsActual') > 0;
+  const adsCostAvailable = adsSpendAvailable(result);
+  const adsActualRowsAvailable = Number(result.ads?.actual?.rowsUsed || 0) > 0;
   const productCostAvailable = groupedRows(result, 'orders') > 0 && Number(result.priceRows || 0) > 0;
   const affiliateCostAvailable = groupedRows(result, 'affiliate') > 0;
   workspaceContent.innerHTML = `
@@ -966,12 +999,16 @@ function renderBusinessResult(result, mode = 'analysis') {
         <h3>Ads GMV Max</h3>
         <dl class="compact-list">
           <dt>Cash + Credit + Ads credit</dt><dd>${metricValue(result.ads?.actual?.actualCost, 'money', adsCostAvailable)}</dd>
+          <dt>Cash</dt><dd>${metricValue(result.ads?.actual?.cash, 'money', result.ads?.actual?.cashRows > 0)}</dd>
+          <dt>Credit</dt><dd>${metricValue(result.ads?.actual?.credit, 'money', result.ads?.actual?.creditRows > 0)}</dd>
+          <dt>Ads credit total</dt><dd>${metricValue(result.ads?.actual?.adsCreditTotal, 'money', result.ads?.actual?.adsCreditRows > 0)}</dd>
           <dt>Chi phi gom chiet khau</dt><dd>${metricValue(result.ads?.gmvMax?.costWithDiscount, 'money', groupedRows(result, 'gmvMaxCreative') > 0)}</dd>
           <dt>GMV ads</dt><dd>${metricValue(result.ads?.gmvMax?.gmv, 'money', groupedRows(result, 'gmvMaxCreative') > 0)}</dd>
           <dt>ROI creative</dt><dd>${metricValue(result.ads?.gmvMax?.roi, 'decimal', groupedRows(result, 'gmvMaxCreative') > 0)}</dd>
-          <dt>Dong GMV Max da dung</dt><dd>${metricValue(result.ads?.actual?.rowsUsed, 'number', adsCostAvailable)}</dd>
-          <dt>Match chi phi</dt><dd>${escapeHtml(result.ads?.actual?.matchMode || '')}</dd>
+          <dt>Dong GMV Max da dung</dt><dd>${metricValue(result.ads?.actual?.rowsUsed, 'number', adsActualRowsAvailable)}</dd>
+          <dt>Match chi phi</dt><dd>${adsActualRowsAvailable ? escapeHtml(result.ads?.actual?.matchMode || '') : '<span class="missing-value">Chua co du lieu</span>'}</dd>
         </dl>
+        ${renderAdsSpendComponents(result)}
       </section>
       <section class="mini-panel">
         <h3>Quyet toan</h3>

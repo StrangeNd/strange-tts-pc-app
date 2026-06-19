@@ -710,6 +710,10 @@ button:disabled {
   font-variant-numeric: tabular-nums;
 }
 
+.spend-component-table {
+  margin-top: 14px;
+}
+
 .data-table {
   width: 100%;
   border-collapse: collapse;

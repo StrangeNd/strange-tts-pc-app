@@ -12,6 +12,11 @@ const DEFAULT_METRIC_DEFINITIONS = Object.freeze([
   { key: 'productCost', section: 'kpis', sectionTitle: 'KPI', sectionKind: 'kpi', label: 'Giá vốn', format: 'money', mode: 'path', path: 'costs.productCost', visible: true },
   { key: 'affiliateTotalCost', section: 'kpis', sectionTitle: 'KPI', sectionKind: 'kpi', label: 'Mẫu + ship affiliate', format: 'money', mode: 'formula', formula: 'costs.affiliateSampleCost + costs.affiliateShipping', visible: true },
   { key: 'adsActualTotalCost', section: 'ads', sectionTitle: 'Ads GMV Max', sectionKind: 'list', label: 'Cash + Credit + Ads credit', format: 'money', mode: 'path', path: 'ads.actual.actualCost', visible: true },
+  { key: 'adsCashCost', section: 'ads', sectionTitle: 'Ads GMV Max', sectionKind: 'list', label: 'Cash', format: 'money', mode: 'path', path: 'ads.actual.cash', visible: true },
+  { key: 'adsCreditCost', section: 'ads', sectionTitle: 'Ads GMV Max', sectionKind: 'list', label: 'Credit', format: 'money', mode: 'path', path: 'ads.actual.credit', visible: true },
+  { key: 'adsCreditDirect', section: 'ads', sectionTitle: 'Ads GMV Max', sectionKind: 'list', label: 'Ads credit direct', format: 'money', mode: 'path', path: 'ads.actual.adsCreditDirect', visible: true },
+  { key: 'adsCreditProrated', section: 'ads', sectionTitle: 'Ads GMV Max', sectionKind: 'list', label: 'Ads credit prorated', format: 'money', mode: 'path', path: 'ads.actual.adsCreditProrated', visible: true },
+  { key: 'adsCreditTotal', section: 'ads', sectionTitle: 'Ads GMV Max', sectionKind: 'list', label: 'Ads credit total', format: 'money', mode: 'path', path: 'ads.actual.adsCreditTotal', visible: true },
   { key: 'adsCostWithDiscount', section: 'ads', sectionTitle: 'Ads GMV Max', sectionKind: 'list', label: 'Chi phí gồm chiết khấu', format: 'money', mode: 'path', path: 'ads.gmvMax.costWithDiscount', visible: true },
   { key: 'adsGmv', section: 'ads', sectionTitle: 'Ads GMV Max', sectionKind: 'list', label: 'GMV ads', format: 'money', mode: 'path', path: 'ads.gmvMax.gmv', visible: true },
   { key: 'adsRoiCreative', section: 'ads', sectionTitle: 'Ads GMV Max', sectionKind: 'list', label: 'ROI creative', format: 'decimal', mode: 'path', path: 'ads.gmvMax.roi', visible: true },
@@ -849,6 +854,10 @@ function firstMoney(row, candidates) {
   return parseMoney(valueByHeader(row, candidates));
 }
 
+function hasHeaderValue(row, candidates) {
+  return String(valueByHeader(row, candidates) ?? '').trim() !== '';
+}
+
 function firstNumber(row, candidates) {
   return parseNumber(valueByHeader(row, candidates));
 }
@@ -1329,6 +1338,11 @@ function summarizeAdsActual(rows, adsCreditRatio = 0, gmvCampaignIndex = new Set
   let credit = 0;
   let adsCreditDirect = 0;
   let adsCreditProrated = 0;
+  let cashRows = 0;
+  let creditRows = 0;
+  let adsCreditRows = 0;
+  let adsCreditDirectRows = 0;
+  let adsCreditProratedRows = 0;
   let skippedNonGmv = 0;
   let rowsUsed = 0;
   const ratio = Math.max(0, Math.min(1, Number(adsCreditRatio) || 0));
@@ -1339,23 +1353,56 @@ function summarizeAdsActual(rows, adsCreditRatio = 0, gmvCampaignIndex = new Set
       skippedNonGmv += 1;
       continue;
     }
-    const cashValue = Math.abs(firstMoney(row, ['cash cost', 'cash']));
-    const creditValue = Math.abs(firstMoney(row, ['credit cost', 'credit']));
-    const adsCreditValue = Math.abs(firstMoney(row, ['ad credit cost', 'ads credit', 'ad credit']));
+    const cashCandidates = ['cash cost', 'cash'];
+    const creditCandidates = ['credit cost', 'credit'];
+    const adsCreditCandidates = ['ad credit cost', 'ads credit', 'ad credit'];
+    const hasCash = hasHeaderValue(row, cashCandidates);
+    const hasCredit = hasHeaderValue(row, creditCandidates);
+    const hasAdsCredit = hasHeaderValue(row, adsCreditCandidates);
+    const cashValue = Math.abs(firstMoney(row, cashCandidates));
+    const creditValue = Math.abs(firstMoney(row, creditCandidates));
+    const adsCreditValue = Math.abs(firstMoney(row, adsCreditCandidates));
     cash += cashValue;
     credit += creditValue;
-    if (adsCreditValue && (cashValue || creditValue)) adsCreditDirect += adsCreditValue;
-    else if (adsCreditValue) adsCreditProrated += adsCreditValue * ratio;
+    if (hasCash) cashRows += 1;
+    if (hasCredit) creditRows += 1;
+    if (hasAdsCredit) {
+      adsCreditRows += 1;
+      if (hasCash || hasCredit) {
+        adsCreditDirect += adsCreditValue;
+        adsCreditDirectRows += 1;
+      } else {
+        adsCreditProrated += adsCreditValue * ratio;
+        adsCreditProratedRows += 1;
+      }
+    }
     rowsUsed += 1;
   }
+  const adsCreditTotal = adsCreditDirect + adsCreditProrated;
+  const hasSpendComponent = Boolean(cashRows || creditRows || adsCreditRows);
+  const components = [
+    { key: 'cash', label: 'Cash', value: cash, available: cashRows > 0, rows: cashRows, source: 'uploaded', note: 'Column: Cash / Cash cost' },
+    { key: 'credit', label: 'Credit', value: credit, available: creditRows > 0, rows: creditRows, source: 'uploaded', note: 'Column: Credit / Credit cost' },
+    { key: 'adsCreditDirect', label: 'Ads credit direct', value: adsCreditDirect, available: adsCreditDirectRows > 0, rows: adsCreditDirectRows, source: 'uploaded', note: 'Ad credit on rows with Cash/Credit' },
+    { key: 'adsCreditProrated', label: 'Ads credit prorated', value: adsCreditProrated, available: adsCreditProratedRows > 0, rows: adsCreditProratedRows, source: 'computed', note: `Ad credit-only rows x ${Math.round(ratio * 100)}%` },
+    { key: 'otherVisibleSpendFields', label: 'Other visible payment/spend fields', value: null, available: false, rows: 0, source: 'missing', note: 'No supported uploaded column or normalized crawler field yet' }
+  ];
   return {
     cash,
     credit,
     adsCreditDirect,
     adsCreditProrated,
-    actualCost: cash + credit + adsCreditDirect + adsCreditProrated,
+    adsCreditTotal,
+    actualCost: cash + credit + adsCreditTotal,
     rowsUsed,
     skippedNonGmv,
+    cashRows,
+    creditRows,
+    adsCreditRows,
+    adsCreditDirectRows,
+    adsCreditProratedRows,
+    hasSpendComponent,
+    components,
     adsCreditRatio: ratio,
     matchMode: hasCampaignIndexMatch ? 'creative-campaign-id' : 'campaign-name-pattern'
   };
@@ -1594,6 +1641,11 @@ export async function analyzeBusinessInput(payload = {}, options = {}) {
   const gmvCampaignIndex = buildGmvCampaignIndex(grouped.gmvMaxCreative);
   const affiliate = summarizeAffiliate(grouped.affiliate, priceMap, productAliasMap);
   const adsActual = summarizeAdsActual(grouped.adsActual, adsCreditRatio, gmvCampaignIndex);
+  if (grouped.adsActual.length && !adsActual.rowsUsed) {
+    warnings.push('Ads actual file da nap nhung chua match duoc dong GMV Max. Ads Spend duoc hien la missing.');
+  } else if (adsActual.rowsUsed && !adsActual.hasSpendComponent) {
+    warnings.push('Ads actual file co dong GMV Max nhung thieu cot Cash/Credit/Ads credit. Ads Spend duoc hien la missing.');
+  }
   const video = summarizeContent(grouped.video, 'video');
   const creator = summarizeContent(grouped.creator, 'creator');
 
