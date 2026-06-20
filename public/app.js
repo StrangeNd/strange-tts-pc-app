@@ -1632,24 +1632,56 @@ function renderGuideWorkspace() {
 }
 
 function renderDownloadWorkspace() {
+  const selectedShop = selectedShopContext();
+  const confirmation = selectedShop.id ? readShopSessionConfirmation(selectedShop.id) : null;
+  const confirmationText = confirmation
+    ? `${confirmationLabel(confirmation.status)} at ${formatTimestamp(confirmation.confirmedAt)}`
+    : 'No confirmation yet';
   workspaceContent.innerHTML = `
     <form id="downloadVideoForm" class="workspace-content">
       <div class="panel-header">
         <h2>Tai video TikTok</h2>
-        <p>Nhap link TikTok, app se tai file ve Downloads/STRANGETTS_Downloads bang logic Tikwm nhu extension goc.</p>
+        <p>Download by operator-provided URL only. Use this for videos the selected shop/profile can already view.</p>
       </div>
+      <div class="shop-session-card">
+        <div>
+          <strong>${escapeHtml(selectedShop.name || 'Chua chon shop/profile')}</strong>
+          <span>Profile: ${escapeHtml(selectedShop.id || 'Missing')}</span>
+        </div>
+        <dl class="compact-list">
+          <dt>Seller ID</dt><dd>${escapeHtml(selectedShop.sellerId || 'Missing')}</dd>
+          <dt>Ads account</dt><dd>${escapeHtml(selectedShop.adsAccountId || 'Missing')}</dd>
+          <dt>Session check</dt><dd>${escapeHtml(confirmationText)}</dd>
+        </dl>
+      </div>
+      <p class="hint">Khong dung de bypass DRM, private content, access control, hay shop/profile khac. Neu chua chac profile dung, hay check profile truoc.</p>
       <label>
         Link TikTok
         <input name="url" autocomplete="off" required placeholder="https://www.tiktok.com/@.../video/...">
       </label>
-      <button type="submit">Tai video</button>
+      <label class="check-row">
+        <input type="checkbox" name="operatorCanView" required>
+        Toi xac nhan shop/profile dang chon co quyen xem video nay.
+      </label>
+      <div class="actions dashboard-actions">
+        <button type="submit">Tai video</button>
+        <button type="button" class="secondary" id="downloadProfileCheck">Check profile</button>
+      </div>
     </form>
   `;
+  bindClick('#downloadProfileCheck', () => {
+    if (!selectedShop.id) return setOutput('Chua chon shop/profile de check.');
+    renderShopSessionSafety(selectedShop.id);
+  });
   document.querySelector('#downloadVideoForm').addEventListener('submit', async event => {
     event.preventDefault();
     const button = event.currentTarget.querySelector('button[type="submit"]');
     const original = button.textContent;
     const form = new FormData(event.currentTarget);
+    if (!form.has('operatorCanView')) {
+      setOutput('Can xac nhan shop/profile co quyen xem video truoc khi tai.');
+      return;
+    }
     button.disabled = true;
     button.textContent = 'Dang tai';
     try {
