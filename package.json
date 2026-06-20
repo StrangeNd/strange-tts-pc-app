@@ -15,6 +15,7 @@
     "prod": "node scripts/start-pc-app.mjs --production",
     "build": "node scripts/build.mjs",
     "prod:smoke": "node scripts/smoke.mjs",
+    "test-matrix:smoke": "node scripts/test-matrix-smoke.mjs",
     "ui:shell-smoke": "node scripts/ui-shell-smoke.mjs",
     "crawler:fixture-smoke": "node scripts/crawler-fixture-smoke.mjs",
     "cloud:local-smoke": "node scripts/cloud-sync-local-smoke.mjs",
