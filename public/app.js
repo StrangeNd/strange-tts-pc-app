@@ -80,7 +80,7 @@ function renderStatus(status) {
     ['Audit log', status.dataSecurity?.auditLog],
     ['Runtime extension', status.runtime.runtimeExtensionDir],
     ['Profiles base', status.runtime.profilesBase],
-    ['Cloud sync', state.appConfig.cloudSyncUrl],
+    ['Local sync', state.appConfig.cloudSyncUrl ? 'legacy URL ignored in Phase 0' : 'Phase 0 local backup only'],
     ['External AI Data', state.appConfig.aiDataUrl],
     ['Host permissions', (status.hostPermissions || []).join(', ')]
   ];
@@ -734,32 +734,103 @@ async function renderOperationsDashboardWorkspace() {
   }
 }
 
+function localBackupShop(shop = {}) {
+  return {
+    id: shop.id || '',
+    name: shop.name || '',
+    sellerId: shop.sellerId || '',
+    adsAccountId: shop.adsAccountId || '',
+    sellerCenterUrl: shop.sellerCenterUrl || '',
+    sellerAdsUrl: shop.sellerAdsUrl || '',
+    compassUrl: shop.compassUrl || '',
+    region: shop.region || '',
+    cookieStorage: shop.cookieStorage || 'none'
+  };
+}
+
+function cloudSyncBackupPayload() {
+  return {
+    schema: 'strange-tiktokshop-local-backup/v1',
+    exportedAt: new Date().toISOString(),
+    mode: 'local-only',
+    appConfig: {
+      aiDataUrl: state.appConfig.aiDataUrl || '',
+      productViewEnabled: Boolean(state.appConfig.productViewEnabled),
+      videoAutoplay: Boolean(state.appConfig.videoAutoplay),
+      videoSound: Boolean(state.appConfig.videoSound),
+      videoLoop: Boolean(state.appConfig.videoLoop)
+    },
+    shops: (state.shops || []).map(localBackupShop),
+    notes: [
+      'Phase 0 local backup only.',
+      'Cookies, tokens, credentials, machine IDs, license keys, and private browser state are not exported.'
+    ]
+  };
+}
+
+function importedBool(value, fallback) {
+  return typeof value === 'boolean' ? value : fallback;
+}
+
+async function importLocalBackup(file) {
+  if (!file) return { ok: false, error: 'Chua chon file backup local.' };
+  const parsed = JSON.parse(await file.text());
+  if (parsed.schema !== 'strange-tiktokshop-local-backup/v1' || parsed.mode !== 'local-only') {
+    throw new Error('File backup khong dung dinh dang local Phase 0.');
+  }
+  const config = parsed.appConfig || {};
+  const nextConfig = await saveAppConfig({
+    aiDataUrl: config.aiDataUrl || state.appConfig.aiDataUrl || '',
+    productViewEnabled: importedBool(config.productViewEnabled, state.appConfig.productViewEnabled),
+    videoAutoplay: importedBool(config.videoAutoplay, state.appConfig.videoAutoplay),
+    videoSound: importedBool(config.videoSound, state.appConfig.videoSound),
+    videoLoop: importedBool(config.videoLoop, state.appConfig.videoLoop)
+  });
+  return {
+    ok: true,
+    imported: 'appConfig',
+    skipped: 'shops are included as read-only backup reference only',
+    shopCount: Array.isArray(parsed.shops) ? parsed.shops.length : 0,
+    config: nextConfig
+  };
+}
+
 function renderCloudSyncWorkspace() {
   workspaceContent.innerHTML = `
-    <form id="cloudSyncForm" class="workspace-content">
+    <div class="workspace-content">
       <div class="panel-header">
-        <h2>Cloud Sync</h2>
-        <p>Luu endpoint sync trong app. Khi mo Seller Ads, extension van dung runtime goc trong Chrome profile rieng.</p>
+        <h2>Dong bo local / Sao luu du lieu</h2>
+        <p>Phase 0 chi tao file backup cuc bo tren may nay. Cloud that se duoc phat trien sau khi co phe duyet rieng.</p>
       </div>
+      <div class="summary-grid">
+        <div><strong>Off</strong><span>Remote cloud</span></div>
+        <div><strong>${state.shops.length}</strong><span>Shop references</span></div>
+        <div><strong>Local JSON</strong><span>Backup format</span></div>
+      </div>
+      <p class="hint">Backup khong xuat cookies, tokens, credentials, machine IDs, license keys, hay private browser state.</p>
       <label>
-        Cloud sync URL
-        <input name="cloudSyncUrl" value="${escapeHtml(state.appConfig.cloudSyncUrl)}" autocomplete="off" placeholder="https://...">
+        Nap file backup local
+        <input id="cloudBackupFile" type="file" accept="application/json">
       </label>
-      <div class="actions">
-        <button type="submit">Luu cau hinh</button>
+      <div class="actions dashboard-actions">
+        <button type="button" id="exportLocalBackup">Tai backup local</button>
+        <button type="button" class="secondary" id="importLocalBackup">Nap cau hinh local</button>
         <button type="button" class="secondary" id="syncBundledInline">Dong bo extension bundled</button>
       </div>
-    </form>
+    </div>
   `;
-  document.querySelector('#cloudSyncForm').addEventListener('submit', async event => {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
+  bindClick('#exportLocalBackup', () => {
+    const filename = `strange-tiktokshop-local-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    downloadTextFile(filename, JSON.stringify(cloudSyncBackupPayload(), null, 2), 'application/json;charset=utf-8');
+    setOutput({ ok: true, exported: filename, mode: 'local-only', shopCount: state.shops.length });
+  });
+  bindClick('#importLocalBackup', async () => {
+    const file = document.querySelector('#cloudBackupFile')?.files?.[0];
     try {
-      const config = await saveAppConfig({ cloudSyncUrl: form.get('cloudSyncUrl') });
-      setOutput({ ok: true, config });
+      setOutput(await importLocalBackup(file));
       await refreshStatus();
     } catch (error) {
-      setOutput(error.data || error.message);
+      setOutput(error.data || error.message || String(error));
     }
   });
   bindClick('#syncBundledInline', event => runAction(event.currentTarget, '/api/extensions/sync-bundled'));
