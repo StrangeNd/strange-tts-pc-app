@@ -38,7 +38,7 @@ Khong can vao folder WSL, khong can chay `npm start` thu cong, khong can dang nh
 
 - `Dashboard`: dashboard goc cua extension dang nam ngay trong cua so desktop app. Day chinh la man hinh chinh cua app.
 - `Seller Ads`: tao shop moi, import cookies, sau do mo Seller Ads bang profile rieng cua shop do.
-- `Cloud Sync`: luu endpoint sync de app/extension dung chung cau hinh.
+- `Cloud Sync`: sao luu local / import-export file JSON an toan cho cau hinh app Phase 0. Cloud that va upload remote can PR rieng va phe duyet rieng.
 - `External AI Data`: luu va mo link AI DATA ben ngoai. Link nay nam ngoai pham vi crawler, metric kinh doanh va du lieu local cua app.
 - `Huong dan`: xem lai quy trinh dung app ngay trong app.
 - `Tai video`: dan link TikTok va tai video ve `Downloads\STRANGETTS_Downloads`.
@@ -84,6 +84,18 @@ Khi bam `Refresh` tren dashboard de lay data report/campaign, app se uu tien cha
 - Nap extension va goi lai logic `fetch_multi_shop` cua extension goc.
 - Lay data xong tu dong dong runtime headless.
 - Neu TikTok yeu cau login/verify/captcha hoac headless bi chan, app se bao loi/fallback; luc do hay mo shop bang `Seller Ads` de xu ly visible.
+
+## 4.2. Cloud Sync Phase 0
+
+Trong ban PC app hien tai, Cloud Sync la local backup/import-export:
+
+1. Bam `Cloud Sync`.
+2. Xuat file backup local khi can giu cau hinh app va tham chieu shop an toan.
+3. Nhap lai file backup local tren may duoc phep van hanh shop.
+
+Backup Phase 0 khong dung de upload remote va khong duoc chua cookies, token,
+credential, machine ID, license key, session hay private browser state. Neu sau
+nay can Cloud Sync that, tinh nang do phai di bang PR rieng va phe duyet rieng.
 
 ## 5. Sua camp GMV
 
