@@ -17,6 +17,7 @@
     "prod:smoke": "node scripts/smoke.mjs",
     "ui:shell-smoke": "node scripts/ui-shell-smoke.mjs",
     "crawler:fixture-smoke": "node scripts/crawler-fixture-smoke.mjs",
+    "gmv:max-smoke": "node scripts/gmv-max-dashboard-smoke.mjs",
     "license:create": "node scripts/license-create.mjs",
     "security:scan": "node scripts/security-scan.mjs",
     "parity:audit": "node scripts/parity-audit.mjs",
