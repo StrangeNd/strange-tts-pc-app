@@ -80,6 +80,10 @@ if [[ -f package.json ]] && has_script "cloud:local-smoke"; then
   run_step "Cloud Sync local smoke" "$PM" run cloud:local-smoke || CHECK_CODE=$?
 else
   echo "SKIP: npm script 'cloud:local-smoke' not configured"
+if [[ -f package.json ]] && has_script "gmv:max-smoke"; then
+  run_step "GMV Max dashboard smoke" "$PM" run gmv:max-smoke || CHECK_CODE=$?
+else
+  echo "SKIP: npm script 'gmv:max-smoke' not configured"
 fi
 
 echo "NOTE: Browser UI QA remains manual/Codex Browser based when a task changes runtime interactions."

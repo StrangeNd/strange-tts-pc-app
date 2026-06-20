@@ -181,6 +181,85 @@ function sourceLabel(value) {
   return labels[value] || value || 'Chua ro';
 }
 
+function gmvMaxEntryUrl(shop = {}) {
+  const url = new URL('https://seller-vn.tiktok.com/ads-creation/dashboard');
+  const shopId = shop.sellerId || shop.id || '';
+  if (shopId) url.searchParams.set('shop_id', shopId);
+  if (shop.adsAccountId) url.searchParams.set('aadvid', shop.adsAccountId);
+  url.searchParams.set('type', 'product');
+  url.searchParams.set('shop_region', shop.region || 'VN');
+  url.searchParams.set('list_status', 'delivery_ok');
+  url.searchParams.set('list_order_field', 'cost');
+  url.searchParams.set('list_order_type', 'descend');
+  return url.toString();
+}
+
+function gmvMaxShopCard(shop) {
+  const confirmation = readShopSessionConfirmation(shop.id);
+  const url = gmvMaxEntryUrl(shop);
+  const hasSeller = Boolean(shop.sellerId);
+  const hasAds = Boolean(shop.adsAccountId);
+  const confirmed = confirmation?.status === 'correct-shop';
+  return `
+    <div class="gmv-shop-card">
+      <div class="gmv-shop-card-head">
+        <div>
+          <strong>${escapeHtml(shop.name || shop.id)}</strong>
+          <span>Profile: ${escapeHtml(shop.id)}</span>
+        </div>
+        <span class="${confirmation?.status === 'correct-shop' ? 'status-chip ok' : 'status-chip'}">${escapeHtml(confirmationLabel(confirmation?.status))}</span>
+      </div>
+      <dl class="compact-list">
+        <dt>Seller ID</dt><dd class="${hasSeller ? '' : 'is-missing'}">${escapeHtml(shop.sellerId || 'Missing')}</dd>
+        <dt>Ads account</dt><dd class="${hasAds ? '' : 'is-missing'}">${escapeHtml(shop.adsAccountId || 'Missing')}</dd>
+        <dt>GMV Max entry</dt><dd>${escapeHtml(url)}</dd>
+      </dl>
+      <div class="actions gmv-card-actions">
+        <button type="button" data-gmv-profile-check="${escapeHtml(shop.id)}">Check profile</button>
+        <button type="button" class="secondary" ${confirmed ? `data-gmv-open-extension="${escapeHtml(shop.id)}"` : `data-gmv-profile-check="${escapeHtml(shop.id)}"`}>${confirmed ? 'Open extension dashboard' : 'Confirm before opening'}</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderGmvMaxDashboardWorkspace() {
+  const selectedShop = selectedShopContext();
+  const shops = state.shops || [];
+  const readyCount = shops.filter(shop => shop.sellerId && shop.adsAccountId).length;
+  const selected = selectedShop.id ? shops.find(shop => shop.id === selectedShop.id) : null;
+  workspaceContent.innerHTML = `
+    <div class="panel-header">
+      <h2>GMV Max dashboard</h2>
+      <p>Read-only shop cards for GMV Max operations. Use the profile check before opening shop-specific work.</p>
+    </div>
+    <div class="summary-grid gmv-summary">
+      <div><strong>${shops.length}</strong><span>Loaded shops</span></div>
+      <div><strong>${readyCount}</strong><span>Ready with Seller + Ads IDs</span></div>
+      <div><strong>${escapeHtml(selected?.name || 'No selected shop')}</strong><span>Selected profile</span></div>
+    </div>
+    <div class="gmv-shop-grid">
+      ${shops.length ? shops.map(gmvMaxShopCard).join('') : '<p class="hint">No shops loaded yet. Create a shop in Seller Ads first.</p>'}
+    </div>
+    <div class="actions dashboard-actions">
+      <button id="gmvRefreshShops">Refresh shops</button>
+      <button id="gmvGoSellerAds" class="secondary">Manage shops</button>
+      <button id="gmvOpenBusinessAnalysis" class="secondary">Load GMV Max files</button>
+    </div>
+  `;
+  workspaceContent.querySelectorAll('[data-gmv-profile-check]').forEach(button => {
+    button.addEventListener('click', event => renderShopSessionSafety(event.currentTarget.dataset.gmvProfileCheck));
+  });
+  workspaceContent.querySelectorAll('[data-gmv-open-extension]').forEach(button => {
+    button.addEventListener('click', event => openExtensionPage('pages/dashboard.html', event.currentTarget.dataset.gmvOpenExtension));
+  });
+  bindClick('#gmvRefreshShops', async () => {
+    await refreshShops();
+    renderGmvMaxDashboardWorkspace();
+  });
+  bindClick('#gmvGoSellerAds', sellerAdsWorkspace);
+  bindClick('#gmvOpenBusinessAnalysis', renderBusinessAnalysisWorkspace);
+}
+
 function renderExtensions(library) {
   if (!extensionList) return;
   const activeId = library.activeId;
@@ -1873,6 +1952,7 @@ bindClick('#btnAppDashboard', renderOperationsDashboardWorkspace);
 bindClick('#btnCloudSync', renderCloudSyncWorkspace);
 bindClick('#btnAiData', renderAiDataWorkspace);
 bindClick('#btnBusinessAnalysis', renderBusinessAnalysisWorkspace);
+bindClick('#btnGmvMaxDashboard', renderGmvMaxDashboardWorkspace);
 bindClick('#btnTikTokCrawler', renderTikTokCrawlerWorkspace);
 bindClick('#btnOpsChecklist', renderOpsChecklistWorkspace);
 bindClick('#btnBusinessPlan', renderBusinessPlanWorkspace);
