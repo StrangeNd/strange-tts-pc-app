@@ -343,6 +343,60 @@ h2 {
   font-size: 12px;
 }
 
+.gmv-summary {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.gmv-shop-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.gmv-shop-card {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 12px;
+  background: #fbfcfd;
+}
+
+.gmv-shop-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.gmv-shop-card-head strong,
+.gmv-shop-card-head span,
+.gmv-shop-card dd {
+  overflow-wrap: anywhere;
+}
+
+.status-chip {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 4px 8px;
+  color: var(--muted);
+  background: #ffffff;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.status-chip.ok {
+  border-color: rgba(22, 163, 74, 0.24);
+  color: #15803d;
+  background: #f0fdf4;
+}
+
+.gmv-card-actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .confirmation-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -710,6 +764,10 @@ button:disabled {
   font-variant-numeric: tabular-nums;
 }
 
+.compact-list dd.is-missing {
+  color: #b42318;
+}
+
 .spend-component-table {
   margin-top: 14px;
 }
@@ -949,13 +1007,14 @@ code {
   .form-grid,
   .analysis-grid,
   .path-form,
-    .grid,
-    .actions,
-    .ops-check-header,
-    .summary-grid,
-    .context-grid,
-    .dashboard-actions,
-    .status-list,
+  .grid,
+  .actions,
+  .ops-check-header,
+  .summary-grid,
+  .context-grid,
+  .dashboard-actions,
+  .gmv-shop-grid,
+  .status-list,
   .confirmation-grid,
   .extension-item,
   .shop-item,
