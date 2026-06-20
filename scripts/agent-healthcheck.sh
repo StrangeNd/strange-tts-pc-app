@@ -76,6 +76,12 @@ else
   echo "SKIP: npm script 'ui:shell-smoke' not configured"
 fi
 
+if [[ -f package.json ]] && has_script "cloud:local-smoke"; then
+  run_step "Cloud Sync local smoke" "$PM" run cloud:local-smoke || CHECK_CODE=$?
+else
+  echo "SKIP: npm script 'cloud:local-smoke' not configured"
+fi
+
 echo "NOTE: Browser UI QA remains manual/Codex Browser based when a task changes runtime interactions."
 
 exit "$CHECK_CODE"

@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const DEFAULT_CONFIG = Object.freeze({
-  cloudSyncUrl: 'https://cartridges-warranty-management-incentive.trycloudflare.com',
+  cloudSyncUrl: '',
   aiDataUrl: 'https://drilling-beverly-reform-optimization.trycloudflare.com/',
   productViewEnabled: true,
   videoAutoplay: true,
@@ -24,7 +24,7 @@ function safeBool(value, fallback) {
 
 function normalizeConfig(input = {}) {
   return {
-    cloudSyncUrl: safeString(input.cloudSyncUrl, DEFAULT_CONFIG.cloudSyncUrl) || DEFAULT_CONFIG.cloudSyncUrl,
+    cloudSyncUrl: '',
     aiDataUrl: safeString(input.aiDataUrl, DEFAULT_CONFIG.aiDataUrl) || DEFAULT_CONFIG.aiDataUrl,
     productViewEnabled: safeBool(input.productViewEnabled, DEFAULT_CONFIG.productViewEnabled),
     videoAutoplay: safeBool(input.videoAutoplay, DEFAULT_CONFIG.videoAutoplay),
