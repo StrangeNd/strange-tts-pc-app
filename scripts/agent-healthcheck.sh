@@ -76,10 +76,18 @@ else
   echo "SKIP: npm script 'ui:shell-smoke' not configured"
 fi
 
+if [[ -f package.json ]] && has_script "test-matrix:smoke"; then
+  run_step "Test matrix smoke" "$PM" run test-matrix:smoke || CHECK_CODE=$?
+else
+  echo "SKIP: npm script 'test-matrix:smoke' not configured"
+fi
+
 if [[ -f package.json ]] && has_script "cloud:local-smoke"; then
   run_step "Cloud Sync local smoke" "$PM" run cloud:local-smoke || CHECK_CODE=$?
 else
   echo "SKIP: npm script 'cloud:local-smoke' not configured"
+fi
+
 if [[ -f package.json ]] && has_script "gmv:max-smoke"; then
   run_step "GMV Max dashboard smoke" "$PM" run gmv:max-smoke || CHECK_CODE=$?
 else
