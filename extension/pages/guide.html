@@ -488,12 +488,12 @@
           </div>
 
           <div class="box">
-            <h5>3.2 Thiết lập Cloud Sync URL</h5>
+            <h5>3.2 Cloud Sync trong PC app Phase 0</h5>
             <ol class="steps">
-              <li>Trong popup, vào <code>Cloud Sync</code>.</li>
-              <li>Nhập địa chỉ server sync, ví dụ <code>https://drilling-beverly-reform-optimization.trycloudflare.com</code>.</li>
-              <li>Bấm <code>Test Kết Nối</code> để kiểm tra server phản hồi.</li>
-              <li>Nếu có nhiều máy dùng chung tài khoản, bật <code>Tự Động Đồng Bộ</code> khi cần.</li>
+              <li>Trong PC app, dùng <code>Cloud Sync</code> như sao lưu local / import-export file JSON.</li>
+              <li>Không cấu hình server sync cho dữ liệu shop nếu chưa có phê duyệt Cloud Sync thật.</li>
+              <li>Không đưa cookie, session hoặc dữ liệu trình duyệt riêng tư lên server.</li>
+              <li>Các nút Cloud Sync cũ trong extension chỉ là legacy workflow và không phải luồng Phase 0 của PC app.</li>
             </ol>
           </div>
         </div>
@@ -510,7 +510,7 @@
 
       <section class="section" id="auth-sync">
         <h3>4. Nhóm tính năng Tài khoản, phiên đăng nhập và Cloud Sync</h3>
-        <p>Nhóm này giúp đồng bộ dữ liệu giữa nhiều máy và đảm bảo bạn vào đúng môi trường làm việc.</p>
+        <p>Nhóm này giúp kiểm tra đúng môi trường làm việc. Với PC app Phase 0, Cloud Sync là sao lưu local, không phải upload remote.</p>
 
         <div class="group">
           <h4>🔐 4.1 Tài khoản và xác thực</h4>
@@ -525,17 +525,17 @@
 
         <div class="group">
           <h4>☁️ 4.2 Cloud Sync</h4>
-          <p>Cloud Sync dùng để lưu danh sách shop, cookie export và thứ tự shop lên server để dùng trên máy khác.</p>
+          <p>Cloud Sync Phase 0 của PC app chỉ dùng cho sao lưu local và import/export file JSON an toàn. Không upload cookie export, session, token hoặc dữ liệu trình duyệt riêng tư lên server.</p>
           <ol class="steps">
-            <li>Vào popup <code>Cloud Sync</code>.</li>
-            <li>Nhập hoặc kiểm tra lại URL server.</li>
-            <li>Bấm <code>Upload lên Cloud</code> sau khi bạn đã có dữ liệu shop local.</li>
-            <li>Ở máy mới, đăng nhập cùng tài khoản và bấm <code>Tải từ Cloud</code>.</li>
-            <li>Nếu cần xóa dữ liệu đồng bộ trên server, dùng <code>Xóa toàn bộ dữ liệu trên Cloud</code>.</li>
+            <li>Vào PC app <code>Cloud Sync</code>.</li>
+            <li>Xuất file backup local khi cần sao lưu cấu hình và tham chiếu shop.</li>
+            <li>Nhập lại file backup local trên cùng máy hoặc máy được phép vận hành shop.</li>
+            <li>Nếu thấy các nút legacy như <code>Upload lên Cloud</code> hoặc <code>Tải từ Cloud</code>, không dùng cho dữ liệu nhạy cảm khi chưa có phê duyệt Cloud Sync thật.</li>
+            <li>Session restore và cookie export không thuộc Phase 0.</li>
           </ol>
           <div class="callout red">
-            Không nên bật auto-sync khi danh sách local đang rỗng nếu bạn chưa chắc dữ liệu cloud còn nguyên.
-            Mục đích là tránh ghi đè dữ liệu cloud bằng danh sách trống.
+            Không đưa cookie, token, credential, machine ID, license key hoặc private browser state vào backup/report/cloud.
+            Cloud Sync thật cần một PR riêng và phê duyệt rõ ràng.
           </div>
         </div>
 
@@ -579,7 +579,7 @@
           <ul class="bullets">
             <li><code>Xuất</code> để lưu shop ra JSON.</li>
             <li><code>Nhập</code> để load lại shop từ JSON đã export.</li>
-            <li><code>Lên Cloud</code> và <code>Về</code> để đồng bộ với server.</li>
+            <li><code>Sao lưu local</code> và <code>Nhập backup</code> để di chuyển cấu hình an toàn theo Phase 0.</li>
             <li><code>Xóa</code> để reset sạch dữ liệu local.</li>
           </ul>
         </div>
@@ -872,10 +872,10 @@
           <ol class="steps">
             <li>Nạp extension vào Chrome.</li>
             <li>Đăng nhập STRANGE TTS trong popup.</li>
-            <li>Thiết lập Cloud Sync URL.</li>
+            <li>Dùng Cloud Sync local backup trong PC app nếu cần sao lưu cấu hình.</li>
             <li>Mở Seller Ads và export shop đầu tiên.</li>
             <li>Mở Dashboard để kiểm tra shop đã lên danh sách chưa.</li>
-            <li>Dùng Upload Cloud nếu muốn sao lưu.</li>
+            <li>Xuất file backup local nếu muốn sao lưu cấu hình.</li>
             <li>Thiết lập tab Report nếu cần gửi báo cáo.</li>
             <li>Sau khi quen rồi mới dùng công cụ tạo/sửa camp và LIVE tools.</li>
           </ol>
@@ -923,7 +923,7 @@
             <li>Kiểm tra bạn còn đăng nhập TikTok hay không.</li>
             <li>Mở lại Seller Ads và thử refresh 1 shop.</li>
             <li>Nếu shop vẫn lỗi, export lại shop từ đúng tài khoản đó.</li>
-            <li>Kiểm tra lại Cloud Sync URL và kết nối mạng.</li>
+            <li>Kiểm tra lại file backup local hoặc cấu hình shop trong PC app.</li>
             <li>Xem Background Logs trong tab Report để xác định đang lỗi fetch, relay hay scheduler.</li>
           </ol>
         </div>
