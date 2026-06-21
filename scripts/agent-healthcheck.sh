@@ -94,6 +94,12 @@ else
   echo "SKIP: npm script 'gmv:max-smoke' not configured"
 fi
 
+if [[ -f package.json ]] && has_script "video:safety-smoke"; then
+  run_step "Video downloader safety smoke" "$PM" run video:safety-smoke || CHECK_CODE=$?
+else
+  echo "SKIP: npm script 'video:safety-smoke' not configured"
+fi
+
 echo "NOTE: Browser UI QA remains manual/Codex Browser based when a task changes runtime interactions."
 
 exit "$CHECK_CODE"

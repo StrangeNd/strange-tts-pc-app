@@ -21,6 +21,7 @@ so that I only download videos that the current shop/profile is allowed to view.
 - `node --check public/app.js`
 - `node --check scripts/video-downloader-safety-smoke.mjs`
 - `node scripts/video-downloader-safety-smoke.mjs`
+- `npm run video:safety-smoke`
 - `node scripts/ui-shell-smoke.mjs`
 - `scripts/agent-healthcheck.sh`
 - Browser UI QA
