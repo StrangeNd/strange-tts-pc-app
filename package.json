@@ -23,6 +23,7 @@
     "crawler:contract-policy-smoke": "node scripts/crawler-contract-policy-smoke.mjs",
     "crawler:fixture-smoke": "node scripts/crawler-fixture-smoke.mjs",
     "cloud:local-smoke": "node scripts/cloud-sync-local-smoke.mjs",
+    "cloud:import-scope-smoke": "node scripts/cloud-sync-import-scope-smoke.mjs",
     "gmv:max-smoke": "node scripts/gmv-max-dashboard-smoke.mjs",
     "shop:health-score-smoke": "node scripts/shop-health-score-smoke.mjs",
     "shop:violation-status-tags-smoke": "node scripts/shop-violation-status-tags-smoke.mjs",
