@@ -6,18 +6,18 @@
 - Type: maintenance request
 - Lane: tiny
 - User value: non-technical operators keep a stable Windows-local desktop launch path with a shortcut/open script that starts the app and opens the dashboard app-window.
-- Scope: add targeted static smoke, story, and PR report.
+- Scope: harden targeted static smoke, story, PR report, and Test Matrix evidence.
 - Non-scope: no desktop runtime behavior changes, no license/auth/session/cookie/payment/billing/deployment/database/production infrastructure/release automation changes, no browser UI automation.
-- Affected files: `scripts/desktop-launch-smoke.mjs`, `docs/stories/US-021-desktop-launch-smoke.md`, this report.
+- Affected files: `scripts/desktop-launch-smoke.mjs`, `docs/stories/US-021-desktop-launch-smoke.md`, `docs/TEST_MATRIX.md`, this report.
 - Risk lane: low. Validation-only.
 
 ## Test Matrix Mapping
 
 | Changed flow or behavior | Matrix row | Required proof | Evidence in this PR |
 | --- | --- | --- | --- |
-| Desktop launch script wiring is covered by a targeted static smoke | Desktop launch | Healthcheck or smoke script; no license bypass in production mode | `scripts/desktop-launch-smoke.mjs`; this report |
+| Desktop launch script wiring and npm entry points are covered by a targeted static smoke | Desktop launch | Healthcheck or smoke script; no license bypass in production mode | `scripts/desktop-launch-smoke.mjs`; this report |
 
-No runtime product behavior changes. `docs/TEST_MATRIX.md` is unchanged because this PR adds proof for an existing row while avoiding conflicts with open PRs touching the matrix/healthcheck.
+No runtime product behavior changes.
 
 ## Agent B Intake Review
 
@@ -30,9 +30,10 @@ Approved before implementation.
 
 ## Implementation Summary
 
-- Added `scripts/desktop-launch-smoke.mjs`.
-- Added story `US-021`.
-- The smoke checks the shortcut creator, PowerShell opener, PowerShell start wrapper, Node production launcher, and README Windows-local launch guidance.
+- Hardened `scripts/desktop-launch-smoke.mjs`.
+- Updated story `US-021`.
+- Updated `docs/TEST_MATRIX.md` evidence for the Desktop launch row.
+- The smoke checks the shortcut creator, PowerShell opener, PowerShell start wrapper, Node production launcher, npm entry points, and README Windows-local launch guidance.
 
 ## Validation Plan
 
@@ -60,5 +61,7 @@ Approved.
 - PASS: WSL `scripts/agent-healthcheck.sh`
 - PASS: `git diff --check`
 - PASS: replacement-character diff check
+
+This follow-up slice keeps the original validation-only scope and adds npm entry-point drift coverage to the existing static smoke.
 
 Note: `npm audit --audit-level=high` still reports the existing moderate `uuid` advisory through `exceljs`, but exits successfully because no high-severity issue is present.

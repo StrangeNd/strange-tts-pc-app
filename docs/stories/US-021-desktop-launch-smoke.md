@@ -19,6 +19,7 @@ so that opening the app from Windows remains simple and does not require WSL or 
 - Verify the shortcut points to `scripts/open-desktop-app.ps1`.
 - Verify the opener checks local health, starts `npm` from the local app directory, and calls `/api/app/open-dashboard-app`.
 - Verify the start wrapper runs `scripts/start-pc-app.mjs --production`.
+- Verify npm entry points keep pointing to the desktop opener, shortcut creator, app-window launcher, and desktop launch smoke.
 - Verify README keeps the Windows-local launch guidance and WSL UNC warning.
 
 ## Non-Scope
@@ -32,6 +33,7 @@ so that opening the app from Windows remains simple and does not require WSL or 
 - `scripts/desktop-launch-smoke.mjs` passes.
 - The smoke fails if the shortcut no longer targets `open-desktop-app.ps1`.
 - The smoke fails if the opener stops using localhost health or dashboard app-window launch.
+- The smoke fails if npm desktop/start/shortcut entry points drift away from the intended local launch scripts.
 - The smoke fails if production launch docs no longer warn against WSL UNC runtime.
 
 ## Validation

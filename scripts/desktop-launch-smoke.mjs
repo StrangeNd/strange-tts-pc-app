@@ -8,6 +8,7 @@ const files = {
   startPs1: readFileSync(join(rootDir, 'scripts/start-pc-app.ps1'), 'utf8'),
   createShortcut: readFileSync(join(rootDir, 'scripts/create-desktop-shortcut.ps1'), 'utf8'),
   startMjs: readFileSync(join(rootDir, 'scripts/start-pc-app.mjs'), 'utf8'),
+  packageJson: readFileSync(join(rootDir, 'package.json'), 'utf8'),
   readme: readFileSync(join(rootDir, 'README.md'), 'utf8')
 };
 
@@ -35,6 +36,13 @@ assert(files.startMjs.includes('startServer({ port })'), 'Node launcher should s
 assert(files.startMjs.includes('launchChrome(rootDir'), 'Node launcher should launch the managed browser when requested');
 assert(files.startMjs.includes('pages/dashboard.html'), 'Node launcher should default to the extension dashboard page');
 assert(files.startMjs.includes('EADDRINUSE'), 'Node launcher should report occupied port conflicts');
+
+assert(files.packageJson.includes('"start": "node scripts/start-pc-app.mjs"'), 'npm start should use the Node launcher');
+assert(files.packageJson.includes('"desktop": "powershell -ExecutionPolicy Bypass -File scripts/open-desktop-app.ps1"'), 'npm run desktop should use the desktop opener');
+assert(files.packageJson.includes('"app": "powershell -ExecutionPolicy Bypass -File scripts/open-desktop-app.ps1"'), 'npm run app should use the desktop opener');
+assert(files.packageJson.includes('"pc:start": "node scripts/start-pc-app.mjs --launch"'), 'npm run pc:start should launch the app window');
+assert(files.packageJson.includes('"desktop:shortcut": "powershell -ExecutionPolicy Bypass -File scripts/create-desktop-shortcut.ps1"'), 'desktop shortcut npm script should target the shortcut creator');
+assert(files.packageJson.includes('"desktop:launch-smoke": "node scripts/desktop-launch-smoke.mjs"'), 'desktop launch smoke should remain available as an npm script');
 
 assert(files.readme.includes('Khong mo/chay app tu `\\\\wsl.localhost\\...`'), 'README should warn users not to run production from WSL UNC paths');
 assert(files.readme.includes('.\\scripts\\start-pc-app.ps1'), 'README should document the local Windows start script');
