@@ -352,6 +352,7 @@ function latestViolationSummary(violationBodies) {
   }
   const data = entry?.body?.data || {};
   const points = Array.isArray(data.violation_points_v2) ? data.violation_points_v2 : [];
+  const statusForViolation = item => normalizeViolationStatus(item.status || item.appeal_status || item.appealStatus || item.state || item.risk_level);
   return {
     score: data.violation_score ?? null,
     count: points.reduce((sum, item) => sum + Number(item.count || 0), 0),
@@ -361,11 +362,22 @@ function latestViolationSummary(violationBodies) {
     items: points.map((item, index) => ({
       id: String(item.id || item.key || item.violation_type || item.type || `violation-${index + 1}`),
       title: String(item.title || item.name || item.violation_name || item.violation_type || item.type || 'Chua co tieu de'),
-      status: String(item.status || item.appeal_status || item.appealStatus || item.state || item.risk_level || 'Chua co trang thai'),
+      status: statusForViolation(item),
       count: Number(item.count || 0),
       source: entry?.log?.url || ''
     }))
   };
+}
+
+function normalizeViolationStatus(value) {
+  const raw = String(value || '').trim();
+  const normalized = normalizeText(raw).replace(/\s+/g, ' ');
+  if (!normalized) return 'Khong can khieu nai';
+  if (/khong can|no appeal|not required|not needed|none/.test(normalized)) return 'Khong can khieu nai';
+  if (/chua khieu nai|not appealed|not appeal|pending appeal|not submitted|unappealed/.test(normalized)) return 'Chua khieu nai';
+  if (/khong thanh cong|failed|rejected|deny|denied|unsuccessful/.test(normalized)) return 'Khieu nai khong thanh cong';
+  if (/thanh cong|success|successful|approved|accepted|won/.test(normalized)) return 'Thanh cong';
+  return raw;
 }
 
 function taskText(value) {
