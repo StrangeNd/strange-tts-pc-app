@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { buildAllShopOverviewsFromCrawler } from '../app/business-analysis.mjs';
 import { buildSellerCenterFixtureRun } from '../app/tiktokshop-crawler.mjs';
 
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const rootDir = mkdtempSync(path.join(tmpdir(), 'strange-shop-health-'));
 
 try {
@@ -156,6 +158,20 @@ try {
   assert(
     health.missingDependencies.includes('Cancellation rate due to seller fault in 30 days'),
     'Missing dependency list should name seller fault cancellation'
+  );
+
+  const publicApp = readFileSync(path.join(repoRoot, 'public', 'app.js'), 'utf8');
+  assert(
+    publicApp.includes('data-shop-health-missing-dependencies'),
+    'Shop Health UI should expose a missing dependency detail region'
+  );
+  assert(
+    publicApp.includes('Missing dependency detail'),
+    'Shop Health UI should label missing dependency detail instead of only showing a count'
+  );
+  assert(
+    publicApp.includes('health.missingDependencies'),
+    'Shop Health UI should render missing dependency names from health.missingDependencies'
   );
 
   const customerService = health.components.find(item => item.key === 'customerService');
