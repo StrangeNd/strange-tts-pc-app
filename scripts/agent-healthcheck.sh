@@ -82,6 +82,7 @@ fi
 
 run_npm_script_if_present "UI shell smoke" "ui:shell-smoke"
 run_npm_script_if_present "Test matrix smoke" "test-matrix:smoke"
+run_npm_script_if_present "Agent WSL runner smoke" "agent:wsl-runner-smoke"
 run_npm_script_if_present "Desktop launch smoke" "desktop:launch-smoke"
 run_npm_script_if_present "Cloud Sync local smoke" "cloud:local-smoke"
 run_npm_script_if_present "GMV Max dashboard smoke" "gmv:max-smoke"

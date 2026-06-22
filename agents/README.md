@@ -35,6 +35,14 @@ scripts/agent-create-pr.sh
 The scripts do not deploy, auto-merge, or push to protected branches.
 UI QA is intended to run through Codex Browser/in-app browser or the local desktop app window, not Playwright.
 
+When the terminal is Windows PowerShell opened at `\\wsl.localhost\...`, use the
+WSL wrapper to avoid UNC current-directory failures:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/agent-wsl-run.ps1
+powershell -ExecutionPolicy Bypass -File scripts/agent-wsl-run.ps1 npm run ui:shell-smoke
+```
+
 ## Harness Rule
 
 Before implementation, classify the task through `docs/FEATURE_INTAKE.md`.
