@@ -85,6 +85,7 @@ run_npm_script_if_present "README runtime domain smoke" "readme:runtime-domain-s
 run_npm_script_if_present "AI Data external scope smoke" "ai-data:external-scope-smoke"
 run_npm_script_if_present "Audit log redaction smoke" "audit:log-redaction-smoke"
 run_npm_script_if_present "Test matrix smoke" "test-matrix:smoke"
+run_npm_script_if_present "PR report template smoke" "harness:pr-report-template-smoke"
 run_npm_script_if_present "Agent WSL runner smoke" "agent:wsl-runner-smoke"
 run_npm_script_if_present "Desktop launch smoke" "desktop:launch-smoke"
 run_npm_script_if_present "Cloud Sync local smoke" "cloud:local-smoke"
