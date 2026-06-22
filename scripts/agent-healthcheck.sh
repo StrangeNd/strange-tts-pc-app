@@ -92,6 +92,7 @@ run_npm_script_if_present "Cloud Sync import scope smoke" "cloud:import-scope-sm
 run_npm_script_if_present "GMV Max dashboard smoke" "gmv:max-smoke"
 run_npm_script_if_present "Shop health score smoke" "shop:health-score-smoke"
 run_npm_script_if_present "Shop violation status tags smoke" "shop:violation-status-tags-smoke"
+run_npm_script_if_present "Shop profile metadata smoke" "shop:profile-metadata-smoke"
 run_npm_script_if_present "Shop session safety smoke" "shop:session-safety-smoke"
 run_npm_script_if_present "Business Ads Spend missing smoke" "business:ads-spend-missing-smoke"
 run_npm_script_if_present "Business legacy XLS scope smoke" "business:legacy-xls-scope-smoke"

@@ -31,6 +31,7 @@
     "gmv:max-smoke": "node scripts/gmv-max-dashboard-smoke.mjs",
     "shop:health-score-smoke": "node scripts/shop-health-score-smoke.mjs",
     "shop:violation-status-tags-smoke": "node scripts/shop-violation-status-tags-smoke.mjs",
+    "shop:profile-metadata-smoke": "node scripts/shop-profile-metadata-smoke.mjs",
     "shop:session-safety-smoke": "node scripts/shop-session-safety-smoke.mjs",
     "business:ads-spend-missing-smoke": "node scripts/ads-spend-missing-smoke.mjs",
     "business:legacy-xls-scope-smoke": "node scripts/legacy-xls-scope-smoke.mjs",
