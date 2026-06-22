@@ -1,4 +1,5 @@
-export const CRAWLER_SNAPSHOT_CONTRACT_VERSION = '2026-06-19.1';
+export const CRAWLER_SNAPSHOT_CONTRACT_VERSION = '2026-06-22.1';
+export const DEFAULT_CRAWLER_RAW_RETENTION_DAYS = 30;
 
 const REDACTED = '[redacted]';
 const SENSITIVE_KEY_RE = /(^|[_-])(cookie|cookies|token|access|refresh|secret|password|authorization|auth|csrf|session|sessionid|sid|credential|license|machine_id|device_id|web_id)([_-]|$)|set-cookie|x-tt-token|bearer/i;
@@ -97,6 +98,29 @@ export function normalizedCrawlerMetric({
   };
 }
 
+export function buildCrawlerRetentionPolicy({
+  startedAt = '',
+  retentionDays = DEFAULT_CRAWLER_RAW_RETENTION_DAYS
+} = {}) {
+  const days = Number.isFinite(Number(retentionDays)) && Number(retentionDays) > 0
+    ? Math.floor(Number(retentionDays))
+    : DEFAULT_CRAWLER_RAW_RETENTION_DAYS;
+  const started = new Date(startedAt || Date.now());
+  const validStartedAt = Number.isNaN(started.getTime()) ? new Date() : started;
+  const expiresAt = new Date(validStartedAt.getTime() + days * 24 * 60 * 60 * 1000);
+  return {
+    mode: 'local-retention-policy',
+    rawSnapshotDays: days,
+    pruneAutomatically: false,
+    reviewBeforeDelete: true,
+    compressedRecommended: true,
+    remoteUpload: false,
+    startedAt: validStartedAt.toISOString(),
+    expiresAt: expiresAt.toISOString(),
+    note: 'Raw snapshots remain local. This policy records a review deadline but does not automatically delete crawler data.'
+  };
+}
+
 export function buildCrawlerSnapshotContract({
   shopId = '',
   sellerId = '',
@@ -109,6 +133,7 @@ export function buildCrawlerSnapshotContract({
   status = 'running',
   summary = {}
 } = {}) {
+  const retentionPolicy = buildCrawlerRetentionPolicy({ startedAt });
   return {
     version: CRAWLER_SNAPSHOT_CONTRACT_VERSION,
     source,
@@ -125,10 +150,7 @@ export function buildCrawlerSnapshotContract({
       { key: 'derived_metrics', path: 'dashboard/business-analysis', recomputable: true },
       { key: 'dashboard_report_view', path: 'public dashboard/business analysis', userFacing: true }
     ],
-    retentionPolicy: {
-      mode: 'manual',
-      note: 'No deletion or retention cleanup is performed by this contract PR.'
-    },
+    retentionPolicy,
     security: {
       secretScrubbed: true,
       plaintextCookieExport: false,

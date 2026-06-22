@@ -12,7 +12,7 @@ In scope:
 - Scrub sensitive fields before writing crawler raw API responses, API logs, action logs, UI snapshots, and Compass raw files.
 - Keep normalized missing metrics as missing/null instead of zero.
 - Add a fixture-based smoke test for crawler contract behavior and secret scrubbing.
-- Record that retention cleanup is manual in this PR and does not delete local data.
+- Record a local-only raw snapshot retention review deadline without deleting local data automatically.
 
 Out of scope:
 
@@ -46,6 +46,7 @@ This slice avoids high-risk retention deletion, raw data migration, cookie/sessi
 - Crawler UI snapshots and logs are scrubbed before saving.
 - Seller Center crawl runs write `snapshot-contract.json`.
 - Compass crawl writes `snapshot-contract.json`.
+- Snapshot contracts include a local-only raw retention policy with automatic pruning disabled.
 - Normalized metric helpers preserve missing values as `null` with `status: missing`.
 - A smoke script proves secret scrubbing and missing-data behavior without authenticated TikTok profiles.
 
