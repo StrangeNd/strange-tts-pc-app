@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readdir, readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const rootDir = dirname(dirname(fileURLToPath(import.meta.url)));
 const matrix = await readFile(join(rootDir, 'docs', 'TEST_MATRIX.md'), 'utf8');
+const storiesDir = join(rootDir, 'docs', 'stories');
 
 const rows = matrix
   .split(/\r?\n/)
@@ -27,4 +28,15 @@ for (const row of rows) {
   seenAreas.set(area, row);
 }
 
-console.log(`Test matrix smoke passed: ${rows.length} rows, ${seenAreas.size} unique areas.`);
+const storyFiles = (await readdir(storiesDir)).filter(fileName => /^US-\d+-.*\.md$/.test(fileName));
+const seenStoryIds = new Map();
+for (const storyFile of storyFiles) {
+  const storyId = storyFile.match(/^US-\d+/)?.[0];
+  assert(storyId, `Story file should start with a story ID: ${storyFile}`);
+  assert(!seenStoryIds.has(storyId), `Duplicate story ID: ${storyId} (${seenStoryIds.get(storyId)}, ${storyFile})`);
+  seenStoryIds.set(storyId, storyFile);
+}
+
+console.log(
+  `Test matrix smoke passed: ${rows.length} rows, ${seenAreas.size} unique areas, ${storyFiles.length} unique stories.`
+);

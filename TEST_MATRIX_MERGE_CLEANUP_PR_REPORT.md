@@ -6,13 +6,13 @@
 - Lane: Tiny.
 - Branch: `ai-agent/test-matrix-merge-cleanup`.
 - User value: restore the Test Matrix drift guard after independently merged PRs left duplicate rows.
-- Scope: merge duplicate `Cloud Sync Phase 0`, `Business analysis`, and `Agent loop` Test Matrix rows while preserving all current evidence.
+- Scope: merge duplicate `Cloud Sync Phase 0`, `Business analysis`, and `Agent loop` Test Matrix rows while preserving all current evidence, and extend the Test Matrix smoke to catch duplicate story IDs.
 - Non-scope: product runtime behavior, healthcheck wiring, auth/session handling, cookies, secrets, payment/billing, deployment, database migrations, or durable harness database setup.
-- Affected files: `docs/TEST_MATRIX.md`, this report.
+- Affected files: `docs/TEST_MATRIX.md`, `scripts/test-matrix-smoke.mjs`, this report.
 
 ## Test Matrix Mapping
 
-This PR changes the Test Matrix itself. The required proof is the Test Matrix smoke plus diff hygiene.
+This PR changes the Test Matrix itself and strengthens its smoke. The required proof is the Test Matrix smoke plus diff hygiene.
 
 ## Implementation Summary
 
@@ -20,10 +20,12 @@ This PR changes the Test Matrix itself. The required proof is the Test Matrix sm
 - Combined the duplicate `Business analysis` rows into one row with the spreadsheet healthcheck report.
 - Combined the duplicate `Agent loop` rows into one row with the PR report template smoke evidence.
 - Corrected the Cloud Sync import scope story reference to `US-036`.
+- Extended `scripts/test-matrix-smoke.mjs` to reject duplicate `US-###` story IDs.
 
 ## Validation Results
 
 - Initial failure observed: `node scripts/test-matrix-smoke.mjs` failed with `Duplicate test matrix area: Cloud Sync Phase 0`.
+- Passed: `node --check scripts/test-matrix-smoke.mjs`
 - Passed: `node scripts/test-matrix-smoke.mjs`
 - Passed: `node scripts/security-scan.mjs`
 - Passed: `scripts/agent-healthcheck.sh` through the WSL repo path
