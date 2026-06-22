@@ -19,6 +19,7 @@
     "test-matrix:smoke": "node scripts/test-matrix-smoke.mjs",
     "agent:wsl-runner-smoke": "node scripts/agent-wsl-run-smoke.mjs",
     "ui:shell-smoke": "node scripts/ui-shell-smoke.mjs",
+    "readme:runtime-domain-smoke": "node scripts/readme-runtime-domain-smoke.mjs",
     "ai-data:external-scope-smoke": "node scripts/ai-data-external-scope-smoke.mjs",
     "crawler:contract-policy-smoke": "node scripts/crawler-contract-policy-smoke.mjs",
     "crawler:fixture-smoke": "node scripts/crawler-fixture-smoke.mjs",
