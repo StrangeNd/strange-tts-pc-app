@@ -1735,7 +1735,15 @@ function renderDownloadWorkspace() {
     button.disabled = true;
     button.textContent = 'Dang tai';
     try {
-      const data = await api('/api/video/download', { method: 'POST', body: { url: form.get('url') } });
+      const data = await api('/api/video/download', {
+        method: 'POST',
+        body: {
+          url: form.get('url'),
+          operatorCanView: true,
+          profileId: selectedShop.id || 'default-profile',
+          shopName: selectedShop.name || ''
+        }
+      });
       setOutput(data);
       event.currentTarget.reset();
     } catch (error) {

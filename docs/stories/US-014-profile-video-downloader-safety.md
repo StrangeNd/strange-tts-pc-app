@@ -12,13 +12,16 @@ so that I only download videos that the current shop/profile is allowed to view.
 - The downloader shows last local session confirmation when a shop/profile is selected.
 - The downloader offers a profile-check action that reuses the existing shop/session safety flow.
 - The downloader requires the operator to confirm the selected shop/profile can already view the video.
+- The backend rejects direct download calls that do not include the operator authorization confirmation.
+- The download request includes selected profile metadata for local audit context.
 - The downloader warns against DRM, private content, access-control bypass, and cross-profile use.
-- The backend download engine is not changed in this slice.
+- The backend download engine does not add cookie, token, or session handling in this slice.
 - No cookie/session restore, cookie import/export, auth, payment/billing, deployment, database migration, or private session handling is added.
 
 ## Validation
 
 - `node --check public/app.js`
+- `node --check app/server.mjs`
 - `node --check scripts/video-downloader-safety-smoke.mjs`
 - `node scripts/video-downloader-safety-smoke.mjs`
 - `npm run video:safety-smoke`
