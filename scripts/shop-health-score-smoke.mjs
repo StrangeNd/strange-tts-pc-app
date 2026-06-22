@@ -165,6 +165,11 @@ try {
   assert.match(customerService.formula, /No complete formula yet/i);
   assert.equal(customerService.dependencies.length, 2);
   assert(customerService.dependencies.every(item => item.available), 'Customer Service component metrics should still be visible');
+  assert.equal(
+    customerService.dependencies.find(item => item.label === '12-hour response rate in 30 days')?.value,
+    0.94,
+    'Customer Service should include the 12-hour response rate dependency from crawler data'
+  );
 
   console.log('Shop health score smoke passed.');
 } finally {

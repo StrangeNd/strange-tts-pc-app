@@ -483,6 +483,15 @@ function healthCard(cards, key) {
   return (cards || []).find(card => card.key === key) || null;
 }
 
+function healthCardByLabel(cards, labelNeedles = []) {
+  const needles = labelNeedles.map(normalizeText).filter(Boolean);
+  if (!needles.length) return null;
+  return (cards || []).find(card => {
+    const label = normalizeText(card?.label || '');
+    return needles.every(needle => label.includes(needle));
+  }) || null;
+}
+
 function scoreDependency(card, label) {
   return {
     key: card?.key || label,
@@ -519,7 +528,10 @@ function buildShopHealthCenter(cards = [], violationSummary = {}) {
   ];
   const serviceDeps = [
     scoreDependency(healthCard(cards, 'aftersaleHandleTime'), 'Seller after-sales handling time in 60 days'),
-    scoreDependency(healthCard(cards, 'reply12hRate30d'), '12-hour response rate in 30 days')
+    scoreDependency(
+      healthCard(cards, 'reply12hRate30d') || healthCardByLabel(cards, ['12', '30']),
+      '12-hour response rate in 30 days'
+    )
   ];
   return {
     score: storeScore || { key: 'storeScore', label: 'Diem cua hang', value: null, format: 'decimal', available: false, source: 'missing' },
