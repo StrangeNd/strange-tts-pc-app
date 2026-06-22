@@ -9,7 +9,7 @@ At the start of a task, Agent A should be able to summarize:
 ```text
 Type: change request
 Lane: normal
-Affected areas: public TTS shell, desktop app UI
+Affected areas: public TikTok Shop shell, desktop app UI
 Proof: healthcheck, browser QA, no console errors
 Story: docs/stories/US-XXX-name.md or direct patch
 ```
