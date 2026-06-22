@@ -13,7 +13,7 @@ so that raw snapshots, normalized metrics, and reports stay local, scrubbed, and
 - Raw snapshots are not shown by default to non-technical users.
 - Normalized metrics preserve the `missing-not-zero` policy.
 - Derived metrics remain recomputable from normalized metrics.
-- Retention policy remains manual and does not claim automatic deletion.
+- Retention policy records a local review deadline and does not claim automatic deletion.
 - Security policy keeps plaintext cookie export and remote upload disabled.
 - Forbidden fields include cookies, tokens, credentials, authorization headers, machine IDs, and license keys.
 - Explicit zero metric values remain available while unavailable values remain missing/null.
