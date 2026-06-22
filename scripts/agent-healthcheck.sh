@@ -37,6 +37,16 @@ has_script() {
   node -e "const p=require('./package.json'); process.exit(p.scripts && p.scripts['$script'] ? 0 : 1)" 2>/dev/null
 }
 
+run_npm_script_if_present() {
+  local label="$1"
+  local script="$2"
+  if [[ -f package.json ]] && has_script "$script"; then
+    run_step "$label" "$PM" run "$script" || CHECK_CODE=$?
+  else
+    echo "SKIP: npm script '$script' not configured"
+  fi
+}
+
 INSTALL_CODE=0
 if [[ -f package.json ]]; then
   if [[ "$PM" == "npm" ]]; then
@@ -70,35 +80,20 @@ else
   echo "SKIP: scripts/smoke.mjs not found"
 fi
 
-if [[ -f package.json ]] && has_script "ui:shell-smoke"; then
-  run_step "UI shell smoke" "$PM" run ui:shell-smoke || CHECK_CODE=$?
-else
-  echo "SKIP: npm script 'ui:shell-smoke' not configured"
-fi
-
-if [[ -f package.json ]] && has_script "test-matrix:smoke"; then
-  run_step "Test matrix smoke" "$PM" run test-matrix:smoke || CHECK_CODE=$?
-else
-  echo "SKIP: npm script 'test-matrix:smoke' not configured"
-fi
-
-if [[ -f package.json ]] && has_script "cloud:local-smoke"; then
-  run_step "Cloud Sync local smoke" "$PM" run cloud:local-smoke || CHECK_CODE=$?
-else
-  echo "SKIP: npm script 'cloud:local-smoke' not configured"
-fi
-
-if [[ -f package.json ]] && has_script "gmv:max-smoke"; then
-  run_step "GMV Max dashboard smoke" "$PM" run gmv:max-smoke || CHECK_CODE=$?
-else
-  echo "SKIP: npm script 'gmv:max-smoke' not configured"
-fi
-
-if [[ -f package.json ]] && has_script "video:safety-smoke"; then
-  run_step "Video downloader safety smoke" "$PM" run video:safety-smoke || CHECK_CODE=$?
-else
-  echo "SKIP: npm script 'video:safety-smoke' not configured"
-fi
+run_npm_script_if_present "UI shell smoke" "ui:shell-smoke"
+run_npm_script_if_present "Test matrix smoke" "test-matrix:smoke"
+run_npm_script_if_present "Desktop launch smoke" "desktop:launch-smoke"
+run_npm_script_if_present "Cloud Sync local smoke" "cloud:local-smoke"
+run_npm_script_if_present "GMV Max dashboard smoke" "gmv:max-smoke"
+run_npm_script_if_present "Shop health score smoke" "shop:health-score-smoke"
+run_npm_script_if_present "Shop session safety smoke" "shop:session-safety-smoke"
+run_npm_script_if_present "Business Ads Spend missing smoke" "business:ads-spend-missing-smoke"
+run_npm_script_if_present "Business legacy XLS scope smoke" "business:legacy-xls-scope-smoke"
+run_npm_script_if_present "Daily checklist scope smoke" "ops:daily-checklist-scope-smoke"
+run_npm_script_if_present "Crawler contract policy smoke" "crawler:contract-policy-smoke"
+run_npm_script_if_present "Crawler fixture smoke" "crawler:fixture-smoke"
+run_npm_script_if_present "Session restore gate smoke" "session:restore-gate-smoke"
+run_npm_script_if_present "Video downloader safety smoke" "video:safety-smoke"
 
 echo "NOTE: Browser UI QA remains manual/Codex Browser based when a task changes runtime interactions."
 
