@@ -17,8 +17,12 @@ const contract = buildCrawlerSnapshotContract({
   summary: { rawFiles: 3, normalizedRows: 2 }
 });
 
-assert.equal(contract.retentionPolicy.mode, 'manual', 'retention must remain manual');
-assert.match(contract.retentionPolicy.note, /No deletion/i, 'contract must not claim automatic deletion');
+assert.equal(contract.retentionPolicy.mode, 'local-retention-policy', 'retention should be a local-only policy');
+assert.equal(contract.retentionPolicy.rawSnapshotDays, 30, 'raw snapshot review window should default to 30 days');
+assert.equal(contract.retentionPolicy.pruneAutomatically, false, 'contract must not claim automatic deletion');
+assert.equal(contract.retentionPolicy.reviewBeforeDelete, true, 'operator review should be required before deleting crawler data');
+assert.equal(contract.retentionPolicy.remoteUpload, false, 'retention policy must not enable remote upload');
+assert.equal(contract.retentionPolicy.expiresAt, '2026-07-21T00:00:00.000Z', 'retention deadline should be derived from startedAt');
 assert.equal(contract.security.secretScrubbed, true, 'secret scrubbing must stay enabled');
 assert.equal(contract.security.plaintextCookieExport, false, 'plaintext cookie export must stay disabled');
 assert.equal(contract.security.remoteUpload, false, 'crawler snapshots must not upload remotely');

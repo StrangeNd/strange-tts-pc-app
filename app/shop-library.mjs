@@ -177,8 +177,16 @@ export function createShop(rootDir, input = {}) {
   const shop = {
     id,
     name,
+    avatar: String(input.avatar || '').trim(),
+    loginNote: String(input.loginNote || '').trim(),
     sellerId: String(input.sellerId || '').trim(),
     adsAccountId: String(input.adsAccountId || '').trim(),
+    sellerCenterUrl: String(input.sellerCenterUrl || '').trim(),
+    sellerAdsUrl: String(input.sellerAdsUrl || '').trim(),
+    compassUrl: String(input.compassUrl || '').trim(),
+    gmvMaxUrl: String(input.gmvMaxUrl || '').trim(),
+    shopHealthStatus: String(input.shopHealthStatus || '').trim(),
+    productScoreStatus: String(input.productScoreStatus || '').trim(),
     region: String(input.region || 'VN').trim() || 'VN',
     cookieCount,
     cookieStorage: cookieCount ? 'encrypted' : 'none',
@@ -214,6 +222,13 @@ export function importShopCookies(rootDir, input = {}) {
 }
 
 export function buildSellerAdsUrl(shop = {}) {
+  if (shop.sellerAdsUrl) {
+    try {
+      return new URL(shop.sellerAdsUrl).toString();
+    } catch {
+      // Fall back to generated Seller Ads URL when stored metadata is malformed.
+    }
+  }
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0).getTime();
   const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59).getTime();
