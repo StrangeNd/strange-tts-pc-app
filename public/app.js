@@ -124,6 +124,12 @@ function selectedShopContext() {
     name: shop?.name || selectedId || '',
     sellerId: shop?.sellerId || '',
     adsAccountId: shop?.adsAccountId || '',
+    sellerCenterUrl: shop?.sellerCenterUrl || '',
+    sellerAdsUrl: shop?.sellerAdsUrl || '',
+    compassUrl: shop?.compassUrl || '',
+    gmvMaxUrl: shop?.gmvMaxUrl || '',
+    shopHealthStatus: shop?.shopHealthStatus || '',
+    productScoreStatus: shop?.productScoreStatus || '',
     label: shop?.name ? `${shop.name} (${shop.id})` : (selectedId || 'Chua chon shop/profile')
   };
 }
@@ -182,6 +188,13 @@ function sourceLabel(value) {
 }
 
 function gmvMaxEntryUrl(shop = {}) {
+  if (shop.gmvMaxUrl) {
+    try {
+      return new URL(shop.gmvMaxUrl).toString();
+    } catch {
+      // Fall back to the generated local entry URL when metadata is malformed.
+    }
+  }
   const url = new URL('https://seller-vn.tiktok.com/ads-creation/dashboard');
   const shopId = shop.sellerId || shop.id || '';
   if (shopId) url.searchParams.set('shop_id', shopId);
@@ -282,12 +295,44 @@ function sellerAdsWorkspace() {
         <input name="name" autocomplete="off" required placeholder="VD: Ha Anh Shine">
       </label>
       <label>
+        Avatar URL
+        <input name="avatar" autocomplete="off" placeholder="https://...">
+      </label>
+      <label>
+        Login note
+        <input name="loginNote" autocomplete="off" placeholder="Nguoi phu trach / trang thai dang nhap">
+      </label>
+      <label>
         Seller ID / Shop ID
         <input name="sellerId" autocomplete="off" placeholder="Neu co thi dien, khong co co the bo trong">
       </label>
       <label>
         Ads Account ID
         <input name="adsAccountId" autocomplete="off" placeholder="Neu co">
+      </label>
+      <label>
+        Seller Center URL
+        <input name="sellerCenterUrl" autocomplete="off" placeholder="https://seller-vn.tiktok.com/...">
+      </label>
+      <label>
+        Seller Ads URL
+        <input name="sellerAdsUrl" autocomplete="off" placeholder="https://seller-vn.tiktok.com/ads-creation/dashboard">
+      </label>
+      <label>
+        Compass URL
+        <input name="compassUrl" autocomplete="off" placeholder="https://seller-vn.tiktok.com/compass/...">
+      </label>
+      <label>
+        GMV Max URL
+        <input name="gmvMaxUrl" autocomplete="off" placeholder="https://seller-vn.tiktok.com/ads-creation/dashboard">
+      </label>
+      <label>
+        Shop health status
+        <input name="shopHealthStatus" autocomplete="off" placeholder="OK / Can kiem tra / Missing">
+      </label>
+      <label>
+        Product score status
+        <input name="productScoreStatus" autocomplete="off" placeholder="OK / Can toi uu / Missing">
       </label>
       <label>
         Import cookies bang file path
@@ -738,11 +783,16 @@ function localBackupShop(shop = {}) {
   return {
     id: shop.id || '',
     name: shop.name || '',
+    avatar: shop.avatar || '',
+    loginNote: shop.loginNote || '',
     sellerId: shop.sellerId || '',
     adsAccountId: shop.adsAccountId || '',
     sellerCenterUrl: shop.sellerCenterUrl || '',
     sellerAdsUrl: shop.sellerAdsUrl || '',
     compassUrl: shop.compassUrl || '',
+    gmvMaxUrl: shop.gmvMaxUrl || '',
+    shopHealthStatus: shop.shopHealthStatus || '',
+    productScoreStatus: shop.productScoreStatus || '',
     region: shop.region || '',
     cookieStorage: shop.cookieStorage || 'none'
   };
@@ -1799,8 +1849,16 @@ async function createSellerAdsShop(event) {
   const form = new FormData(event.currentTarget);
   const payload = {
     name: form.get('name'),
+    avatar: form.get('avatar'),
+    loginNote: form.get('loginNote'),
     sellerId: form.get('sellerId'),
     adsAccountId: form.get('adsAccountId'),
+    sellerCenterUrl: form.get('sellerCenterUrl'),
+    sellerAdsUrl: form.get('sellerAdsUrl'),
+    compassUrl: form.get('compassUrl'),
+    gmvMaxUrl: form.get('gmvMaxUrl'),
+    shopHealthStatus: form.get('shopHealthStatus'),
+    productScoreStatus: form.get('productScoreStatus'),
     cookiesPath: form.get('cookiesPath'),
     cookiesJson: form.get('cookiesJson')
   };
@@ -1848,6 +1906,13 @@ function renderShopSessionSafety(shopId) {
         <dl class="compact-list">
           <dt>Seller ID</dt><dd>${escapeHtml(shop.sellerId || 'Missing')}</dd>
           <dt>Ads account</dt><dd>${escapeHtml(shop.adsAccountId || 'Missing')}</dd>
+          <dt>Login note</dt><dd>${escapeHtml(shop.loginNote || 'Missing')}</dd>
+          <dt>Seller Center URL</dt><dd>${escapeHtml(shop.sellerCenterUrl || 'Missing')}</dd>
+          <dt>Seller Ads URL</dt><dd>${escapeHtml(shop.sellerAdsUrl || 'Missing')}</dd>
+          <dt>Compass URL</dt><dd>${escapeHtml(shop.compassUrl || 'Missing')}</dd>
+          <dt>GMV Max URL</dt><dd>${escapeHtml(shop.gmvMaxUrl || 'Missing')}</dd>
+          <dt>Shop health</dt><dd>${escapeHtml(shop.shopHealthStatus || 'Missing')}</dd>
+          <dt>Product score</dt><dd>${escapeHtml(shop.productScoreStatus || 'Missing')}</dd>
           <dt>Cookie storage</dt><dd>${escapeHtml(shop.cookieStorage || 'Missing')}</dd>
           <dt>Last confirmation</dt><dd>${escapeHtml(confirmation ? `${confirmationLabel(confirmation.status)} at ${formatTimestamp(confirmation.confirmedAt)}` : 'No confirmation yet')}</dd>
         </dl>
