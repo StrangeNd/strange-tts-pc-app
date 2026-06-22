@@ -1,4 +1,4 @@
-# US-035 - Cloud Sync Import Scope Smoke
+# US-036 - Cloud Sync Import Scope Smoke
 
 ## Story
 
