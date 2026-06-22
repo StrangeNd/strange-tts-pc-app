@@ -81,6 +81,7 @@ else
 fi
 
 run_npm_script_if_present "UI shell smoke" "ui:shell-smoke"
+run_npm_script_if_present "README runtime domain smoke" "readme:runtime-domain-smoke"
 run_npm_script_if_present "AI Data external scope smoke" "ai-data:external-scope-smoke"
 run_npm_script_if_present "Audit log redaction smoke" "audit:log-redaction-smoke"
 run_npm_script_if_present "Test matrix smoke" "test-matrix:smoke"
