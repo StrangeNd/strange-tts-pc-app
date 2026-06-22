@@ -9,6 +9,20 @@ scripts/agent-healthcheck.sh
 This detects the package manager, installs dependencies when needed, and runs available checks.
 For UI work, use Codex Browser/in-app browser or the desktop app window after healthcheck.
 
+If the Windows terminal is opened on `\\wsl.localhost\...`, direct `npm run ...`
+can fail because Windows `cmd.exe` does not support UNC current directories.
+Use the WSL wrapper from PowerShell instead:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/agent-wsl-run.ps1
+```
+
+To run one targeted command through the same WSL repo path:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/agent-wsl-run.ps1 npm run ui:shell-smoke
+```
+
 ## Classify A Task First
 
 Before code changes, read:
