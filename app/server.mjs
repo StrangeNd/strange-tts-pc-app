@@ -595,7 +595,21 @@ export function createServer({ port = 48731 } = {}) {
       if (url.pathname === '/api/video/download' && req.method === 'POST') {
         const body = await readBody(req);
         try {
+          if (body.operatorCanView !== true) {
+            return sendJson(res, 400, { ok: false, error: 'Confirm the selected shop/profile can already view this video before downloading.' });
+          }
+          appendAudit(rootDir, 'video.download_start', {
+            profileId: body.profileId || 'default-profile',
+            shopName: body.shopName || '',
+            operatorCanView: true
+          });
           const result = await downloadTikTokVideo(body.url);
+          appendAudit(rootDir, 'video.download_done', {
+            profileId: body.profileId || 'default-profile',
+            shopName: body.shopName || '',
+            bytes: result.bytes,
+            source: result.source
+          });
           return sendJson(res, 200, { ok: true, result });
         } catch (error) {
           return sendJson(res, 400, { ok: false, error: error.message });
