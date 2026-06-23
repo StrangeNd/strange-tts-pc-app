@@ -37,6 +37,7 @@
     "shop:profile-metadata-smoke": "node scripts/shop-profile-metadata-smoke.mjs",
     "shop:session-safety-smoke": "node scripts/shop-session-safety-smoke.mjs",
     "business:ads-spend-missing-smoke": "node scripts/ads-spend-missing-smoke.mjs",
+    "business:csv-missing-smoke": "node scripts/business-csv-missing-smoke.mjs",
     "business:spreadsheet-smoke": "node scripts/spreadsheet-smoke.mjs",
     "business:legacy-xls-scope-smoke": "node scripts/legacy-xls-scope-smoke.mjs",
     "ops:daily-checklist-scope-smoke": "node scripts/daily-checklist-scope-smoke.mjs",
