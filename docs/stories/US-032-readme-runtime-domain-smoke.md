@@ -10,6 +10,7 @@ so that future changes do not reintroduce Text-To-Speech confusion or unsafe WSL
 
 - README title names TikTok Shop rather than generic TTS.
 - README explains that `TTS` is a legacy TikTok Shop acronym, not Text-To-Speech.
+- README and user guide only mention `Strange TTS PC App` when the nearby context frames it as a legacy runtime/shortcut label tied to TikTok Shop operations.
 - README keeps Windows-local production runtime guidance.
 - README warns against running production from `\\wsl.localhost\...`.
 - README keeps the Windows start script path and labels localhost as internal/debug API.

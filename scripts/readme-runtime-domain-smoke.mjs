@@ -8,6 +8,19 @@ const readme = readFileSync(join(rootDir, 'README.md'), 'utf8');
 const guide = readFileSync(join(rootDir, 'docs', 'PC_APP_USER_GUIDE.md'), 'utf8');
 const combined = `${readme}\n${guide}`;
 
+function assertLegacyRuntimeLabelContext(text, label) {
+  const runtimeLabel = 'Strange TTS PC App';
+  let index = text.indexOf(runtimeLabel);
+  assert.notEqual(index, -1, `${label} should mention the legacy runtime shortcut label`);
+  while (index !== -1) {
+    const context = text.slice(Math.max(0, index - 220), Math.min(text.length, index + runtimeLabel.length + 260));
+    assert.match(context, /legacy/i, `${label} should frame "${runtimeLabel}" as a legacy runtime/shortcut label`);
+    assert.match(context, /TikTok Shop/i, `${label} should keep "${runtimeLabel}" tied to TikTok Shop operations`);
+    index = text.indexOf(runtimeLabel, index + runtimeLabel.length);
+  }
+}
+
+
 assert.match(readme, /^# Strange TikTok Shop PC App/m, 'README title should name TikTok Shop, not generic TTS');
 assert(readme.includes('`TTS`'), 'README should explain the legacy TTS acronym');
 assert(readme.includes('TikTok Shop'), 'README should define the product domain as TikTok Shop');
@@ -32,5 +45,8 @@ for (const phrase of forbiddenRuntimeClaims) {
 
 assert(guide.includes('Text-To-Speech'), 'User guide should preserve the explicit non-goal wording');
 assert(guide.includes('Khong mo app tu `\\\\wsl.localhost\\...`'), 'User guide should warn non-technical users away from WSL UNC runtime');
+
+assertLegacyRuntimeLabelContext(readme, 'README');
+assertLegacyRuntimeLabelContext(guide, 'User guide');
 
 console.log('README runtime domain smoke passed.');
