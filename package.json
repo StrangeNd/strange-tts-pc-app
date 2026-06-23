@@ -18,6 +18,7 @@
     "desktop:launch-smoke": "node scripts/desktop-launch-smoke.mjs",
     "test-matrix:smoke": "node scripts/test-matrix-smoke.mjs",
     "harness:pr-report-template-smoke": "node scripts/pr-report-template-smoke.mjs",
+    "harness:pr-report-sensitive-smoke": "node scripts/pr-report-sensitive-content-smoke.mjs",
     "agent:wsl-runner-smoke": "node scripts/agent-wsl-run-smoke.mjs",
     "ui:shell-smoke": "node scripts/ui-shell-smoke.mjs",
     "readme:runtime-domain-smoke": "node scripts/readme-runtime-domain-smoke.mjs",
