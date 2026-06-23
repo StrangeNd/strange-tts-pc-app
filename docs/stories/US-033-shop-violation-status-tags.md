@@ -15,7 +15,7 @@ so that I can quickly tell whether a violation still needs appeal work.
   - `Khong can khieu nai`
 - Unknown source statuses remain visible instead of being hidden.
 - Zero-count violation rows do not inflate the violation summary count.
-- Violation title/type, normalized status tag, count, and source remain visible.
+- Violation title/type, normalized status tag, count, source, and timestamp remain visible.
 - The smoke uses sanitized local fixtures and does not require an authenticated TikTok Shop profile.
 
 ## Validation

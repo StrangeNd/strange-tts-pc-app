@@ -346,6 +346,7 @@ function latestViolationSummary(violationBodies) {
       count: null,
       risk: '',
       source: '',
+      timestamp: '',
       items: [],
       available: false
     };
@@ -353,18 +354,21 @@ function latestViolationSummary(violationBodies) {
   const data = entry?.body?.data || {};
   const points = Array.isArray(data.violation_points_v2) ? data.violation_points_v2 : [];
   const statusForViolation = item => normalizeViolationStatus(item.status || item.appeal_status || item.appealStatus || item.state || item.risk_level);
+  const timestamp = entry?.log?.capturedAt || entry?.log?.startedAt || '';
   return {
     score: data.violation_score ?? null,
     count: points.reduce((sum, item) => sum + Number(item.count || 0), 0),
     risk: data.section_infos?.find?.(item => Number(data.violation_score || 0) >= Number(item.left_node || 0) && Number(data.violation_score || 0) <= Number(item.right_node || 0))?.risk_level || '',
     source: entry?.log?.url || '',
+    timestamp,
     available: true,
     items: points.map((item, index) => ({
       id: String(item.id || item.key || item.violation_type || item.type || `violation-${index + 1}`),
       title: String(item.title || item.name || item.violation_name || item.violation_type || item.type || 'Chua co tieu de'),
       status: statusForViolation(item),
       count: Number(item.count || 0),
-      source: entry?.log?.url || ''
+      source: entry?.log?.url || '',
+      timestamp
     }))
   };
 }
@@ -539,6 +543,7 @@ function buildShopHealthCenter(cards = [], violationSummary = {}) {
       summary: storeViolations || { key: 'storeViolations', label: 'Vi pham cua hang', value: null, format: 'number', available: false, source: 'missing' },
       risk: violationSummary.risk || storeViolations?.note || '',
       source: violationSummary.source || storeViolations?.source || '',
+      timestamp: violationSummary.timestamp || '',
       items: violationSummary.items || []
     },
     components: [
