@@ -618,6 +618,22 @@ function renderShopHealthCenter(range) {
       <td>${escapeHtml(formatTimestamp(item.timestamp || health.violations?.timestamp || ''))}</td>
     </tr>
   `).join('');
+  const missingDependencyItems = (health.missingDependencies || []).map(item => `
+    <li>${escapeHtml(item)}</li>
+  `).join('');
+  const missingDependencyDetail = missingDependencyItems
+    ? `
+      <div class="health-missing-dependencies" data-shop-health-missing-dependencies>
+        <strong>Missing dependency detail</strong>
+        <ul>${missingDependencyItems}</ul>
+      </div>
+    `
+    : `
+      <div class="health-missing-dependencies complete" data-shop-health-missing-dependencies>
+        <strong>Missing dependency detail</strong>
+        <span>No missing health dependencies.</span>
+      </div>
+    `;
   return `
     <section class="mini-panel shop-health-panel">
       <h3>Shop Health / Score</h3>
@@ -626,6 +642,7 @@ function renderShopHealthCenter(range) {
         ${dashboardCard('Shop Violations', health.violations?.summary?.value, health.violations?.summary?.source || 'crawler', health.violations?.summary?.format || 'number', health.violations?.summary?.available, health.violations?.risk || '')}
         ${dashboardCard('Missing dependencies', health.missingDependencies?.length || 0, 'computed', 'number', true)}
       </div>
+      ${missingDependencyDetail}
       <div class="analysis-grid">
         ${(health.components || []).map(component => `
           <section class="mini-panel health-component">

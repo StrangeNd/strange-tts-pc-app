@@ -16,6 +16,11 @@ const orderFile = await workbookBase64([
   ['ORDER-3', 'Demo TikTok Shop product', 'SKU-1', 50000, 1, 'Cancelled', '', 50000]
 ]);
 
+const orderMissingSourceFile = await workbookBase64([
+  ['Order ID', 'Product Name', 'Seller SKU', 'GMV', 'Quantity'],
+  ['ORDER-4', 'Demo TikTok Shop product', 'SKU-1', 120000, 2]
+]);
+
 const priceFile = await workbookBase64([
   ['Product Name', '', '', '', '', '', '', 'Cost'],
   ['Demo TikTok Shop product', '', '', '', '', '', '', 30000]
@@ -162,6 +167,62 @@ if (!result.affiliate?.performance?.available || result.affiliate.performance.gm
 
 if (result.affiliate.performance.commission !== 9000 || result.affiliate.performance.topProducts?.[0]?.productName !== 'Demo TikTok Shop product') {
   throw new Error('Expected affiliate commission and top product performance to be reported.');
+}
+
+const missingSourceResult = await analyzeBusinessInput({
+  priceFile: {
+    name: 'price.xlsx',
+    contentBase64: priceFile
+  },
+  files: [
+    {
+      name: 'orders-missing-source.xlsx',
+      type: 'orders',
+      contentBase64: orderMissingSourceFile
+    }
+  ]
+}, {
+  rootDir: process.cwd()
+});
+
+if (missingSourceResult.ads?.actual?.hasSpendComponent) {
+  throw new Error('Expected Ads Spend to remain unavailable when no ads source file is uploaded.');
+}
+
+if (missingSourceResult.ads?.actual?.components?.some(component => component.available)) {
+  throw new Error('Expected Ads Spend components to remain missing when no source fields are uploaded.');
+}
+
+if (missingSourceResult.orders?.refundCancel?.available) {
+  throw new Error('Expected refund/cancel metrics to remain unavailable when status/refund/cancel fields are absent.');
+}
+
+if (
+  missingSourceResult.orders?.refundCancel?.affectedOrders !== null ||
+  missingSourceResult.orders?.refundCancel?.amount !== null
+) {
+  throw new Error('Expected missing refund/cancel counts and amount to stay null, not zero.');
+}
+
+const missingSourceTopSku = missingSourceResult.orders?.topSkus?.[0];
+if (!missingSourceTopSku || missingSourceTopSku.netRevenueEstimate !== null) {
+  throw new Error('Expected SKU net revenue estimate to stay missing without refund/cancel source fields.');
+}
+
+if (
+  missingSourceResult.groupedRows?.video !== 0 ||
+  missingSourceResult.groupedRows?.livestream !== 0 ||
+  missingSourceResult.groupedRows?.affiliate !== 0
+) {
+  throw new Error('Expected content and affiliate source row counts to stay zero when files are absent.');
+}
+
+if (missingSourceResult.affiliate?.performance?.available) {
+  throw new Error('Expected product affiliate performance to remain unavailable when no affiliate source file is uploaded.');
+}
+
+if (missingSourceResult.affiliate?.performance?.gmv !== null) {
+  throw new Error('Expected missing affiliate GMV to stay null, not zero.');
 }
 
 console.log('Spreadsheet smoke passed');

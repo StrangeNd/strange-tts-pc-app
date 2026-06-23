@@ -681,6 +681,35 @@ button:disabled {
   margin-top: 0;
 }
 
+.health-missing-dependencies {
+  display: grid;
+  gap: 8px;
+  border: 1px solid rgba(180, 35, 24, 0.2);
+  border-radius: 6px;
+  background: #fff8f6;
+  padding: 10px 12px;
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.health-missing-dependencies.complete {
+  border-color: var(--line);
+  background: #fbfcfd;
+}
+
+.health-missing-dependencies strong,
+.health-missing-dependencies span,
+.health-missing-dependencies li {
+  overflow-wrap: anywhere;
+}
+
+.health-missing-dependencies ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 18px;
+}
+
 .health-component {
   box-shadow: none;
 }
