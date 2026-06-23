@@ -107,6 +107,7 @@ run_npm_script_if_present "Crawler contract smoke" "crawler:contract-smoke"
 run_npm_script_if_present "Crawler contract policy smoke" "crawler:contract-policy-smoke"
 run_npm_script_if_present "Crawler retention contract smoke" "crawler:retention-contract-smoke"
 run_npm_script_if_present "Crawler fixture smoke" "crawler:fixture-smoke"
+run_npm_script_if_present "TikTok crawler auto-profile smoke" "crawler:auto-profile-smoke"
 run_npm_script_if_present "Session restore gate smoke" "session:restore-gate-smoke"
 run_npm_script_if_present "Video downloader safety smoke" "video:safety-smoke"
 
