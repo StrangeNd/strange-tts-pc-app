@@ -71,6 +71,12 @@ try {
   );
   assert.equal(last7.healthCenter.violations.summary.value, 3, 'zero-count status rows should not inflate violation count');
   assert(items.every(item => item.source.includes('/violation/overview/get')), 'violation rows should preserve source URL');
+  assert(items.every(item => item.timestamp), 'violation rows should preserve crawler capture timestamp');
+  assert.equal(
+    last7.healthCenter.violations.timestamp,
+    items[0].timestamp,
+    'violation summary should expose the same crawler capture timestamp as rows'
+  );
 
   console.log('Shop violation status tags smoke passed.');
 } finally {
