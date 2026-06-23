@@ -1,4 +1,4 @@
-﻿import fs from 'node:fs';
+import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -244,6 +244,51 @@ function assertRuntimeUrlAllowed(targetUrl) {
   return parsed.href;
 }
 
+function crawlerDefaultUrl(mode, shop = {}) {
+  if (mode === 'compass') {
+    return shop.compassUrl || 'https://seller-vn.tiktok.com/compass/data-overview?shop_region=VN';
+  }
+  return shop.sellerCenterUrl || 'https://seller-vn.tiktok.com/homepage?shop_region=VN';
+}
+
+async function prepareCrawlerBrowser(body = {}, mode = 'seller-center') {
+  const shopId = String(body.shopId || body.sellerId || 'little-apricot-hawaii-fashion');
+  const storedShop = getShop(rootDir, shopId);
+  const shop = {
+    ...(storedShop || {}),
+    ...(body.shop || {})
+  };
+  const sellerId = String(body.sellerId || shop.sellerId || shop.oec_seller_id || '7494478078863902049');
+  const targetUrl = assertRuntimeUrlAllowed(body.baseUrl || crawlerDefaultUrl(mode, shop));
+  const requestedPort = Number(body.cdpPort || 0);
+  const autoOpenProfile = body.autoOpenProfile === true || body.autoOpenProfile === 'true' || !requestedPort;
+  if (!autoOpenProfile) {
+    return { shopId, sellerId, cdpPort: requestedPort, targetUrl, launch: null };
+  }
+
+  const shopKey = String(body.shopKey || shop.local_key || shop.canonical_shop_id || sellerId || shopId);
+  const profileName = runtimeShopProfileName(shop, shopKey);
+  const cookies = storedShop?.id ? getShopCookies(rootDir, storedShop.id) : [];
+  const launch = await launchChromeWithCookies(rootDir, {
+    appUrl: targetUrl,
+    profileName,
+    cookies,
+    shopContext: {
+      shopKey,
+      name: shop.name || shop.shopRealName || shopId,
+      avatar: shop.avatar || shop.shopAvatar || shop.shopLogo || '',
+      sellerId,
+      adsAccountId: shop.adsAccountId || shop.aadvid || '',
+      profileName,
+      pageType: mode === 'compass' ? 'compass' : 'seller-center',
+      targetUrl
+    },
+    appWindow: true,
+    extensionPage: '',
+    stopExistingProfile: body.stopExistingProfile !== false
+  });
+  return { shopId, sellerId, cdpPort: launch.debugPort, targetUrl, launch };
+}
 export function createServer({ port = 48731 } = {}) {
   ensureAdmin(privateDir);
   ensureExtensionLibrary(rootDir);
@@ -678,7 +723,8 @@ export function createServer({ port = 48731 } = {}) {
         const body = await readBody(req, { maxBytes: 256 * 1024 });
         const mode = body.mode || 'compass';
         if (mode === 'seller-center') {
-          const shopId = body.shopId || body.sellerId || 'little-apricot-hawaii-fashion';
+          const prepared = await prepareCrawlerBrowser(body, mode);
+          const { shopId, sellerId, cdpPort, targetUrl, launch } = prepared;
           const existing = crawlerJobs.get(shopId);
           if (existing?.status === 'running' && !body.force) {
             return sendJson(res, 202, { ok: true, accepted: true, status: 'running', job: existing });
@@ -688,19 +734,25 @@ export function createServer({ port = 48731 } = {}) {
             mode,
             status: 'running',
             shopId,
+            sellerId,
+            cdpPort,
+            autoOpenProfile: Boolean(launch),
+            profileName: launch?.profileName || '',
             startedAt: new Date().toISOString()
           };
           crawlerJobs.set(shopId, job);
           crawlSellerCenterDeep({
             rootDir,
-            cdpPort: Number(body.cdpPort || 58849),
+            cdpPort,
             shopId,
-            sellerId: body.sellerId || '',
-            baseUrl: body.baseUrl || 'https://seller-vn.tiktok.com/homepage?shop_region=VN',
+            sellerId,
+            baseUrl: targetUrl,
             configPath: body.configPath || undefined,
             dateRange: body.dateRange || 'yesterday',
             maxModules: Number(body.maxModules || 0),
-            dryRun: Boolean(body.dryRun)
+            dryRun: Boolean(body.dryRun),
+            clickAllControls: Boolean(body.clickAllControls),
+            maxSafeControls: Number(body.maxSafeControls || 28)
           })
             .then(result => {
               crawlerJobs.set(shopId, { ...job, status: 'done', finishedAt: new Date().toISOString(), runId: result.runId, summary: result.summary });
@@ -713,28 +765,57 @@ export function createServer({ port = 48731 } = {}) {
           appendAudit(rootDir, 'tiktokshop_crawler.crawl_start', {
             mode,
             shopId,
-            sellerId: body.sellerId,
-            jobId: job.id
+            sellerId,
+            jobId: job.id,
+            cdpPort,
+            profileName: launch?.profileName || '',
+            cookiesApplied: launch?.cookiesApplied || 0,
+            autoOpenProfile: Boolean(launch)
           });
-          return sendJson(res, 202, { ok: true, accepted: true, status: 'running', job });
+          return sendJson(res, 202, {
+            ok: true,
+            accepted: true,
+            status: 'running',
+            job,
+            launch: launch ? {
+              profileName: launch.profileName,
+              debugPort: launch.debugPort,
+              cookiesApplied: launch.cookiesApplied,
+              extensionId: launch.extensionId
+            } : null
+          });
         }
+        const prepared = await prepareCrawlerBrowser(body, mode);
+        const { shopId, sellerId, cdpPort, launch } = prepared;
         const result = await crawlCompassMonths({
-            rootDir,
-            cdpPort: Number(body.cdpPort || 58849),
-            shopId: body.shopId || body.sellerId || 'little-apricot-hawaii-fashion',
-            sellerId: body.sellerId || '7494478078863902049',
-            months: Array.isArray(body.months)
-              ? body.months
-              : String(body.months || '').split(',').map(item => item.trim()).filter(Boolean)
+          rootDir,
+          cdpPort,
+          shopId,
+          sellerId,
+          months: Array.isArray(body.months)
+            ? body.months
+            : String(body.months || '').split(',').map(item => item.trim()).filter(Boolean)
         });
         appendAudit(rootDir, 'tiktokshop_crawler.crawl', {
           mode,
-          shopId: body.shopId,
-          sellerId: body.sellerId,
+          shopId,
+          sellerId,
           months: result.results?.map(item => item.month) || [],
-          runId: result.runId || ''
+          runId: result.runId || '',
+          cdpPort,
+          profileName: launch?.profileName || '',
+          cookiesApplied: launch?.cookiesApplied || 0,
+          autoOpenProfile: Boolean(launch)
         });
-        return sendJson(res, 200, result);
+        return sendJson(res, 200, {
+          ...result,
+          launch: launch ? {
+            profileName: launch.profileName,
+            debugPort: launch.debugPort,
+            cookiesApplied: launch.cookiesApplied,
+            extensionId: launch.extensionId
+          } : null
+        });
       }
 
       if (url.pathname === '/api/business/rules' && req.method === 'GET') {

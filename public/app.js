@@ -1641,7 +1641,8 @@ async function renderTikTokCrawlerWorkspace() {
         <div><strong>${money(sellerCenter.summary?.rawFiles)}</strong><span>Raw files</span></div>
         <div><strong>${money(sellerCenter.summary?.exportRequests)}</strong><span>Lệnh export</span></div>
       </div>
-      <label>CDP port của profile TikTok<input name="cdpPort" value="58849" autocomplete="off"></label>
+      <label><input type="checkbox" name="autoOpenProfile" checked> Tu mo dung profile shop va dung session/cookie local da nap</label>
+      <label>CDP port thu cong (khi tat tu mo profile)<input name="cdpPort" value="58849" autocomplete="off"></label>
       <label>Seller ID<input name="sellerId" value="${escapeHtml(defaultSellerId)}" autocomplete="off"></label>
       <label>URL gốc Seller Center<input name="baseUrl" value="https://seller-vn.tiktok.com/homepage?shop_region=VN" autocomplete="off"></label>
       <label>Tháng cần crawl Compass<input name="months" value="2026-04,2026-05" autocomplete="off"></label>
@@ -1681,7 +1682,8 @@ async function renderTikTokCrawlerWorkspace() {
         body: {
           mode: button.value || 'compass',
           shopId,
-          cdpPort: Number(form.get('cdpPort') || 58849),
+          autoOpenProfile: form.get('autoOpenProfile') === 'on',
+          cdpPort: Number(form.get('cdpPort') || 0),
           sellerId: form.get('sellerId'),
           baseUrl: form.get('baseUrl'),
           months: String(form.get('months') || '').split(',').map(item => item.trim()).filter(Boolean),
