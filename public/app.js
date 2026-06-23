@@ -957,6 +957,18 @@ function csvCell(value) {
   return /[",\r\n]/.test(raw) ? `"${raw.replace(/"/g, '""')}"` : raw;
 }
 
+function csvMetricNumber(value, available = true) {
+  return available && hasMetricValue(value) ? Math.round(Number(value)) : 'missing';
+}
+
+function csvMetricPercent(value, available = true) {
+  return available && hasMetricValue(value) ? pct(value) : 'missing';
+}
+
+function csvMetricDecimal(value, available = true) {
+  return available && hasMetricValue(value) ? Number(value).toFixed(2) : 'missing';
+}
+
 function downloadTextFile(filename, content, type = 'text/plain;charset=utf-8') {
   const blob = new Blob([content], { type });
   const url = URL.createObjectURL(blob);
@@ -970,27 +982,32 @@ function downloadTextFile(filename, content, type = 'text/plain;charset=utf-8') 
 }
 
 function exportBusinessPlanCsv(result) {
+  const hasOrderRows = groupedRows(result, 'orders') > 0;
+  const adsActualAvailable = Boolean(result.ads?.actual?.hasSpendComponent) && Number(result.ads?.actual?.rowsUsed || 0) > 0;
+  const adsComponents = Object.fromEntries((result.ads?.actual?.components || []).map(item => [item.key, item]));
+  const adsComponentValue = key => csvMetricNumber(adsComponents[key]?.value, Boolean(adsComponents[key]?.available));
+  const refundCancelAvailable = Boolean(result.orders?.refundCancel?.available);
   const rows = [
     ['Loai', 'Chi so', 'Gia tri'],
     ['Tong quan', 'Ky du lieu', result.period || ''],
     ['Tong quan', 'Ky ke hoach', result.plan?.period || ''],
-    ['KPI', 'Doanh thu cu', Math.round(Number(result.kpis?.revenue || 0))],
-    ['KPI', 'Loi nhuan uoc tinh', Math.round(Number(result.kpis?.netProfitEstimate || 0))],
-    ['KPI', 'Net margin', pct(result.kpis?.netMargin)],
-    ['Ads', 'Chi phi thuc te', Math.round(Number(result.costs?.adsActualCost || 0))],
-    ['Ads', 'Cash', Math.round(Number(result.ads?.actual?.cash || 0))],
-    ['Ads', 'Credit', Math.round(Number(result.ads?.actual?.credit || 0))],
-    ['Ads', 'Ads credit direct', Math.round(Number(result.ads?.actual?.adsCreditDirect || 0))],
-    ['Ads', 'Ads credit prorated', Math.round(Number(result.ads?.actual?.adsCreditProrated || 0))],
-    ['Orders', 'Refund/cancel orders', result.orders?.refundCancel?.available ? Number(result.orders.refundCancel.affectedOrders || 0) : 'missing'],
-    ['Orders', 'Refund/cancel rate', result.orders?.refundCancel?.available ? pct(result.orders.refundCancel.affectedRate || 0) : 'missing'],
-    ['Orders', 'Refund/cancel amount', result.orders?.refundCancel?.available ? Math.round(Number(result.orders.refundCancel.amount || 0)) : 'missing'],
-    ['Content', 'GMV Video', groupedRows(result, 'video') > 0 ? Math.round(Number(result.content?.video?.gmv || 0)) : 'missing'],
-    ['Content', 'GMV Livestream', groupedRows(result, 'livestream') > 0 ? Math.round(Number(result.content?.livestream?.gmv || 0)) : 'missing'],
-    ['Content', 'GMV Product affiliate', result.affiliate?.performance?.available ? Math.round(Number(result.affiliate.performance.gmv || 0)) : 'missing'],
+    ['KPI', 'Doanh thu cu', csvMetricNumber(result.kpis?.revenue, hasOrderRows)],
+    ['KPI', 'Loi nhuan uoc tinh', csvMetricNumber(result.kpis?.netProfitEstimate, hasOrderRows)],
+    ['KPI', 'Net margin', csvMetricPercent(result.kpis?.netMargin, hasOrderRows && hasMetricValue(result.kpis?.revenue) && Number(result.kpis.revenue) !== 0)],
+    ['Ads', 'Chi phi thuc te', csvMetricNumber(result.costs?.adsActualCost, adsActualAvailable)],
+    ['Ads', 'Cash', adsComponentValue('cash')],
+    ['Ads', 'Credit', adsComponentValue('credit')],
+    ['Ads', 'Ads credit direct', adsComponentValue('adsCreditDirect')],
+    ['Ads', 'Ads credit prorated', adsComponentValue('adsCreditProrated')],
+    ['Orders', 'Refund/cancel orders', csvMetricNumber(result.orders?.refundCancel?.affectedOrders, refundCancelAvailable)],
+    ['Orders', 'Refund/cancel rate', csvMetricPercent(result.orders?.refundCancel?.affectedRate, refundCancelAvailable)],
+    ['Orders', 'Refund/cancel amount', csvMetricNumber(result.orders?.refundCancel?.amount, refundCancelAvailable)],
+    ['Content', 'GMV Video', csvMetricNumber(result.content?.video?.gmv, groupedRows(result, 'video') > 0)],
+    ['Content', 'GMV Livestream', csvMetricNumber(result.content?.livestream?.gmv, groupedRows(result, 'livestream') > 0)],
+    ['Content', 'GMV Product affiliate', csvMetricNumber(result.affiliate?.performance?.gmv, Boolean(result.affiliate?.performance?.available))],
     ['Ke hoach', 'Muc tieu doanh thu', Math.round(Number(result.plan?.targetRevenue || 0))],
     ['Ke hoach', 'Ngan sach ads goi y', Math.round(Number(result.plan?.suggestedAdsBudget || 0))],
-    ['Ke hoach', 'ROI hoa von', Number(result.plan?.breakEvenRoi || 0).toFixed(2)]
+    ['Ke hoach', 'ROI hoa von', csvMetricDecimal(result.plan?.breakEvenRoi)]
   ];
   for (const action of result.plan?.actions || []) rows.push(['Action', action, '']);
   rows.push([]);

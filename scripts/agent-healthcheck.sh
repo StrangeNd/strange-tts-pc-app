@@ -98,6 +98,7 @@ run_npm_script_if_present "Shop violation status tags smoke" "shop:violation-sta
 run_npm_script_if_present "Shop profile metadata smoke" "shop:profile-metadata-smoke"
 run_npm_script_if_present "Shop session safety smoke" "shop:session-safety-smoke"
 run_npm_script_if_present "Business Ads Spend missing smoke" "business:ads-spend-missing-smoke"
+run_npm_script_if_present "Business CSV missing smoke" "business:csv-missing-smoke"
 run_npm_script_if_present "Business spreadsheet smoke" "business:spreadsheet-smoke"
 run_npm_script_if_present "Business legacy XLS scope smoke" "business:legacy-xls-scope-smoke"
 run_npm_script_if_present "Daily checklist scope smoke" "ops:daily-checklist-scope-smoke"
