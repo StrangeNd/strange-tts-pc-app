@@ -615,8 +615,25 @@ function renderShopHealthCenter(range) {
       <td>${escapeHtml(item.status || 'Chua co trang thai')}</td>
       <td class="num">${metricValue(item.count, 'number', item.count !== null && item.count !== undefined)}</td>
       <td>${escapeHtml(item.source || health.violations?.source || 'Chua co')}</td>
+      <td>${escapeHtml(formatTimestamp(item.timestamp || health.violations?.timestamp || ''))}</td>
     </tr>
   `).join('');
+  const missingDependencyItems = (health.missingDependencies || []).map(item => `
+    <li>${escapeHtml(item)}</li>
+  `).join('');
+  const missingDependencyDetail = missingDependencyItems
+    ? `
+      <div class="health-missing-dependencies" data-shop-health-missing-dependencies>
+        <strong>Missing dependency detail</strong>
+        <ul>${missingDependencyItems}</ul>
+      </div>
+    `
+    : `
+      <div class="health-missing-dependencies complete" data-shop-health-missing-dependencies>
+        <strong>Missing dependency detail</strong>
+        <span>No missing health dependencies.</span>
+      </div>
+    `;
   return `
     <section class="mini-panel shop-health-panel">
       <h3>Shop Health / Score</h3>
@@ -625,6 +642,7 @@ function renderShopHealthCenter(range) {
         ${dashboardCard('Shop Violations', health.violations?.summary?.value, health.violations?.summary?.source || 'crawler', health.violations?.summary?.format || 'number', health.violations?.summary?.available, health.violations?.risk || '')}
         ${dashboardCard('Missing dependencies', health.missingDependencies?.length || 0, 'computed', 'number', true)}
       </div>
+      ${missingDependencyDetail}
       <div class="analysis-grid">
         ${(health.components || []).map(component => `
           <section class="mini-panel health-component">
@@ -642,8 +660,8 @@ function renderShopHealthCenter(range) {
       </div>
       <div class="table-scroll">
         <table class="data-table">
-          <thead><tr><th>Violation title/type</th><th>Status tag</th><th>Count</th><th>Source</th></tr></thead>
-          <tbody>${violationRows || '<tr><td colspan="4">Chua co violation detail. Neu co vi pham, app se hien title/status/source khi crawler lay duoc.</td></tr>'}</tbody>
+          <thead><tr><th>Violation title/type</th><th>Status tag</th><th>Count</th><th>Source</th><th>Timestamp</th></tr></thead>
+          <tbody>${violationRows || '<tr><td colspan="5">Chua co violation detail. Neu co vi pham, app se hien title/status/source/timestamp khi crawler lay duoc.</td></tr>'}</tbody>
         </table>
       </div>
     </section>
