@@ -17,7 +17,7 @@ Target: `main`
 | Changed flow or behavior | Matrix row | Required proof | Evidence in this PR |
 | --- | --- | --- | --- |
 | TikTok crawler can auto-open the selected managed shop profile and use the returned CDP port | TikTok crawler | Auto-profile smoke, syntax, security scan, healthcheck, real-session manual validation note | `scripts/tiktok-crawler-auto-profile-smoke.mjs`; `docs/stories/US-039-real-seller-center-auto-profile-crawl.md`; this report |
-| Shop overview can refresh from real Seller Center crawl output for the selected shop | Shop overview | Seller Center latest DB/API review, healthcheck, manual real-session validation note | `/api/tiktokshop-crawler/crawl`; `/api/business/shop-overview`; this report |
+| Shop overview can refresh from real Seller Center or Compass crawl output for the selected shop | Shop overview | Seller Center/Compass latest DB/API review, healthcheck, manual real-session validation note, secret URL scrub smoke | `/api/tiktokshop-crawler/crawl`; `/api/business/shop-overview`; `scripts/real-crawl-overview-smoke.mjs`; this report |
 
 ## Explicit Approval Context
 
@@ -39,13 +39,19 @@ Approved before implementation.
 - Kept manual CDP port as a fallback when `autoOpenProfile` is disabled.
 - Updated the public crawler UI to default `autoOpenProfile` on.
 - Added `scripts/tiktok-crawler-auto-profile-smoke.mjs` and wired it into npm/healthcheck.
+- Fixed Compass target selection so the crawler prefers Seller Center/Compass tabs and avoids Edge permission dialog targets.
+- Increased Compass Runtime.evaluate timeouts for ready-date, aggregate, and daily-loop calls.
+- Added Compass DB-backed shop overview fallback and scrubbed crawler-derived overview payloads before returning them.
+- Added `scripts/real-crawl-overview-smoke.mjs` to protect Compass overview selection, missing metric behavior, CDP target/timeout guards, and sensitive URL query scrubbing.
 
 ## Validation Plan
 
 - `node --check app/server.mjs`
 - `node --check public/app.js`
 - `node --check scripts/tiktok-crawler-auto-profile-smoke.mjs`
+- `node --check scripts/real-crawl-overview-smoke.mjs`
 - `node scripts/tiktok-crawler-auto-profile-smoke.mjs`
+- `node scripts/real-crawl-overview-smoke.mjs`
 - `node scripts/security-scan.mjs`
 - `npm audit --audit-level=high`
 - WSL `scripts/agent-healthcheck.sh`
@@ -57,10 +63,14 @@ Approved before implementation.
 - `node --check public/app.js`: pass
 - `node --check scripts/tiktok-crawler-auto-profile-smoke.mjs`: pass
 - `node scripts/tiktok-crawler-auto-profile-smoke.mjs`: pass
+- `node --check scripts/real-crawl-overview-smoke.mjs`: pass
+- `node scripts/real-crawl-overview-smoke.mjs`: pass
 - `node scripts/security-scan.mjs`: pass
 - `npm audit --audit-level=high`: pass; existing moderate `uuid` via `exceljs` remains
 - `scripts/agent-healthcheck.sh`: pass via WSL after fixing `scripts/test-matrix-smoke.mjs` duplicate import and consolidating duplicate Test Matrix rows
-- Manual real-session Seller Center validation: not run in this agent workspace because the Windows local logged-in shop profile is not available here; remains required on the operator machine before claiming live data proof.
+- Manual real-session Compass validation: pass on the Windows installed app with the user-provided encrypted cookie import for `little-apricot-hawaii-fashion`; auto-profile crawl recorded month `2026-06`, `readyTime: 2026-06-23`, `dailyRows: 30`, and `totalGmv: 76714095` without printing raw cookie/session values.
+- Manual shop overview validation: pass on the Windows installed app; `/api/business/shop-overview` selects `sourceType: compass`, `runId: compass-2026-06`, available months `2026-04`, `2026-05`, `2026-06`, GMV `76714095`, video GMV `55389662`, and keeps missing orders/visitors unavailable.
+- Manual overview leak scan: pass; serialized overview JSON did not match `msToken|fp=|cookie=|cookie_enabled|sessionid=|authorization=|bearer\\s|x-bogus`.
 
 ## Manual Validation Notes
 

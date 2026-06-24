@@ -1,6 +1,7 @@
 import ExcelJS from 'exceljs';
 import fs from 'node:fs';
 import path from 'node:path';
+import { scrubCrawlerPayload } from './crawler-contract.mjs';
 
 const MAX_FILE_BYTES = 18 * 1024 * 1024;
 
@@ -198,6 +199,24 @@ function readJsonFileSafe(file, fallback = null) {
   } catch {
     return fallback;
   }
+}
+
+function latestCompassDatabase(rootDir, preferredShopId = '') {
+  const crawlerRoot = path.join(rootDir, 'data', 'tiktokshop-crawler', 'shops');
+  if (!fs.existsSync(crawlerRoot)) return null;
+  const shopDirs = fs.readdirSync(crawlerRoot, { withFileTypes: true })
+    .filter(entry => entry.isDirectory())
+    .map(entry => entry.name);
+  const orderedShopDirs = preferredShopId && shopDirs.includes(preferredShopId)
+    ? [preferredShopId, ...shopDirs.filter(name => name !== preferredShopId)]
+    : shopDirs;
+  for (const shopId of orderedShopDirs) {
+    const dbFile = path.join(crawlerRoot, shopId, 'compass-overview-db.json');
+    const db = readJsonFileSafe(dbFile, null);
+    const months = Object.keys(db?.months || {}).sort();
+    if (months.length) return { shopId, dbFile, db, month: months.at(-1), monthData: db.months[months.at(-1)] };
+  }
+  return null;
 }
 
 function statNumber(value) {
@@ -694,6 +713,118 @@ function rangeDescriptor(key, label, interval = {}, compare = {}, performanceBod
   };
 }
 
+function compassMetricCards(row = {}, compareRow = {}) {
+  return [
+    buildShopCard({ key: 'gmv', label: 'GMV', icon: 'st-icon-money', value: row.totalGmv, previousValue: compareRow.totalGmv, format: 'money', source: 'crawler' }),
+    buildShopCard({ key: 'orders', label: 'So don hang', icon: 'st-icon-order', value: null, source: 'missing', available: false }),
+    buildShopCard({ key: 'visitors', label: 'Khach truy cap', icon: 'st-icon-data', value: null, source: 'missing', available: false }),
+    buildShopCard({ key: 'contentVideoGmv', label: 'GMV Video', icon: 'st-icon-video', value: row.contentVideoGmv, previousValue: compareRow.contentVideoGmv, format: 'money', source: 'crawler' }),
+    buildShopCard({ key: 'contentProductCardGmv', label: 'GMV the san pham', icon: 'st-icon-product', value: row.contentProductCardGmv, previousValue: compareRow.contentProductCardGmv, format: 'money', source: 'crawler' }),
+    buildShopCard({ key: 'contentLiveGmv', label: 'GMV LIVE', icon: 'st-icon-data', value: row.contentLiveGmv, previousValue: compareRow.contentLiveGmv, format: 'money', source: 'crawler' }),
+    buildShopCard({ key: 'affiliateTotalGmv', label: 'GMV lien ket', icon: 'st-icon-revenue', value: row.affiliateTotalGmv, previousValue: compareRow.affiliateTotalGmv, format: 'money', source: 'crawler' }),
+    buildShopCard({ key: 'sellerTotalGmv', label: 'GMV nguoi ban', icon: 'st-icon-money', value: row.sellerTotalGmv, previousValue: compareRow.sellerTotalGmv, format: 'money', source: 'crawler' })
+  ];
+}
+
+function sumCompassRows(rows = []) {
+  const keys = [
+    'totalGmv',
+    'contentLiveGmv',
+    'contentVideoGmv',
+    'contentProductCardGmv',
+    'affiliateTotalGmv',
+    'sellerTotalGmv',
+    'affiliateLiveGmv',
+    'affiliateVideoGmv',
+    'affiliateProductCardGmv',
+    'affiliateVideoDirectGmv',
+    'affiliateVideoIndirectGmv'
+  ];
+  return Object.fromEntries(keys.map(key => [key, rows.reduce((sum, row) => sum + Number(row?.[key] || 0), 0)]));
+}
+
+function compassRange(key, label, rows = [], compareRows = [], monthData = {}) {
+  const first = rows[0] || {};
+  const last = rows.at(-1) || {};
+  const aggregate = sumCompassRows(rows);
+  const compare = sumCompassRows(compareRows);
+  return {
+    key,
+    label,
+    startDate: first.startDate || monthData.start || '',
+    endDate: last.endDate || monthData.end || '',
+    rangeLabel: first.startDate && last.endDate ? `${first.startDate} -> ${last.endDate}` : `${monthData.start || ''} -> ${monthData.end || ''}`,
+    compareLabel: compareRows[0]?.startDate && compareRows.at(-1)?.endDate ? `${compareRows[0].startDate} -> ${compareRows.at(-1).endDate}` : '',
+    updatedAt: monthData.crawledAt || '',
+    cards: compassMetricCards(aggregate, compare),
+    healthCenter: null,
+    detailSections: [
+      {
+        key: 'compassGmvBreakdown',
+        title: 'Compass GMV breakdown',
+        metrics: [
+          metricFromValue('GMV Video', 'contentVideoGmv', aggregate.contentVideoGmv, 'money'),
+          metricFromValue('GMV the san pham', 'contentProductCardGmv', aggregate.contentProductCardGmv, 'money'),
+          metricFromValue('GMV LIVE', 'contentLiveGmv', aggregate.contentLiveGmv, 'money'),
+          metricFromValue('Lien ket Video truc tiep', 'affiliateVideoDirectGmv', aggregate.affiliateVideoDirectGmv, 'money'),
+          metricFromValue('Lien ket Video gian tiep', 'affiliateVideoIndirectGmv', aggregate.affiliateVideoIndirectGmv, 'money')
+        ]
+      }
+    ],
+    tasks: { completed: null, remaining: null, level: null, items: [] }
+  };
+}
+
+function buildShopOverviewFromCompass(rootDir, payload = {}) {
+  const preferredShopId = payload.shopId || payload.crawlerShopId || '';
+  const found = latestCompassDatabase(rootDir, preferredShopId);
+  if (!found?.monthData) return null;
+  const { shopId, db, month, monthData } = found;
+  const daily = Array.isArray(monthData.daily) ? monthData.daily : [];
+  const aggregateRow = Array.isArray(monthData.aggregate) ? monthData.aggregate[0] : null;
+  if (!daily.length && !aggregateRow) return null;
+  const monthRows = aggregateRow ? [aggregateRow] : daily;
+  const last7 = daily.slice(-7);
+  const previous7 = daily.slice(Math.max(0, daily.length - 14), Math.max(0, daily.length - 7));
+  const latestDay = daily.at(-1) ? [daily.at(-1)] : monthRows;
+  const previousDay = daily.length > 1 ? [daily.at(-2)] : [];
+  const ranges = [
+    compassRange('month', 'Thang moi nhat', monthRows, [], monthData),
+    compassRange('last7', '7 ngay gan nhat', last7.length ? last7 : monthRows, previous7, monthData),
+    compassRange('latestDay', 'Ngay moi nhat', latestDay, previousDay, monthData)
+  ];
+  const defaultRange = ranges[0];
+  return {
+    ok: true,
+    sourceType: 'compass',
+    shopId,
+    sellerId: db.sellerId || payload.sellerId || '',
+    runId: `compass-${month}`,
+    runDir: '',
+    endpoint: 'tiktokshop-crawler:compass',
+    defaultRangeKey: defaultRange.key,
+    rangeLabel: defaultRange.rangeLabel,
+    compareLabel: defaultRange.compareLabel,
+    updatedAt: monthData.crawledAt || db.updatedAt || '',
+    lastCrawlAt: monthData.crawledAt || db.updatedAt || '',
+    cards: defaultRange.cards,
+    ranges,
+    availableStartDate: daily[0]?.startDate || monthData.start || '',
+    availableEndDate: daily.at(-1)?.endDate || monthData.end || '',
+    availableMonths: Object.keys(db.months || {}).sort(),
+    crawlerSummary: {
+      source: 'tiktokshop-crawler:compass',
+      month,
+      readyTime: monthData.readyTime || '',
+      rawFiles: monthData.rawFiles || {}
+    },
+    notes: [
+      `Compass GMV crawl moi nhat: ${month}.`,
+      'Orders, visitors, health score va violation can Seller Center deep crawl; app giu missing thay vi tu tao so.'
+    ]
+  };
+}
+
 function buildShopOverviewForRun(run, summary, payload = {}) {
   const preferredShopId = payload.shopId || payload.crawlerShopId || '';
   const homepage = run ? readCrawlerApiBody(run.runDir, '/seller_center/homepage/stats') : null;
@@ -745,9 +876,17 @@ function buildShopOverviewFromCrawler(rootDir, summary, payload = {}) {
 
 export function buildAllShopOverviewsFromCrawler(rootDir, summary = {}, payload = {}) {
   const preferredShopId = payload.shopId || payload.crawlerShopId || '';
+  const compassOverview = buildShopOverviewFromCompass(rootDir, payload);
   const runs = listLatestSellerCenterRuns(rootDir, preferredShopId);
-  if (!runs.length) return [buildShopOverviewFromCrawler(rootDir, summary, payload)];
-  return runs.map(run => buildShopOverviewForRun(run, summary, payload));
+  const sellerCenterOverviews = runs.length
+    ? runs.map(run => buildShopOverviewForRun(run, summary, payload))
+    : [buildShopOverviewFromCrawler(rootDir, summary, payload)];
+  const overviews = [
+    ...(compassOverview ? [compassOverview] : []),
+    ...sellerCenterOverviews
+  ].filter(Boolean);
+  const sorted = overviews.sort((a, b) => Date.parse(b.updatedAt || b.lastCrawlAt || 0) - Date.parse(a.updatedAt || a.lastCrawlAt || 0));
+  return scrubCrawlerPayload(sorted);
 }
 
 function buildBusinessLogicReport(summary, grouped) {

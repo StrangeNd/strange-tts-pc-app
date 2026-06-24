@@ -142,10 +142,19 @@ class CdpPage {
 export async function findCompassPage({ cdpPort, url = DEFAULT_COMPASS_URL } = {}) {
   if (!cdpPort) throw new Error('cdpPort is required.');
   const tabs = await cdpTabs(cdpPort);
+  const expectedUrl = String(url || '');
+  const isSellerPage = tab => (
+    tab.type === 'page' &&
+    String(tab.url || '').includes('seller-vn.tiktok.com') &&
+    !String(tab.url || '').includes('/account/login') &&
+    !String(tab.url || '').includes('permission-request-dialog')
+  );
   let page = tabs.find(tab => tab.type === 'page' && String(tab.url || '').includes('/compass/data-overview'));
-  if (!page) {
-    page = tabs.find(tab => tab.type === 'page');
-  }
+  if (!page) page = tabs.find(tab => expectedUrl && tab.type === 'page' && String(tab.url || '') === expectedUrl);
+  if (!page) page = tabs.find(isSellerPage);
+  if (!page) page = tabs.find(tab => tab.type === 'page' && String(tab.url || '').includes('seller-vn.tiktok.com'));
+  if (!page) page = tabs.find(tab => tab.type === 'page' && !String(tab.url || '').startsWith('edge://'));
+  if (!page) page = tabs.find(tab => tab.type === 'page');
   if (!page?.webSocketDebuggerUrl) throw new Error(`No page target found on CDP port ${cdpPort}.`);
   return { ...page, fallbackUrl: url };
 }
@@ -162,7 +171,10 @@ export async function getCompassReadyDate({ cdpPort, sellerId = DEFAULT_SELLER_I
         const json = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), credentials: 'include' }).then(r => r.json());
         return json;
       })()`;
-    const result = await cdp.send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true });
+    const result = await cdp.send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true }, 30000);
+    if (result.result?.exceptionDetails) {
+      throw new Error(result.result.exceptionDetails.text || 'Compass ready-date evaluation failed.');
+    }
     const json = result.result?.result?.value;
     const map = json?.data?.module_name_to_available_date_map || {};
     const first = Object.values(map)[0];
@@ -220,7 +232,10 @@ export async function queryCompassOverview({
         const json = await res.json();
         return { status: res.status, ok: res.ok, json };
       })()`;
-    const result = await cdp.send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true });
+    const result = await cdp.send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true }, 60000);
+    if (result.result?.exceptionDetails) {
+      throw new Error(result.result.exceptionDetails.text || 'Compass query evaluation failed.');
+    }
     const value = result.result?.result?.value;
     if (!value?.ok || value.json?.code !== 0) {
       throw new Error(`Compass query failed: HTTP ${value?.status}, code ${value?.json?.code}, message ${value?.json?.message}`);
@@ -362,7 +377,7 @@ export async function queryCompassOverviewDailyLoop({
         }
         return { errors, response: { code: errors.length ? 207 : 0, message: errors.length ? 'partial_success' : 'success', data: [{ intervals, metas }] } };
       })()`;
-    const result = await cdp.send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true });
+    const result = await cdp.send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true }, 180000);
     const value = result.result?.result?.value;
     return {
       request: { dailyLoop: true, start, end, dayCount: days.length, errors: value?.errors || [] },
