@@ -1,6 +1,7 @@
 import ExcelJS from 'exceljs';
 import fs from 'node:fs';
 import path from 'node:path';
+import { scrubCrawlerPayload } from './crawler-contract.mjs';
 
 const MAX_FILE_BYTES = 18 * 1024 * 1024;
 
@@ -198,6 +199,24 @@ function readJsonFileSafe(file, fallback = null) {
   } catch {
     return fallback;
   }
+}
+
+function latestCompassDatabase(rootDir, preferredShopId = '') {
+  const crawlerRoot = path.join(rootDir, 'data', 'tiktokshop-crawler', 'shops');
+  if (!fs.existsSync(crawlerRoot)) return null;
+  const shopDirs = fs.readdirSync(crawlerRoot, { withFileTypes: true })
+    .filter(entry => entry.isDirectory())
+    .map(entry => entry.name);
+  const orderedShopDirs = preferredShopId && shopDirs.includes(preferredShopId)
+    ? [preferredShopId, ...shopDirs.filter(name => name !== preferredShopId)]
+    : shopDirs;
+  for (const shopId of orderedShopDirs) {
+    const dbFile = path.join(crawlerRoot, shopId, 'compass-overview-db.json');
+    const db = readJsonFileSafe(dbFile, null);
+    const months = Object.keys(db?.months || {}).sort();
+    if (months.length) return { shopId, dbFile, db, month: months.at(-1), monthData: db.months[months.at(-1)] };
+  }
+  return null;
 }
 
 function statNumber(value) {
@@ -694,6 +713,195 @@ function rangeDescriptor(key, label, interval = {}, compare = {}, performanceBod
   };
 }
 
+function addDays(dateString, days) {
+  const date = new Date(`${dateString}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function vietnamTodayString() {
+  const now = new Date();
+  const vnNow = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+  return vnNow.toISOString().slice(0, 10);
+}
+
+function inclusiveRangeLabel(startDate = '', endDate = '') {
+  if (!startDate || !endDate) return '';
+  const displayEnd = endDate > startDate ? addDays(endDate, -1) : endDate;
+  return `${startDate} -> ${displayEnd}`;
+}
+
+function compassMetricCards(row = {}, compareRow = {}) {
+  return [
+    buildShopCard({ key: 'gmv', label: 'GMV', icon: 'st-icon-money', value: row.totalGmv, previousValue: compareRow.totalGmv, format: 'money', source: 'crawler' }),
+    buildShopCard({ key: 'orders', label: 'So don hang', icon: 'st-icon-order', value: null, source: 'missing', available: false }),
+    buildShopCard({ key: 'visitors', label: 'Khach truy cap', icon: 'st-icon-data', value: null, source: 'missing', available: false }),
+    buildShopCard({ key: 'contentVideoGmv', label: 'GMV Video', icon: 'st-icon-video', value: row.contentVideoGmv, previousValue: compareRow.contentVideoGmv, format: 'money', source: 'crawler' }),
+    buildShopCard({ key: 'contentProductCardGmv', label: 'GMV the san pham', icon: 'st-icon-product', value: row.contentProductCardGmv, previousValue: compareRow.contentProductCardGmv, format: 'money', source: 'crawler' }),
+    buildShopCard({ key: 'contentLiveGmv', label: 'GMV LIVE', icon: 'st-icon-data', value: row.contentLiveGmv, previousValue: compareRow.contentLiveGmv, format: 'money', source: 'crawler' }),
+    buildShopCard({ key: 'affiliateTotalGmv', label: 'GMV lien ket', icon: 'st-icon-revenue', value: row.affiliateTotalGmv, previousValue: compareRow.affiliateTotalGmv, format: 'money', source: 'crawler' }),
+    buildShopCard({ key: 'sellerTotalGmv', label: 'GMV nguoi ban', icon: 'st-icon-money', value: row.sellerTotalGmv, previousValue: compareRow.sellerTotalGmv, format: 'money', source: 'crawler' })
+  ];
+}
+
+const COMPASS_UI_METRICS = [
+  { key: 'gmv', valueKey: 'totalGmv', metricId: 4024, sellerLabel: 'Compass > Tong quan du lieu > GMV', format: 'money' },
+  { key: 'contentVideoGmv', valueKey: 'contentVideoGmv', metricId: 4037, sellerLabel: 'Compass > GMV theo noi dung > Video', format: 'money' },
+  { key: 'contentProductCardGmv', valueKey: 'contentProductCardGmv', metricId: 4033, sellerLabel: 'Compass > GMV theo noi dung > The san pham', format: 'money' },
+  { key: 'contentLiveGmv', valueKey: 'contentLiveGmv', metricId: 4029, sellerLabel: 'Compass > GMV theo noi dung > LIVE', format: 'money' },
+  { key: 'affiliateTotalGmv', valueKey: 'affiliateTotalGmv', metricId: 7821, sellerLabel: 'Compass > GMV theo nguon don hang > Lien ket', format: 'money' },
+  { key: 'sellerTotalGmv', valueKey: 'sellerTotalGmv', metricId: 7822, sellerLabel: 'Compass > GMV theo nguon don hang > Nguoi ban', format: 'money' },
+  { key: 'affiliateVideoGmv', valueKey: 'affiliateVideoGmv', metricId: 4045, sellerLabel: 'Compass > Lien ket > Video', format: 'money' },
+  { key: 'affiliateVideoDirectGmv', valueKey: 'affiliateVideoDirectGmv', metricId: 7973, sellerLabel: 'Compass > Lien ket > Video > GMV truc tiep', format: 'money' },
+  { key: 'affiliateVideoIndirectGmv', valueKey: 'affiliateVideoIndirectGmv', metricId: 7974, sellerLabel: 'Compass > Lien ket > Video > GMV gian tiep', format: 'money' }
+];
+
+function sumCompassRows(rows = []) {
+  const keys = [
+    'totalGmv',
+    'contentLiveGmv',
+    'contentVideoGmv',
+    'contentProductCardGmv',
+    'affiliateTotalGmv',
+    'sellerTotalGmv',
+    'affiliateLiveGmv',
+    'affiliateVideoGmv',
+    'affiliateProductCardGmv',
+    'affiliateVideoDirectGmv',
+    'affiliateVideoIndirectGmv'
+  ];
+  return Object.fromEntries(keys.map(key => {
+    const values = rows
+      .map(row => row?.[key])
+      .filter(value => value !== null && value !== undefined && value !== '');
+    if (!values.length) return [key, null];
+    return [key, values.reduce((sum, value) => sum + Number(value || 0), 0)];
+  }));
+}
+
+function compassRawMappings({ rangeKey, rows = [], aggregate = {}, monthData = {}, rawPath = '', metricLabels = {} }) {
+  const rowCount = rows.length;
+  return COMPASS_UI_METRICS.map(metric => {
+    const rawValues = rows.map(row => ({
+      startDate: row?.startDate || '',
+      endDate: row?.endDate || '',
+      value: row?.[metric.valueKey] ?? null,
+      rawFieldCount: row?.rawFieldCount ?? null
+    }));
+    return {
+      rangeKey,
+      uiField: metric.key,
+      uiLabel: metric.sellerLabel,
+      metricId: metric.metricId,
+      rawLabel: metricLabels?.[metric.metricId] || metric.sellerLabel,
+      value: aggregate?.[metric.valueKey] ?? null,
+      format: metric.format,
+      formula: rowCount > 1 ? `sum(${rowCount} daily rows)` : (rowCount === 1 ? 'single raw row' : 'missing raw row'),
+      rawPath,
+      readyTime: monthData.readyTime || '',
+      crawledAt: monthData.crawledAt || '',
+      rawValues
+    };
+  });
+}
+
+function compassRange(key, label, rows = [], compareRows = [], monthData = {}, options = {}) {
+  const first = rows[0] || {};
+  const last = rows.at(-1) || {};
+  const aggregate = sumCompassRows(rows);
+  const compare = sumCompassRows(compareRows);
+  const rawPath = options.rawPath || '';
+  return {
+    key,
+    label,
+    startDate: first.startDate || options.startDate || monthData.start || '',
+    endDate: last.endDate || options.endDate || monthData.end || '',
+    rangeLabel: first.startDate && last.endDate
+      ? inclusiveRangeLabel(first.startDate, last.endDate)
+      : inclusiveRangeLabel(options.startDate || monthData.start || '', options.endDate || monthData.end || ''),
+    compareLabel: compareRows[0]?.startDate && compareRows.at(-1)?.endDate ? inclusiveRangeLabel(compareRows[0].startDate, compareRows.at(-1).endDate) : '',
+    updatedAt: monthData.crawledAt || '',
+    cards: compassMetricCards(aggregate, compare),
+    rawMappings: compassRawMappings({ rangeKey: key, rows, aggregate, monthData, rawPath, metricLabels: options.metricLabels || {} }),
+    healthCenter: null,
+    detailSections: [
+      {
+        key: 'compassGmvBreakdown',
+        title: 'Compass GMV breakdown',
+        metrics: [
+          metricFromValue('GMV Video', 'contentVideoGmv', aggregate.contentVideoGmv, 'money'),
+          metricFromValue('GMV the san pham', 'contentProductCardGmv', aggregate.contentProductCardGmv, 'money'),
+          metricFromValue('GMV LIVE', 'contentLiveGmv', aggregate.contentLiveGmv, 'money'),
+          metricFromValue('Lien ket Video truc tiep', 'affiliateVideoDirectGmv', aggregate.affiliateVideoDirectGmv, 'money'),
+          metricFromValue('Lien ket Video gian tiep', 'affiliateVideoIndirectGmv', aggregate.affiliateVideoIndirectGmv, 'money')
+        ]
+      }
+    ],
+    tasks: { completed: null, remaining: null, level: null, items: [] }
+  };
+}
+
+function availableCompassDailyRows(daily = [], today = vietnamTodayString()) {
+  const sorted = [...daily].sort((a, b) => String(a.startDate || '').localeCompare(String(b.startDate || '')));
+  return sorted.filter(row => String(row.startDate || '') <= today);
+}
+
+function buildShopOverviewFromCompass(rootDir, payload = {}) {
+  const preferredShopId = payload.shopId || payload.crawlerShopId || '';
+  const found = latestCompassDatabase(rootDir, preferredShopId);
+  if (!found?.monthData) return null;
+  const { shopId, db, month, monthData } = found;
+  const daily = Array.isArray(monthData.daily) ? monthData.daily : [];
+  const today = vietnamTodayString();
+  const availableDaily = availableCompassDailyRows(daily, today);
+  const aggregateRow = Array.isArray(monthData.aggregate) ? monthData.aggregate[0] : null;
+  if (!daily.length && !aggregateRow) return null;
+  const monthRows = aggregateRow ? [aggregateRow] : daily;
+  const yesterday = addDays(today, -1);
+  const todayRows = availableDaily.filter(row => row.startDate === today);
+  const yesterdayRows = availableDaily.filter(row => row.startDate === yesterday);
+  const last7 = availableDaily.slice(-7);
+  const previous7 = availableDaily.slice(Math.max(0, availableDaily.length - 14), Math.max(0, availableDaily.length - 7));
+  const last7Start = last7[0]?.startDate || addDays(yesterday, -6);
+  const last7End = last7.at(-1)?.endDate || addDays(yesterday, 1);
+  const ranges = [
+    compassRange('today', 'Hom nay', todayRows, yesterdayRows, monthData, { startDate: today, endDate: addDays(today, 1), rawPath: monthData.rawFiles?.daily || '', metricLabels: db.metricLabels }),
+    compassRange('yesterday', 'Hom qua', yesterdayRows, [], monthData, { startDate: yesterday, endDate: today, rawPath: monthData.rawFiles?.daily || '', metricLabels: db.metricLabels }),
+    compassRange('last7', '7 ngay gan nhat', last7, previous7, monthData, { startDate: last7Start, endDate: last7End, rawPath: monthData.rawFiles?.daily || '', metricLabels: db.metricLabels }),
+    compassRange('month', 'Thang moi nhat', monthRows, [], monthData, { rawPath: monthData.rawFiles?.aggregate || '', metricLabels: db.metricLabels })
+  ];
+  const defaultRange = ranges.find(item => item.key === 'month') || ranges[0];
+  return {
+    ok: true,
+    sourceType: 'compass',
+    shopId,
+    sellerId: db.sellerId || payload.sellerId || '',
+    runId: `compass-${month}`,
+    runDir: '',
+    endpoint: 'tiktokshop-crawler:compass',
+    defaultRangeKey: defaultRange.key,
+    rangeLabel: defaultRange.rangeLabel,
+    compareLabel: defaultRange.compareLabel,
+    updatedAt: monthData.crawledAt || db.updatedAt || '',
+    lastCrawlAt: monthData.crawledAt || db.updatedAt || '',
+    cards: defaultRange.cards,
+    ranges,
+    availableStartDate: daily[0]?.startDate || monthData.start || '',
+    availableEndDate: availableDaily.at(-1)?.endDate || monthData.end || '',
+    availableMonths: Object.keys(db.months || {}).sort(),
+    crawlerSummary: {
+      source: 'tiktokshop-crawler:compass',
+      month,
+      readyTime: monthData.readyTime || '',
+      rawFiles: monthData.rawFiles || {}
+    },
+    notes: [
+      `Compass GMV crawl moi nhat: ${month}.`,
+      'Orders, visitors, health score va violation can Seller Center deep crawl; app giu missing thay vi tu tao so.'
+    ]
+  };
+}
+
 function buildShopOverviewForRun(run, summary, payload = {}) {
   const preferredShopId = payload.shopId || payload.crawlerShopId || '';
   const homepage = run ? readCrawlerApiBody(run.runDir, '/seller_center/homepage/stats') : null;
@@ -745,9 +953,17 @@ function buildShopOverviewFromCrawler(rootDir, summary, payload = {}) {
 
 export function buildAllShopOverviewsFromCrawler(rootDir, summary = {}, payload = {}) {
   const preferredShopId = payload.shopId || payload.crawlerShopId || '';
+  const compassOverview = buildShopOverviewFromCompass(rootDir, payload);
   const runs = listLatestSellerCenterRuns(rootDir, preferredShopId);
-  if (!runs.length) return [buildShopOverviewFromCrawler(rootDir, summary, payload)];
-  return runs.map(run => buildShopOverviewForRun(run, summary, payload));
+  const sellerCenterOverviews = runs.length
+    ? runs.map(run => buildShopOverviewForRun(run, summary, payload))
+    : [buildShopOverviewFromCrawler(rootDir, summary, payload)];
+  const overviews = [
+    ...(compassOverview ? [compassOverview] : []),
+    ...sellerCenterOverviews
+  ].filter(Boolean);
+  const sorted = overviews.sort((a, b) => Date.parse(b.updatedAt || b.lastCrawlAt || 0) - Date.parse(a.updatedAt || a.lastCrawlAt || 0));
+  return scrubCrawlerPayload(sorted);
 }
 
 function buildBusinessLogicReport(summary, grouped) {

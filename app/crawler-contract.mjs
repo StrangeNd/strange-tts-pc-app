@@ -3,7 +3,7 @@ export const DEFAULT_CRAWLER_RAW_RETENTION_DAYS = 30;
 
 const REDACTED = '[redacted]';
 const SENSITIVE_KEY_RE = /(^|[_-])(cookie|cookies|token|access|refresh|secret|password|authorization|auth|csrf|session|sessionid|sid|credential|license|machine_id|device_id|web_id)([_-]|$)|set-cookie|x-tt-token|bearer/i;
-const SENSITIVE_QUERY_RE = /cookie|token|secret|password|authorization|auth|csrf|session|sessionid|sid|credential|license|machine_id|device_id|web_id/i;
+const SENSITIVE_QUERY_RE = /cookie|token|secret|password|authorization|auth|csrf|session|sessionid|sid|credential|license|machine_id|device_id|web_id|fp|msToken|x-bogus/i;
 const SENSITIVE_KEY_PARTS = [
   'cookie',
   'token',
@@ -48,7 +48,7 @@ export function sanitizeCrawlerUrl(value = '') {
   try {
     const parsed = new URL(raw);
     for (const key of [...parsed.searchParams.keys()]) {
-      if (SENSITIVE_QUERY_RE.test(key)) parsed.searchParams.set(key, REDACTED);
+      if (SENSITIVE_QUERY_RE.test(key)) parsed.searchParams.delete(key);
     }
     return parsed.toString();
   } catch {
@@ -67,6 +67,7 @@ export function scrubCrawlerPayload(value, path = '') {
     const nextPath = path ? `${path}.${key}` : key;
     if (isSensitiveCrawlerKey(key)) return [key, REDACTED];
     if (/url$/i.test(key) || key === 'url') return [key, sanitizeCrawlerUrl(String(child || ''))];
+    if (typeof child === 'string' && /^https?:\/\//i.test(child)) return [key, sanitizeCrawlerUrl(child)];
     return [key, scrubCrawlerPayload(child, nextPath)];
   }));
 }

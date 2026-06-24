@@ -29,6 +29,7 @@
     "crawler:retention-contract-smoke": "node scripts/crawler-retention-contract-smoke.mjs",
     "crawler:fixture-smoke": "node scripts/crawler-fixture-smoke.mjs",
     "crawler:auto-profile-smoke": "node scripts/tiktok-crawler-auto-profile-smoke.mjs",
+    "crawler:real-overview-smoke": "node scripts/real-crawl-overview-smoke.mjs",
     "cloud:local-smoke": "node scripts/cloud-sync-local-smoke.mjs",
     "cloud:import-scope-smoke": "node scripts/cloud-sync-import-scope-smoke.mjs",
     "cloud:extension-guide-copy-smoke": "node scripts/extension-guide-cloud-copy-smoke.mjs",
