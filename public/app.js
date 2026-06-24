@@ -116,6 +116,11 @@ function formatTimestamp(value) {
   return parsed.toLocaleString('vi-VN');
 }
 
+function currentMonthKey() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+
 function selectedShopContext() {
   const selectedId = shopQuickSelect?.value || '';
   const shop = state.shops.find(item => item.id === selectedId);
@@ -589,6 +594,38 @@ function renderDashboardMetricTable(range) {
   `;
 }
 
+function renderDashboardRawMappings(range) {
+  const mappings = range.rawMappings || [];
+  const rows = mappings.map(item => {
+    const rawDates = (item.rawValues || [])
+      .map(raw => `${raw.startDate || 'missing'}=${hasMetricValue(raw.value) ? money(raw.value) : 'missing'}`)
+      .join(' | ');
+    return `
+      <tr>
+        <td>${escapeHtml(item.uiLabel || item.uiField || '')}</td>
+        <td>${escapeHtml(String(item.metricId || ''))}</td>
+        <td>${escapeHtml(item.rawLabel || '')}</td>
+        <td class="num">${metricValue(item.value, item.format, hasMetricValue(item.value))}</td>
+        <td>${escapeHtml(item.formula || '')}</td>
+        <td>${escapeHtml(rawDates || 'missing')}</td>
+        <td>${escapeHtml(item.rawPath || '')}</td>
+      </tr>
+    `;
+  }).join('');
+  return `
+    <section class="mini-panel">
+      <h3>Raw Compass mapping de doi chieu thu cong</h3>
+      <p class="hint">Bang nay noi ro moi o tren dashboard dang lay tu metric nao tren Seller/Compass. Hay dung cot Seller UI / metric ID de doi chieu voi man hinh TikTok truoc khi minh khoa mapping.</p>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead><tr><th>O tren dashboard</th><th>Metric ID</th><th>Seller UI / raw label</th><th>Gia tri dang hien</th><th>Cach tinh</th><th>Raw date=value</th><th>Raw file</th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="7">Chua co raw mapping cho range nay.</td></tr>'}</tbody>
+        </table>
+      </div>
+    </section>
+  `;
+}
+
 function renderHealthDependencyList(dependencies = []) {
   return dependencies.map(item => `
     <li class="${item.available ? 'available' : 'missing'}">
@@ -715,10 +752,43 @@ function renderDashboardEmpty(selectedShop, shopCount) {
 
 function bindDashboardActions() {
   bindClick('#refreshDashboardInline', renderOperationsDashboardWorkspace);
+  bindClick('#dashboardRealtimeCrawl', refreshDashboardRealtime);
   bindClick('#openDashboardDiagnostic', () => openExtensionPage('pages/dashboard.html'));
   bindClick('#dashboardOpenCrawler', renderTikTokCrawlerWorkspace);
   bindClick('#dashboardOpenBusinessAnalysis', renderBusinessAnalysisWorkspace);
   bindClick('#dashboardOpenChecklist', renderOpsChecklistWorkspace);
+}
+
+async function refreshDashboardRealtime(event) {
+  const button = event?.currentTarget;
+  const selectedShop = selectedShopContext();
+  if (!selectedShop.id) return setOutput('Chua chon shop/profile de crawl realtime.');
+  if (!selectedShop.sellerId) return setOutput('Shop dang chon chua co Seller ID.');
+  if (button) {
+    button.disabled = true;
+    button.textContent = 'Dang crawl realtime...';
+  }
+  try {
+    const result = await api('/api/tiktokshop-crawler/crawl', {
+      method: 'POST',
+      body: {
+        mode: 'compass',
+        shopId: selectedShop.id,
+        sellerId: selectedShop.sellerId,
+        autoOpenProfile: true,
+        months: [currentMonthKey()]
+      }
+    });
+    setOutput(result);
+    await renderOperationsDashboardWorkspace();
+  } catch (error) {
+    setOutput(error.data || error.message);
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = 'Crawl realtime + cap nhat';
+    }
+  }
 }
 
 function renderDashboardView(data) {
@@ -758,10 +828,12 @@ function renderDashboardView(data) {
       ${(overview.notes || []).map(note => `<p>${escapeHtml(note)}</p>`).join('')}
     </div>
     ${renderShopHealthCenter(range)}
+    ${renderDashboardRawMappings(range)}
     ${renderDashboardMetricTable(range)}
     ${renderDashboardDetails(range)}
     <div class="actions dashboard-actions">
-      <button id="refreshDashboardInline">Lam moi dashboard</button>
+      <button id="dashboardRealtimeCrawl">Crawl realtime + cap nhat</button>
+      <button id="refreshDashboardInline" class="secondary">Tai lai cache dashboard</button>
       <button id="dashboardOpenCrawler" class="secondary">Mo TikTok Crawler</button>
       <button id="dashboardOpenBusinessAnalysis" class="secondary">Nap file Phan tich KD</button>
       <button id="dashboardOpenChecklist" class="secondary">Checklist van hanh</button>
@@ -1559,7 +1631,7 @@ async function renderTikTokCrawlerWorkspaceLegacy() {
       </label>
       <label>
         Thang can crawl
-        <input name="months" value="2026-04,2026-05" autocomplete="off">
+        <input name="months" value="${escapeHtml(currentMonthKey())}" autocomplete="off">
       </label>
       <div class="actions">
         <button type="submit">Crawl va cap nhat DB</button>
@@ -1645,7 +1717,7 @@ async function renderTikTokCrawlerWorkspace() {
       <label>CDP port thu cong (khi tat tu mo profile)<input name="cdpPort" value="58849" autocomplete="off"></label>
       <label>Seller ID<input name="sellerId" value="${escapeHtml(defaultSellerId)}" autocomplete="off"></label>
       <label>URL gốc Seller Center<input name="baseUrl" value="https://seller-vn.tiktok.com/homepage?shop_region=VN" autocomplete="off"></label>
-      <label>Tháng cần crawl Compass<input name="months" value="2026-04,2026-05" autocomplete="off"></label>
+      <label>Tháng cần crawl Compass<input name="months" value="${escapeHtml(currentMonthKey())}" autocomplete="off"></label>
       <label>Giới hạn module Seller Center (0 = toàn bộ)<input name="maxModules" value="0" autocomplete="off"></label>
       <div class="actions">
         <button type="submit" value="compass">Crawl Compass</button>

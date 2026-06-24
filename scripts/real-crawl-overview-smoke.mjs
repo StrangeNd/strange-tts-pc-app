@@ -27,7 +27,7 @@ try {
         start: '2026-06-01',
         end: '2026-07-01',
         crawledAt: '2026-06-24T05:42:32.542Z',
-        readyTime: '2026-06-23',
+        readyTime: '2026-06-08',
         rawFiles: {
           aggregate: 'raw/2026-06-aggregate.json',
           daily: 'raw/2026-06-daily.json'
@@ -50,7 +50,13 @@ try {
           { startDate: '2026-06-05', endDate: '2026-06-06', totalGmv: 500, contentVideoGmv: 50 },
           { startDate: '2026-06-06', endDate: '2026-06-07', totalGmv: 600, contentVideoGmv: 60 },
           { startDate: '2026-06-07', endDate: '2026-06-08', totalGmv: 700, contentVideoGmv: 70 },
-          { startDate: '2026-06-08', endDate: '2026-06-09', totalGmv: 800, contentVideoGmv: 80 }
+          { startDate: '2026-06-08', endDate: '2026-06-09', totalGmv: 800, contentVideoGmv: 80 },
+          { startDate: '2026-06-25', endDate: '2026-06-26', totalGmv: 0, contentVideoGmv: 0 },
+          { startDate: '2026-06-26', endDate: '2026-06-27', totalGmv: 0, contentVideoGmv: 0 },
+          { startDate: '2026-06-27', endDate: '2026-06-28', totalGmv: 0, contentVideoGmv: 0 },
+          { startDate: '2026-06-28', endDate: '2026-06-29', totalGmv: 0, contentVideoGmv: 0 },
+          { startDate: '2026-06-29', endDate: '2026-06-30', totalGmv: 0, contentVideoGmv: 0 },
+          { startDate: '2026-06-30', endDate: '2026-07-01', totalGmv: 0, contentVideoGmv: 0 }
         ]
       }
     }
@@ -64,7 +70,11 @@ try {
   assert.deepEqual(compass.availableMonths, ['2026-05', '2026-06']);
   assert(compass.cards.some(card => card.key === 'gmv' && card.value === 76714095 && card.available));
   assert(compass.cards.some(card => card.key === 'orders' && card.value === null && !card.available), 'missing orders must stay missing');
-  assert(compass.ranges.some(range => range.key === 'last7' && range.cards.some(card => card.key === 'gmv' && card.value === 3500)));
+  assert(compass.ranges.some(range => range.key === 'today' && range.cards.some(card => card.key === 'gmv' && card.value === null && !card.available)), 'today should stay missing when TikTok ready_time has no today row');
+  assert(compass.ranges.some(range => range.key === 'yesterday'), 'overview should expose a yesterday range');
+  assert(compass.ranges.some(range => range.key === 'last7' && range.cards.some(card => card.key === 'gmv' && card.value === 3500)), 'last7 should ignore future zero rows after ready_time');
+  const last7 = compass.ranges.find(range => range.key === 'last7');
+  assert(last7.rawMappings?.some(item => item.metricId === 4024 && item.value === 3500 && item.rawValues.length === 7), 'last7 should expose raw GMV mapping for manual Seller UI review');
 
   const leaky = {
     endpoint: 'https://seller-vn.tiktok.com/api/path?msToken=secret-token&fp=secret-fp&cookie_enabled=true&safe=visible',
@@ -94,6 +104,12 @@ try {
   assert(crawlerSource.includes("!String(tab.url || '').includes('permission-request-dialog')"), 'findCompassPage should avoid permission dialog tabs');
   assert(crawlerSource.includes("!String(tab.url || '').startsWith('edge://')"), 'findCompassPage should avoid Edge internal targets before fallback');
   assert(crawlerSource.includes("Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true }, 180000"), 'daily Compass loop should have an extended CDP timeout');
+
+  const appSource = readFileSync(path.join(process.cwd(), 'public', 'app.js'), 'utf8');
+  assert(appSource.includes('renderDashboardRawMappings(range)'), 'dashboard should render raw Compass mappings for manual review');
+  assert(appSource.includes("mode: 'compass'"), 'dashboard realtime refresh should trigger a Compass crawl');
+  assert(appSource.includes('months: [currentMonthKey()]'), 'dashboard realtime refresh should crawl the current month');
+  assert(appSource.includes("autoOpenProfile: true"), 'dashboard realtime refresh should use the selected managed shop profile');
 
   console.log('Real crawl overview smoke passed.');
 } finally {

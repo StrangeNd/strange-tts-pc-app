@@ -43,6 +43,9 @@ Approved before implementation.
 - Increased Compass Runtime.evaluate timeouts for ready-date, aggregate, and daily-loop calls.
 - Added Compass DB-backed shop overview fallback and scrubbed crawler-derived overview payloads before returning them.
 - Added `scripts/real-crawl-overview-smoke.mjs` to protect Compass overview selection, missing metric behavior, CDP target/timeout guards, and sensitive URL query scrubbing.
+- Corrected Compass dashboard ranges so today, yesterday, last7, and month are separate; future zero rows after the current date are excluded from today/last7.
+- Added a raw Compass mapping table to the dashboard so each visible value can be manually checked against Seller/Compass UI metric IDs and raw date/value rows.
+- Added a dashboard `Crawl realtime + cap nhat` action that triggers current-month Compass crawl through the selected managed profile before reloading the overview.
 
 ## Validation Plan
 
@@ -71,6 +74,9 @@ Approved before implementation.
 - Manual real-session Compass validation: pass on the Windows installed app with the user-provided encrypted cookie import for `little-apricot-hawaii-fashion`; auto-profile crawl recorded month `2026-06`, `readyTime: 2026-06-23`, `dailyRows: 30`, and `totalGmv: 76714095` without printing raw cookie/session values.
 - Manual shop overview validation: pass on the Windows installed app; `/api/business/shop-overview` selects `sourceType: compass`, `runId: compass-2026-06`, available months `2026-04`, `2026-05`, `2026-06`, GMV `76714095`, video GMV `55389662`, and keeps missing orders/visitors unavailable.
 - Manual overview leak scan: pass; serialized overview JSON did not match `msToken|fp=|cookie=|cookie_enabled|sessionid=|authorization=|bearer\\s|x-bogus`.
+- Manual realtime refresh validation: pass on the Windows installed app; current-month Compass crawl returned `launchProfile: shop-7494478078863902049`, `cookiesApplied: 41`, `readyTime: 2026-06-23`, `crawledAt: 2026-06-24T07:20:27.833Z`, and refreshed month GMV to `76949835`.
+- Manual range validation after realtime refresh: pass; `/api/business/shop-overview` returned today `1169062` for `2026-06-24`, yesterday `2646003` for `2026-06-23`, last7 `19471704` for `2026-06-18 -> 2026-06-24`, and month `76949835` for `2026-06-01 -> 2026-06-30`.
+- Manual raw mapping validation: pass; dashboard API exposes 9 raw mapping rows per Compass range, including metric ID `4024`, raw date/value rows, formula, raw file path, and no sensitive URL/query pattern.
 
 ## Manual Validation Notes
 

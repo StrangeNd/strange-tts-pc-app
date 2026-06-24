@@ -713,6 +713,24 @@ function rangeDescriptor(key, label, interval = {}, compare = {}, performanceBod
   };
 }
 
+function addDays(dateString, days) {
+  const date = new Date(`${dateString}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function vietnamTodayString() {
+  const now = new Date();
+  const vnNow = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+  return vnNow.toISOString().slice(0, 10);
+}
+
+function inclusiveRangeLabel(startDate = '', endDate = '') {
+  if (!startDate || !endDate) return '';
+  const displayEnd = endDate > startDate ? addDays(endDate, -1) : endDate;
+  return `${startDate} -> ${displayEnd}`;
+}
+
 function compassMetricCards(row = {}, compareRow = {}) {
   return [
     buildShopCard({ key: 'gmv', label: 'GMV', icon: 'st-icon-money', value: row.totalGmv, previousValue: compareRow.totalGmv, format: 'money', source: 'crawler' }),
@@ -725,6 +743,18 @@ function compassMetricCards(row = {}, compareRow = {}) {
     buildShopCard({ key: 'sellerTotalGmv', label: 'GMV nguoi ban', icon: 'st-icon-money', value: row.sellerTotalGmv, previousValue: compareRow.sellerTotalGmv, format: 'money', source: 'crawler' })
   ];
 }
+
+const COMPASS_UI_METRICS = [
+  { key: 'gmv', valueKey: 'totalGmv', metricId: 4024, sellerLabel: 'Compass > Tong quan du lieu > GMV', format: 'money' },
+  { key: 'contentVideoGmv', valueKey: 'contentVideoGmv', metricId: 4037, sellerLabel: 'Compass > GMV theo noi dung > Video', format: 'money' },
+  { key: 'contentProductCardGmv', valueKey: 'contentProductCardGmv', metricId: 4033, sellerLabel: 'Compass > GMV theo noi dung > The san pham', format: 'money' },
+  { key: 'contentLiveGmv', valueKey: 'contentLiveGmv', metricId: 4029, sellerLabel: 'Compass > GMV theo noi dung > LIVE', format: 'money' },
+  { key: 'affiliateTotalGmv', valueKey: 'affiliateTotalGmv', metricId: 7821, sellerLabel: 'Compass > GMV theo nguon don hang > Lien ket', format: 'money' },
+  { key: 'sellerTotalGmv', valueKey: 'sellerTotalGmv', metricId: 7822, sellerLabel: 'Compass > GMV theo nguon don hang > Nguoi ban', format: 'money' },
+  { key: 'affiliateVideoGmv', valueKey: 'affiliateVideoGmv', metricId: 4045, sellerLabel: 'Compass > Lien ket > Video', format: 'money' },
+  { key: 'affiliateVideoDirectGmv', valueKey: 'affiliateVideoDirectGmv', metricId: 7973, sellerLabel: 'Compass > Lien ket > Video > GMV truc tiep', format: 'money' },
+  { key: 'affiliateVideoIndirectGmv', valueKey: 'affiliateVideoIndirectGmv', metricId: 7974, sellerLabel: 'Compass > Lien ket > Video > GMV gian tiep', format: 'money' }
+];
 
 function sumCompassRows(rows = []) {
   const keys = [
@@ -740,23 +770,59 @@ function sumCompassRows(rows = []) {
     'affiliateVideoDirectGmv',
     'affiliateVideoIndirectGmv'
   ];
-  return Object.fromEntries(keys.map(key => [key, rows.reduce((sum, row) => sum + Number(row?.[key] || 0), 0)]));
+  return Object.fromEntries(keys.map(key => {
+    const values = rows
+      .map(row => row?.[key])
+      .filter(value => value !== null && value !== undefined && value !== '');
+    if (!values.length) return [key, null];
+    return [key, values.reduce((sum, value) => sum + Number(value || 0), 0)];
+  }));
 }
 
-function compassRange(key, label, rows = [], compareRows = [], monthData = {}) {
+function compassRawMappings({ rangeKey, rows = [], aggregate = {}, monthData = {}, rawPath = '', metricLabels = {} }) {
+  const rowCount = rows.length;
+  return COMPASS_UI_METRICS.map(metric => {
+    const rawValues = rows.map(row => ({
+      startDate: row?.startDate || '',
+      endDate: row?.endDate || '',
+      value: row?.[metric.valueKey] ?? null,
+      rawFieldCount: row?.rawFieldCount ?? null
+    }));
+    return {
+      rangeKey,
+      uiField: metric.key,
+      uiLabel: metric.sellerLabel,
+      metricId: metric.metricId,
+      rawLabel: metricLabels?.[metric.metricId] || metric.sellerLabel,
+      value: aggregate?.[metric.valueKey] ?? null,
+      format: metric.format,
+      formula: rowCount > 1 ? `sum(${rowCount} daily rows)` : (rowCount === 1 ? 'single raw row' : 'missing raw row'),
+      rawPath,
+      readyTime: monthData.readyTime || '',
+      crawledAt: monthData.crawledAt || '',
+      rawValues
+    };
+  });
+}
+
+function compassRange(key, label, rows = [], compareRows = [], monthData = {}, options = {}) {
   const first = rows[0] || {};
   const last = rows.at(-1) || {};
   const aggregate = sumCompassRows(rows);
   const compare = sumCompassRows(compareRows);
+  const rawPath = options.rawPath || '';
   return {
     key,
     label,
-    startDate: first.startDate || monthData.start || '',
-    endDate: last.endDate || monthData.end || '',
-    rangeLabel: first.startDate && last.endDate ? `${first.startDate} -> ${last.endDate}` : `${monthData.start || ''} -> ${monthData.end || ''}`,
-    compareLabel: compareRows[0]?.startDate && compareRows.at(-1)?.endDate ? `${compareRows[0].startDate} -> ${compareRows.at(-1).endDate}` : '',
+    startDate: first.startDate || options.startDate || monthData.start || '',
+    endDate: last.endDate || options.endDate || monthData.end || '',
+    rangeLabel: first.startDate && last.endDate
+      ? inclusiveRangeLabel(first.startDate, last.endDate)
+      : inclusiveRangeLabel(options.startDate || monthData.start || '', options.endDate || monthData.end || ''),
+    compareLabel: compareRows[0]?.startDate && compareRows.at(-1)?.endDate ? inclusiveRangeLabel(compareRows[0].startDate, compareRows.at(-1).endDate) : '',
     updatedAt: monthData.crawledAt || '',
     cards: compassMetricCards(aggregate, compare),
+    rawMappings: compassRawMappings({ rangeKey: key, rows, aggregate, monthData, rawPath, metricLabels: options.metricLabels || {} }),
     healthCenter: null,
     detailSections: [
       {
@@ -775,25 +841,36 @@ function compassRange(key, label, rows = [], compareRows = [], monthData = {}) {
   };
 }
 
+function availableCompassDailyRows(daily = [], today = vietnamTodayString()) {
+  const sorted = [...daily].sort((a, b) => String(a.startDate || '').localeCompare(String(b.startDate || '')));
+  return sorted.filter(row => String(row.startDate || '') <= today);
+}
+
 function buildShopOverviewFromCompass(rootDir, payload = {}) {
   const preferredShopId = payload.shopId || payload.crawlerShopId || '';
   const found = latestCompassDatabase(rootDir, preferredShopId);
   if (!found?.monthData) return null;
   const { shopId, db, month, monthData } = found;
   const daily = Array.isArray(monthData.daily) ? monthData.daily : [];
+  const today = vietnamTodayString();
+  const availableDaily = availableCompassDailyRows(daily, today);
   const aggregateRow = Array.isArray(monthData.aggregate) ? monthData.aggregate[0] : null;
   if (!daily.length && !aggregateRow) return null;
   const monthRows = aggregateRow ? [aggregateRow] : daily;
-  const last7 = daily.slice(-7);
-  const previous7 = daily.slice(Math.max(0, daily.length - 14), Math.max(0, daily.length - 7));
-  const latestDay = daily.at(-1) ? [daily.at(-1)] : monthRows;
-  const previousDay = daily.length > 1 ? [daily.at(-2)] : [];
+  const yesterday = addDays(today, -1);
+  const todayRows = availableDaily.filter(row => row.startDate === today);
+  const yesterdayRows = availableDaily.filter(row => row.startDate === yesterday);
+  const last7 = availableDaily.slice(-7);
+  const previous7 = availableDaily.slice(Math.max(0, availableDaily.length - 14), Math.max(0, availableDaily.length - 7));
+  const last7Start = last7[0]?.startDate || addDays(yesterday, -6);
+  const last7End = last7.at(-1)?.endDate || addDays(yesterday, 1);
   const ranges = [
-    compassRange('month', 'Thang moi nhat', monthRows, [], monthData),
-    compassRange('last7', '7 ngay gan nhat', last7.length ? last7 : monthRows, previous7, monthData),
-    compassRange('latestDay', 'Ngay moi nhat', latestDay, previousDay, monthData)
+    compassRange('today', 'Hom nay', todayRows, yesterdayRows, monthData, { startDate: today, endDate: addDays(today, 1), rawPath: monthData.rawFiles?.daily || '', metricLabels: db.metricLabels }),
+    compassRange('yesterday', 'Hom qua', yesterdayRows, [], monthData, { startDate: yesterday, endDate: today, rawPath: monthData.rawFiles?.daily || '', metricLabels: db.metricLabels }),
+    compassRange('last7', '7 ngay gan nhat', last7, previous7, monthData, { startDate: last7Start, endDate: last7End, rawPath: monthData.rawFiles?.daily || '', metricLabels: db.metricLabels }),
+    compassRange('month', 'Thang moi nhat', monthRows, [], monthData, { rawPath: monthData.rawFiles?.aggregate || '', metricLabels: db.metricLabels })
   ];
-  const defaultRange = ranges[0];
+  const defaultRange = ranges.find(item => item.key === 'month') || ranges[0];
   return {
     ok: true,
     sourceType: 'compass',
@@ -810,7 +887,7 @@ function buildShopOverviewFromCompass(rootDir, payload = {}) {
     cards: defaultRange.cards,
     ranges,
     availableStartDate: daily[0]?.startDate || monthData.start || '',
-    availableEndDate: daily.at(-1)?.endDate || monthData.end || '',
+    availableEndDate: availableDaily.at(-1)?.endDate || monthData.end || '',
     availableMonths: Object.keys(db.months || {}).sort(),
     crawlerSummary: {
       source: 'tiktokshop-crawler:compass',
