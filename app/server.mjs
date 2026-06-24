@@ -13,6 +13,7 @@ import { ensureExtensionLibrary, getExtensionLibrary, importExtensionFromPath, s
 import { activateLicense, deactivateLicense, getLicenseMetadata, getLicenseStatus } from './license.mjs';
 import { buildSellerAdsUrl, createShop, getShop, getShopCookies, getShopLibrary, importShopCookies } from './shop-library.mjs';
 import { crawlCompassMonths, crawlSellerCenterDeep, loadCompassDatabase, loadSellerCenterLatest } from './tiktokshop-crawler.mjs';
+import { buildCrawlerStatusContract, normalizeCrawlerFailureReason } from './crawler-contract.mjs';
 import { downloadTikTokVideo } from './video-download.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -249,6 +250,118 @@ function crawlerDefaultUrl(mode, shop = {}) {
     return shop.compassUrl || 'https://seller-vn.tiktok.com/compass/data-overview?shop_region=VN';
   }
   return shop.sellerCenterUrl || 'https://seller-vn.tiktok.com/homepage?shop_region=VN';
+}
+
+function crawlerSafeShop(shop = {}, fallbackId = '') {
+  return {
+    id: shop.id || fallbackId || '',
+    name: shop.name || shop.shopRealName || shop.id || fallbackId || '',
+    sellerId: shop.sellerId || shop.oec_seller_id || '',
+    adsAccountId: shop.adsAccountId || shop.aadvid || ''
+  };
+}
+
+function crawlerMissingMetrics(database = {}, sellerCenter = {}) {
+  const missing = [];
+  if (!Object.keys(database.months || {}).length) missing.push('compass_months');
+  const latestMonth = Object.keys(database.months || {}).sort().at(-1);
+  const latest = latestMonth ? database.months?.[latestMonth] : null;
+  if (latest && !latest.aggregate) missing.push('compass_aggregate');
+  if (latest && !Array.isArray(latest.daily)) missing.push('compass_daily');
+  if (!sellerCenter.runId) missing.push('seller_center_latest_run');
+  return missing;
+}
+
+function crawlerLatestRun({ database = {}, sellerCenter = {}, job = null, mode = '' } = {}) {
+  if (job) {
+    return {
+      runId: job.runId || job.id || '',
+      status: job.status,
+      mode: job.mode || mode,
+      source: 'server-job',
+      startedAt: job.startedAt || '',
+      finishedAt: job.finishedAt || '',
+      updatedAt: job.finishedAt || job.startedAt || '',
+      summary: job.summary || {}
+    };
+  }
+  if (sellerCenter?.runId) {
+    return {
+      runId: sellerCenter.runId,
+      status: sellerCenter.status || (sellerCenter.ok ? 'done' : 'incomplete'),
+      mode: 'seller-center',
+      source: 'seller-center-latest',
+      startedAt: sellerCenter.startedAt || '',
+      finishedAt: sellerCenter.finishedAt || '',
+      updatedAt: sellerCenter.finishedAt || sellerCenter.startedAt || '',
+      summary: sellerCenter.summary || {}
+    };
+  }
+  return {
+    runId: database.runId || '',
+    status: Object.keys(database.months || {}).length ? 'done' : 'ready',
+    mode: 'compass',
+    source: 'compass-database',
+    startedAt: '',
+    finishedAt: database.updatedAt || '',
+    updatedAt: database.updatedAt || '',
+    summary: { months: Object.keys(database.months || {}).length }
+  };
+}
+
+function buildServerCrawlerStatus({
+  shop = {},
+  shopId = '',
+  database = {},
+  sellerCenter = {},
+  job = null,
+  mode = '',
+  launch = null,
+  error = ''
+} = {}) {
+  const cookieCount = Number(shop.cookieCount || launch?.cookiesApplied || 0);
+  const cookieStorageStatus = shop.cookieStorage || (cookieCount ? 'encrypted' : 'none');
+  const unresolved = Array.isArray(sellerCenter?.unresolved) ? sellerCenter.unresolved : [];
+  const firstUnresolved = unresolved[0]?.failureReason || unresolved[0]?.reason || '';
+  const rawFailure = error || job?.failureReason || job?.error || sellerCenter?.failureReason || firstUnresolved || '';
+  const failureReason = rawFailure ? normalizeCrawlerFailureReason(rawFailure) : '';
+  let status = 'ready';
+  if (!shop?.id) status = 'need-login';
+  else if (!cookieCount || cookieStorageStatus === 'none') status = 'need-login';
+  else if (job?.status === 'running' || sellerCenter?.status === 'running') status = 'crawling';
+  else if (job?.status === 'error' || error || sellerCenter?.status === 'error') status = 'failed';
+  else if (unresolved.length || sellerCenter?.status === 'incomplete') status = 'partial';
+  else if (sellerCenter?.runId || Object.keys(database.months || {}).length) status = 'completed';
+
+  if (failureReason === 'cookie_expired') status = 'cookie-expired';
+  if (failureReason === 'not_logged_in' || failureReason === 'cookie_missing') status = 'need-login';
+  if (failureReason && status === 'ready') status = 'failed';
+
+  const sessionHint = status === 'need-login'
+    ? (cookieCount ? 'login_check_required' : 'cookie_missing')
+    : status === 'cookie-expired'
+      ? 'cookie_expired'
+      : status === 'crawling'
+        ? 'crawl_running'
+        : 'safe_metadata_only';
+
+  return buildCrawlerStatusContract({
+    status,
+    readiness: status,
+    selectedShop: crawlerSafeShop(shop, shopId),
+    profileName: launch?.profileName || job?.profileName || (shop.sellerId ? `shop-${shop.sellerId}` : shopId || ''),
+    cookieStorageStatus,
+    cookieCount,
+    cookieUpdatedAt: shop.cookieUpdatedAt || '',
+    sessionHint,
+    latestRun: crawlerLatestRun({ database, sellerCenter, job, mode }),
+    failureReason,
+    partialReason: firstUnresolved,
+    missingMetrics: crawlerMissingMetrics(database, sellerCenter),
+    retryable: Boolean(failureReason) && !['wrong_shop_suspected', 'api_response_changed', 'selector_changed'].includes(failureReason),
+    runId: job?.runId || job?.id || sellerCenter?.runId || database.runId || '',
+    updatedAt: new Date().toISOString()
+  });
 }
 
 async function prepareCrawlerBrowser(body = {}, mode = 'seller-center') {
@@ -701,6 +814,8 @@ export function createServer({ port = 48731 } = {}) {
 
       if (url.pathname === '/api/tiktokshop-crawler/db' && req.method === 'GET') {
         const shopId = url.searchParams.get('shopId') || 'little-apricot-hawaii-fashion';
+        const shop = getShop(rootDir, shopId) || {};
+        const database = loadCompassDatabase(rootDir, shopId);
         const sellerCenter = loadSellerCenterLatest(rootDir, shopId);
         const activeJob = crawlerJobs.get(shopId);
         if (sellerCenter?.status === 'running' && activeJob?.status !== 'running') {
@@ -714,8 +829,15 @@ export function createServer({ port = 48731 } = {}) {
         }
         return sendJson(res, 200, {
           ok: true,
-          database: loadCompassDatabase(rootDir, shopId),
-          sellerCenter
+          database,
+          sellerCenter,
+          crawlerStatus: buildServerCrawlerStatus({
+            shop,
+            shopId,
+            database,
+            sellerCenter,
+            job: activeJob || null
+          })
         });
       }
 
@@ -727,7 +849,21 @@ export function createServer({ port = 48731 } = {}) {
           const { shopId, sellerId, cdpPort, targetUrl, launch } = prepared;
           const existing = crawlerJobs.get(shopId);
           if (existing?.status === 'running' && !body.force) {
-            return sendJson(res, 202, { ok: true, accepted: true, status: 'running', job: existing });
+            const shop = getShop(rootDir, shopId) || {};
+            return sendJson(res, 202, {
+              ok: true,
+              accepted: true,
+              status: 'running',
+              job: existing,
+              crawlerStatus: buildServerCrawlerStatus({
+                shop,
+                shopId,
+                database: loadCompassDatabase(rootDir, shopId),
+                sellerCenter: loadSellerCenterLatest(rootDir, shopId),
+                job: existing,
+                mode
+              })
+            });
           }
           const job = {
             id: new Date().toISOString().replace(/[:.]/g, '-'),
@@ -759,8 +895,9 @@ export function createServer({ port = 48731 } = {}) {
               appendAudit(rootDir, 'tiktokshop_crawler.crawl_done', { mode, shopId, runId: result.runId, summary: result.summary });
             })
             .catch(error => {
-              crawlerJobs.set(shopId, { ...job, status: 'error', finishedAt: new Date().toISOString(), error: error.message });
-              appendAudit(rootDir, 'tiktokshop_crawler.crawl_error', { mode, shopId, error: error.message });
+              const failureReason = normalizeCrawlerFailureReason(error.message);
+              crawlerJobs.set(shopId, { ...job, status: 'error', finishedAt: new Date().toISOString(), failureReason });
+              appendAudit(rootDir, 'tiktokshop_crawler.crawl_error', { mode, shopId, failureReason });
             });
           appendAudit(rootDir, 'tiktokshop_crawler.crawl_start', {
             mode,
@@ -777,6 +914,15 @@ export function createServer({ port = 48731 } = {}) {
             accepted: true,
             status: 'running',
             job,
+            crawlerStatus: buildServerCrawlerStatus({
+              shop: getShop(rootDir, shopId) || {},
+              shopId,
+              database: loadCompassDatabase(rootDir, shopId),
+              sellerCenter: loadSellerCenterLatest(rootDir, shopId),
+              job,
+              mode,
+              launch
+            }),
             launch: launch ? {
               profileName: launch.profileName,
               debugPort: launch.debugPort,
@@ -809,6 +955,14 @@ export function createServer({ port = 48731 } = {}) {
         });
         return sendJson(res, 200, {
           ...result,
+          crawlerStatus: buildServerCrawlerStatus({
+            shop: getShop(rootDir, shopId) || {},
+            shopId,
+            database: loadCompassDatabase(rootDir, shopId),
+            sellerCenter: loadSellerCenterLatest(rootDir, shopId),
+            mode,
+            launch
+          }),
           launch: launch ? {
             profileName: launch.profileName,
             debugPort: launch.debugPort,

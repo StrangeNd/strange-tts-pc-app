@@ -1,5 +1,21 @@
 export const CRAWLER_SNAPSHOT_CONTRACT_VERSION = '2026-06-22.1';
 export const DEFAULT_CRAWLER_RAW_RETENTION_DAYS = 30;
+export const CRAWLER_FAILURE_REASONS = [
+  'not_logged_in',
+  'cookie_missing',
+  'cookie_expired',
+  'wrong_shop_suspected',
+  'captcha_or_verification_needed',
+  'seller_center_unavailable',
+  'compass_unavailable',
+  'cdp_unavailable',
+  'api_response_changed',
+  'selector_changed',
+  'network_error',
+  'parse_error',
+  'partial_capture',
+  'unknown'
+];
 
 const REDACTED = '[redacted]';
 const SENSITIVE_KEY_RE = /(^|[_-])(cookie|cookies|token|access|refresh|secret|password|authorization|auth|csrf|session|sessionid|sid|credential|license|machine_id|device_id|web_id)([_-]|$)|set-cookie|x-tt-token|bearer/i;
@@ -21,6 +37,13 @@ const SENSITIVE_KEY_PARTS = [
   'deviceid',
   'webid'
 ];
+const SAFE_COOKIE_METADATA_KEYS = new Set([
+  'cookieCount',
+  'cookieStorage',
+  'cookieStorageStatus',
+  'cookieUpdatedAt',
+  'sessionHint'
+]);
 const SECRET_TEXT_PATTERNS = [
   /Bearer\s+[A-Za-z0-9._~+/=-]+/gi,
   /(sessionid|sid|token|authorization|cookie)=([^;&\s]+)/gi,
@@ -65,11 +88,103 @@ export function scrubCrawlerPayload(value, path = '') {
   }
   return Object.fromEntries(Object.entries(value).map(([key, child]) => {
     const nextPath = path ? `${path}.${key}` : key;
+    if (SAFE_COOKIE_METADATA_KEYS.has(key)) return [key, scrubCrawlerPayload(child, nextPath)];
     if (isSensitiveCrawlerKey(key)) return [key, REDACTED];
     if (/url$/i.test(key) || key === 'url') return [key, sanitizeCrawlerUrl(String(child || ''))];
     if (typeof child === 'string' && /^https?:\/\//i.test(child)) return [key, sanitizeCrawlerUrl(child)];
     return [key, scrubCrawlerPayload(child, nextPath)];
   }));
+}
+
+export function normalizeCrawlerFailureReason(value = '') {
+  if (CRAWLER_FAILURE_REASONS.includes(value)) return value;
+  const text = String(value || '').toLowerCase();
+  if (!text.trim()) return 'unknown';
+  if (/wrong\s*shop|sai\s*shop|shop\s*khong\s*dung|shop\s*không\s*đúng/.test(text)) return 'wrong_shop_suspected';
+  if (/captcha|verification|verify|xac\s*minh|xác\s*minh|otp/.test(text)) return 'captcha_or_verification_needed';
+  if (/expired|expire|re-?login|relogin|dang\s*nhap\s*lai|đăng\s*nhập\s*lại|needs-relogin/.test(text)) return 'cookie_expired';
+  if (/cookie.*missing|missing.*cookie|no\s*cookie|cookie\s*missing|chua\s*co.*cookie|chưa\s*có.*cookie/.test(text)) return 'cookie_missing';
+  if (/not\s*logged\s*in|need\s*login|needs?\s*login|login\s*required|chua\s*dang\s*nhap|chưa\s*đăng\s*nhập/.test(text)) return 'not_logged_in';
+  if (/seller\s*center.*(unavailable|down|blocked)|homepage.*(unavailable|down)|seller-vn.*unavailable/.test(text)) return 'seller_center_unavailable';
+  if (/compass.*(unavailable|down|blocked|not\s*found)|data-overview.*(unavailable|down)/.test(text)) return 'compass_unavailable';
+  if (/cdp|chrome\s*debug|debugger|websocket|web\s*socket|devtools|econnrefused|target.*closed|no\s*page\s*target/.test(text)) return 'cdp_unavailable';
+  if (/api.*(changed|unexpected|invalid)|response.*(changed|unexpected|invalid)|message.*code|schema|contract/.test(text)) return 'api_response_changed';
+  if (/selector|ui_not_found|click|menu|tab|filter|export|pagination|khong\s*tim\s*thay|không\s*tìm\s*thấy/.test(text)) return 'selector_changed';
+  if (/network|timeout|timed\s*out|fetch|econnreset|enotfound|socket|dns/.test(text)) return 'network_error';
+  if (/parse|json|csv|xlsx|spreadsheet|unreadable|invalid\s*number/.test(text)) return 'parse_error';
+  if (/partial|incomplete|unresolved|giua\s*chung|giữa\s*chừng/.test(text)) return 'partial_capture';
+  return 'unknown';
+}
+
+function normalizedStatus(value = '') {
+  const status = String(value || '').trim().toLowerCase().replace(/_/g, '-');
+  if (['ready', 'need-login', 'cookie-expired', 'crawling', 'completed', 'failed', 'partial'].includes(status)) {
+    return status;
+  }
+  if (status === 'running') return 'crawling';
+  if (status === 'done' || status === 'success') return 'completed';
+  if (status === 'error') return 'failed';
+  if (status === 'incomplete') return 'partial';
+  return 'ready';
+}
+
+function defaultRetryable(reason = '') {
+  if (!reason) return false;
+  return !['wrong_shop_suspected', 'api_response_changed', 'selector_changed'].includes(reason);
+}
+
+export function buildCrawlerStatusContract({
+  status = 'ready',
+  readiness = '',
+  selectedShop = {},
+  profileName = '',
+  cookieStorageStatus = 'none',
+  cookieCount = 0,
+  cookieUpdatedAt = '',
+  sessionHint = '',
+  latestRun = null,
+  failureReason = '',
+  partialReason = '',
+  missingMetrics = [],
+  retryable,
+  runId = '',
+  updatedAt = ''
+} = {}) {
+  const normalizedFailureReason = failureReason ? normalizeCrawlerFailureReason(failureReason) : null;
+  const safeShop = selectedShop ? {
+    id: selectedShop.id || selectedShop.shopId || '',
+    name: selectedShop.name || selectedShop.label || selectedShop.shopName || '',
+    sellerId: selectedShop.sellerId || selectedShop.oec_seller_id || '',
+    adsAccountId: selectedShop.adsAccountId || selectedShop.aadvid || ''
+  } : {};
+  const safeLatestRun = latestRun ? {
+    runId: latestRun.runId || latestRun.id || '',
+    status: normalizedStatus(latestRun.status || status),
+    mode: latestRun.mode || '',
+    source: latestRun.source || '',
+    startedAt: latestRun.startedAt || '',
+    finishedAt: latestRun.finishedAt || '',
+    updatedAt: latestRun.updatedAt || latestRun.finishedAt || latestRun.startedAt || '',
+    summary: latestRun.summary || {}
+  } : null;
+  const normalized = {
+    status: normalizedStatus(status),
+    readiness: readiness || normalizedStatus(status),
+    selectedShop: safeShop,
+    profileName: String(profileName || ''),
+    cookieStorageStatus: String(cookieStorageStatus || 'none'),
+    cookieCount: Number.isFinite(Number(cookieCount)) ? Number(cookieCount) : 0,
+    cookieUpdatedAt: String(cookieUpdatedAt || ''),
+    sessionHint: String(sessionHint || ''),
+    latestRun: safeLatestRun,
+    failureReason: normalizedFailureReason,
+    partialReason: partialReason ? sanitizeCrawlerText(String(partialReason)) : '',
+    missingMetrics: Array.isArray(missingMetrics) ? missingMetrics.map(item => sanitizeCrawlerText(String(item))) : [],
+    retryable: typeof retryable === 'boolean' ? retryable : defaultRetryable(normalizedFailureReason),
+    runId: runId || safeLatestRun?.runId || '',
+    updatedAt: updatedAt || new Date().toISOString()
+  };
+  return scrubCrawlerPayload(normalized);
 }
 
 export function normalizedCrawlerMetric({
