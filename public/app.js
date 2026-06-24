@@ -527,6 +527,99 @@ function dashboardRange(overview) {
     || { cards: [], detailSections: [], tasks: {} };
 }
 
+
+function metricCoverageSummary(cards = []) {
+  const coverageCards = (Array.isArray(cards) ? cards : []).filter(card => card && card.coverage);
+  const missingCurrent = coverageCards.filter(card => !card.coverage.currentAvailable);
+  const missingCompare = coverageCards.filter(card => card.coverage.currentAvailable && !card.coverage.compareAvailable);
+
+  return {
+    total: coverageCards.length,
+    currentAvailable: coverageCards.length - missingCurrent.length,
+    missingCurrent,
+    missingCompare
+  };
+}
+
+function renderMetricCoveragePanel(cards = [], overview = {}) {
+  const summary = metricCoverageSummary(cards);
+  if (!summary.total) {
+    return `
+      <section class="data-health-card">
+        <div class="data-health-card-head">
+          <h3>Metric coverage</h3>
+          <span class="status-tag warn">Chưa có coverage</span>
+        </div>
+        <p>API chưa trả coverage cho từng metric. Cần kiểm tra backend buildShopCard/metricCoverage.</p>
+      </section>
+    `;
+  }
+
+  const missingCurrentRows = summary.missingCurrent.map(card => `
+    <tr>
+      <td>${escapeHtml(card.label || card.key)}</td>
+      <td>${escapeHtml(card.coverage.requiredSource || '')}</td>
+      <td>${escapeHtml(card.coverage.missingReason || '')}</td>
+      <td>${escapeHtml(card.coverage.suggestedAction || '')}</td>
+    </tr>
+  `).join('');
+
+  const missingCompareRows = summary.missingCompare.map(card => `
+    <tr>
+      <td>${escapeHtml(card.label || card.key)}</td>
+      <td>${escapeHtml(card.coverage.requiredSource || '')}</td>
+      <td>${escapeHtml(card.coverage.missingReason || '')}</td>
+    </tr>
+  `).join('');
+
+  return `
+    <section class="data-health-card">
+      <div class="data-health-card-head">
+        <h3>Metric coverage</h3>
+        <span class="status-tag ${summary.missingCurrent.length ? 'warn' : 'ok'}">
+          ${summary.currentAvailable}/${summary.total} có số liệu chính
+        </span>
+      </div>
+
+      <div class="mini-kpi-grid">
+        <div><strong>${escapeHtml(overview.sourceStatus || 'unknown')}</strong><span>Nguồn đang dùng</span></div>
+        <div><strong>${summary.currentAvailable}/${summary.total}</strong><span>Có số liệu chính</span></div>
+        <div><strong>${summary.missingCurrent.length}</strong><span>Thiếu số liệu chính</span></div>
+        <div><strong>${summary.missingCompare.length}</strong><span>Thiếu so sánh</span></div>
+      </div>
+
+      ${summary.missingCurrent.length ? `
+        <h4>Thiếu số liệu chính</h4>
+        <table class="data-table compact-table">
+          <thead>
+            <tr>
+              <th>Metric</th>
+              <th>Cần nguồn</th>
+              <th>Lý do</th>
+              <th>Gợi ý</th>
+            </tr>
+          </thead>
+          <tbody>${missingCurrentRows}</tbody>
+        </table>
+      ` : '<p class="hint">Không thiếu số liệu chính trong range hiện tại.</p>'}
+
+      ${summary.missingCompare.length ? `
+        <h4>Thiếu số liệu so sánh</h4>
+        <table class="data-table compact-table">
+          <thead>
+            <tr>
+              <th>Metric</th>
+              <th>Cần nguồn</th>
+              <th>Lý do</th>
+            </tr>
+          </thead>
+          <tbody>${missingCompareRows}</tbody>
+        </table>
+      ` : '<p class="hint">Không thiếu số liệu so sánh.</p>'}
+    </section>
+  `;
+}
+
 function dashboardCard(title, value, source, format = 'number', available = true, note = '') {
   return `
     <div class="${available ? '' : 'is-missing'}">
@@ -572,6 +665,7 @@ function renderDashboardCards(range) {
     <div class="summary-grid business-kpis">
       ${ordered.map(card => dashboardCard(card.label, card.value, card.source, card.format, card.available, card.note)).join('')}
     </div>
+    ${renderMetricCoveragePanel(cards, range)}
   `;
 }
 
