@@ -317,6 +317,84 @@ function buildDelta(current, previous) {
   return (currentNumber - previousNumber) / Math.abs(previousNumber);
 }
 
+
+const SHOP_OVERVIEW_METRIC_REGISTRY = {
+  gmv: { group: 'performance', requiredSource: 'seller-center-or-compass', suggestedAction: 'Retry realtime Seller Center/Compass crawl for the selected range.' },
+  orders: { group: 'performance', requiredSource: 'seller-center', suggestedAction: 'Retry Seller Center overview crawl for orders.' },
+  impressions: { group: 'performance', requiredSource: 'seller-center', suggestedAction: 'Retry Seller Center overview crawl for impressions.' },
+  visitors: { group: 'performance', requiredSource: 'seller-center', suggestedAction: 'Retry Seller Center overview crawl for visitors.' },
+  refunds: { group: 'performance', requiredSource: 'seller-center', suggestedAction: 'Retry Seller Center overview crawl for refund metrics.' },
+  conversionRate: { group: 'performance', requiredSource: 'seller-center', suggestedAction: 'Retry Seller Center overview crawl; conversion needs orders and visitors.' },
+  aov: { group: 'performance', requiredSource: 'computed', suggestedAction: 'Backfill GMV and orders first, then recompute AOV.' },
+
+  storeViolations: { group: 'health', requiredSource: 'seller-center-health', suggestedAction: 'Retry Seller Center health/violation crawl.' },
+  storeScore: { group: 'health', requiredSource: 'seller-center-health', suggestedAction: 'Retry Seller Center health/score crawl.' },
+  negativeReviewRate: { group: 'health', requiredSource: 'seller-center-health', suggestedAction: 'Retry Seller Center health indicator crawl.' },
+  sellerFaultRefundReturnRate: { group: 'health', requiredSource: 'seller-center-health', suggestedAction: 'Retry Seller Center health indicator crawl.' },
+  fastDispatchRate30d: { group: 'health', requiredSource: 'seller-center-health', suggestedAction: 'Retry Seller Center logistics/health indicator crawl.' },
+  sellerFaultCancelRate: { group: 'health', requiredSource: 'seller-center-health', suggestedAction: 'Retry Seller Center cancellation health indicator crawl.' },
+  aftersaleHandleTime: { group: 'health', requiredSource: 'seller-center-health', suggestedAction: 'Retry Seller Center aftersale health indicator crawl.' },
+  reply12hRate30d: { group: 'health', requiredSource: 'seller-center-health', suggestedAction: 'Retry Seller Center response health indicator crawl.' },
+
+  tasksCompleted: { group: 'task', requiredSource: 'seller-center-task', suggestedAction: 'Retry Seller Center task crawl.' },
+  tasksRemaining: { group: 'task', requiredSource: 'seller-center-task', suggestedAction: 'Retry Seller Center task crawl.' },
+
+  contentVideoGmv: { group: 'compass', requiredSource: 'compass', suggestedAction: 'Retry Compass GMV crawl for selected range.' },
+  contentProductCardGmv: { group: 'compass', requiredSource: 'compass', suggestedAction: 'Retry Compass GMV crawl for selected range.' },
+  contentLiveGmv: { group: 'compass', requiredSource: 'compass', suggestedAction: 'Retry Compass GMV crawl for selected range.' },
+  affiliateTotalGmv: { group: 'compass', requiredSource: 'compass', suggestedAction: 'Retry Compass GMV crawl for selected range.' },
+  sellerTotalGmv: { group: 'compass', requiredSource: 'compass', suggestedAction: 'Retry Compass GMV crawl for selected range.' }
+};
+
+function metricHasValue(value) {
+  return value !== null
+    && value !== undefined
+    && value !== ''
+    && value !== '--'
+    && !(typeof value === 'number' && Number.isNaN(value));
+}
+
+function metricCoverageFromCard(card = {}) {
+  const registry = SHOP_OVERVIEW_METRIC_REGISTRY[card.key] || {};
+  const currentAvailable = card.available !== false && metricHasValue(card.value);
+  const compareAvailable = metricHasValue(card.previousValue);
+  const requiredSource = registry.requiredSource || card.source || 'unknown';
+
+  let missingReason = '';
+  if (!currentAvailable) {
+    if (card.source === 'missing') {
+      missingReason = 'metric_missing_from_cached_source';
+    } else if (requiredSource.includes('seller-center')) {
+      missingReason = 'seller_center_metric_missing_or_not_normalized';
+    } else if (requiredSource === 'compass') {
+      missingReason = 'compass_metric_missing_or_not_normalized';
+    } else if (requiredSource === 'computed') {
+      missingReason = 'required_input_metric_missing';
+    } else {
+      missingReason = 'metric_value_missing';
+    }
+  } else if (!compareAvailable) {
+    missingReason = 'compare_value_missing';
+  }
+
+  return {
+    metricKey: card.key || '',
+    label: card.label || card.key || '',
+    group: registry.group || card.group || 'unknown',
+    currentAvailable,
+    compareAvailable,
+    source: card.source || '',
+    requiredSource,
+    missingReason,
+    canBackfill: Boolean(missingReason && requiredSource !== 'computed'),
+    suggestedAction: missingReason ? (registry.suggestedAction || 'Retry crawl/backfill for this metric.') : ''
+  };
+}
+
+function buildMetricCoverage(cards = []) {
+  return (Array.isArray(cards) ? cards : []).map(metricCoverageFromCard);
+}
+
 function buildShopCard({ key, label, icon, value, previousValue = null, format = 'number', source = 'crawler', note = '', group = 'overview', available = undefined }) {
   const hasValue = available !== undefined ? Boolean(available) : value !== null && value !== undefined && value !== '';
   return {
@@ -481,7 +559,7 @@ function buildRangeMetricCards(stats = {}, compareStats = {}, performanceBodies 
   const sellerFaultCancel = findIndicatorValue(performanceBodies, ['hủy', 'lỗi của người bán'], ['liable', 'cancel']);
   const aftersaleHandle = findIndicatorValue(performanceBodies, ['thời gian phản hồi trung bình'], ['imart', 'hour']);
   const reply12h = findIndicatorValue(performanceBodies, ['trả lời', '12 giờ'], ['12h', 'reply']);
-  return [
+  const cards = [
     buildShopCard({ key: 'gmv', label: 'GMV', icon: 'st-icon-money', value: gmv, previousValue: compareStats.gmv ? statNumber(compareStats.gmv) : null, format: 'money', source: 'crawler' }),
     buildShopCard({ key: 'orders', label: 'Số đơn hàng', icon: 'st-icon-order', value: orders, previousValue: compareStats.orders_cnt !== undefined ? statNumber(compareStats.orders_cnt) : null, source: 'crawler' }),
     buildShopCard({ key: 'impressions', label: 'Lượt hiển thị', icon: 'st-icon-data', value: impressions, previousValue: findStatsValue(compareStats, ['impression']) ?? findStatsValue(compareStats, ['show']), source: 'crawler', available: impressions !== null }),
@@ -500,6 +578,7 @@ function buildRangeMetricCards(stats = {}, compareStats = {}, performanceBodies 
     buildShopCard({ key: 'tasksCompleted', label: 'Nhiệm vụ đã hoàn thành', icon: 'st-icon-check', value: tasks.completed, source: 'crawler', available: tasks.completed !== null }),
     buildShopCard({ key: 'tasksRemaining', label: 'Nhiệm vụ còn lại', icon: 'st-icon-guide', value: tasks.remaining, source: 'crawler', available: tasks.remaining !== null })
   ];
+  return cards.map(card => ({ ...card, coverage: metricCoverageFromCard(card) }));
 }
 
 function healthCard(cards, key) {
@@ -732,7 +811,7 @@ function inclusiveRangeLabel(startDate = '', endDate = '') {
 }
 
 function compassMetricCards(row = {}, compareRow = {}) {
-  return [
+  const cards = [
     buildShopCard({ key: 'gmv', label: 'GMV', icon: 'st-icon-money', value: row.totalGmv, previousValue: compareRow.totalGmv, format: 'money', source: 'crawler' }),
     buildShopCard({ key: 'orders', label: 'So don hang', icon: 'st-icon-order', value: null, source: 'missing', available: false }),
     buildShopCard({ key: 'visitors', label: 'Khach truy cap', icon: 'st-icon-data', value: null, source: 'missing', available: false }),
@@ -742,6 +821,7 @@ function compassMetricCards(row = {}, compareRow = {}) {
     buildShopCard({ key: 'affiliateTotalGmv', label: 'GMV lien ket', icon: 'st-icon-revenue', value: row.affiliateTotalGmv, previousValue: compareRow.affiliateTotalGmv, format: 'money', source: 'crawler' }),
     buildShopCard({ key: 'sellerTotalGmv', label: 'GMV nguoi ban', icon: 'st-icon-money', value: row.sellerTotalGmv, previousValue: compareRow.sellerTotalGmv, format: 'money', source: 'crawler' })
   ];
+  return cards.map(card => ({ ...card, coverage: metricCoverageFromCard(card) }));
 }
 
 const COMPASS_UI_METRICS = [
