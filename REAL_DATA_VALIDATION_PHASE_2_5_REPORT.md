@@ -167,3 +167,46 @@ Do not proceed to Phase 3 optimization or broader crawler changes until:
 - TikTokCrawler UI shows the new status/readiness/failure fields from live runtime
 - a small current-month Compass crawl produces completed/partial/failed status with safe reason metadata
 - no secrets appear in UI, API response, audit log, console output, or report
+
+---
+
+## Rerun After Restarting Windows Local App
+
+After syncing the Windows local app and restarting it with:
+
+- `npm run stop`
+- `npm run app`
+
+`/api/tiktokshop-crawler/db` returned the Phase 2 `crawlerStatus` contract successfully.
+
+Observed safe metadata:
+
+- `crawlerStatus.status`: `partial`
+- `crawlerStatus.readiness`: `partial`
+- `crawlerStatus.selectedShop.id`: `little-apricot-hawaii-fashion`
+- `crawlerStatus.selectedShop.name`: `Little Apricot Hawaii Fashion`
+- `crawlerStatus.profileName`: `shop-7494478078863902049`
+- `crawlerStatus.cookieStorageStatus`: `encrypted`
+- `crawlerStatus.cookieCount`: `41`
+- `crawlerStatus.cookieUpdatedAt`: `2026-06-24T02:47:14.849Z`
+- `crawlerStatus.sessionHint`: `safe_metadata_only`
+- `crawlerStatus.latestRun.status`: `partial`
+- `crawlerStatus.latestRun.mode`: `seller-center`
+- `crawlerStatus.latestRun.source`: `seller-center-latest`
+- `crawlerStatus.failureReason`: `cdp_unavailable`
+- `crawlerStatus.partialReason`: `Job dang chay truoc do da bi dung hoac mat ket noi browser/CDP.`
+- `crawlerStatus.retryable`: `true`
+
+Result:
+
+- The Phase 2 crawler status contract is visible in the Windows local runtime.
+- The contract exposes safe metadata only.
+- No cookie/session/token value was printed.
+- Current real-operation status is partial because the previous Seller Center/CDP job lost browser connection.
+- The issue is retryable and should be handled as a crawler runtime retry/stale CDP cleanup case.
+
+Updated validation status:
+
+- Previous blocker `crawlerStatus missing from local runtime`: resolved.
+- Current blocker: Seller Center latest run is partial due to `cdp_unavailable`.
+- Next action: close stale browser/CDP sessions, restart the app, then retry a small current-month crawl.
