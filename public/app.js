@@ -127,6 +127,7 @@ function selectedShopContext() {
   return {
     id: selectedId,
     name: shop?.name || selectedId || '',
+    loginNote: shop?.loginNote || '',
     sellerId: shop?.sellerId || '',
     adsAccountId: shop?.adsAccountId || '',
     sellerCenterUrl: shop?.sellerCenterUrl || '',
@@ -135,6 +136,9 @@ function selectedShopContext() {
     gmvMaxUrl: shop?.gmvMaxUrl || '',
     shopHealthStatus: shop?.shopHealthStatus || '',
     productScoreStatus: shop?.productScoreStatus || '',
+    cookieCount: Number(shop?.cookieCount || 0),
+    cookieStorage: shop?.cookieStorage || 'none',
+    cookieUpdatedAt: shop?.cookieUpdatedAt || '',
     label: shop?.name ? `${shop.name} (${shop.id})` : (selectedId || 'Chua chon shop/profile')
   };
 }
@@ -1042,6 +1046,89 @@ function statusTag(available, source = '') {
   return `<span class="${className}">${escapeHtml(text)}</span>`;
 }
 
+function flowStatusTag(label, tone = 'neutral') {
+  return `<span class="flow-status ${escapeHtml(tone)}">${escapeHtml(label)}</span>`;
+}
+
+function healthTile(label, value, tone = 'neutral', note = '') {
+  return `
+    <div class="data-health-tile ${escapeHtml(tone)}">
+      <strong>${escapeHtml(value || 'Chua co')}</strong>
+      <span>${escapeHtml(label)}</span>
+      ${note ? `<small>${escapeHtml(note)}</small>` : ''}
+    </div>
+  `;
+}
+
+function renderBusinessHealthBand(result = null) {
+  const selectedShop = selectedShopContext();
+  if (!result) {
+    const confirmation = selectedShop.id ? readShopSessionConfirmation(selectedShop.id) : null;
+    return `
+      <section class="data-health-band">
+        ${healthTile('Shop/profile dang chon', selectedShop.label, selectedShop.id ? 'ok' : 'warn')}
+        ${healthTile('Uploaded data', 'Dang cho file', 'neutral', '.xlsx/.csv/.tsv/.txt')}
+        ${healthTile('Crawler data', 'Se kiem tra sau khi phan tich', 'neutral', 'Cache local neu co')}
+        ${healthTile('Session note', confirmationLabel(confirmation?.status), confirmation?.status === 'correct-shop' ? 'ok' : 'warn')}
+      </section>
+    `;
+  }
+  const overview = result.shopOverview || {};
+  const fileCount = (result.fileSummary || []).length;
+  const uploadedRows = Object.values(result.groupedRows || {}).reduce((sum, value) => sum + Number(value || 0), 0);
+  const warningCount = (result.warnings || []).length;
+  const crawlerOk = Boolean(overview.ok);
+  return `
+    <section class="data-health-band">
+      ${healthTile('Shop/profile', selectedShop.label, selectedShop.id ? 'ok' : 'warn')}
+      ${healthTile('Uploaded data', fileCount ? `${fileCount} file / ${money(uploadedRows)} dong` : 'Chua upload file', fileCount ? 'ok' : 'warn')}
+      ${healthTile('Crawler data', crawlerOk ? 'Co cache local' : 'Missing', crawlerOk ? 'ok' : 'warn', overview.runId || '')}
+      ${healthTile('Last crawl', formatTimestamp(overview.updatedAt || overview.crawlerSummary?.finishedAt || overview.crawlerSummary?.startedAt), crawlerOk ? 'ok' : 'neutral')}
+      ${healthTile('Warnings', warningCount ? `${warningCount} can xem` : 'Khong co', warningCount ? 'warn' : 'ok')}
+    </section>
+  `;
+}
+
+function renderBusinessWarningPanel(result) {
+  const warnings = (result.warnings || []).map(item => `<li>${escapeHtml(item)}</li>`).join('');
+  const missing = [];
+  if (!businessRevenueAvailable(result)) missing.push('Doanh thu chua co nguon du lieu ro rang.');
+  if (!adsSpendAvailable(result)) missing.push('Ads Spend dang missing hoac thieu cot Cash/Credit/Ads credit.');
+  if (!result.orders?.refundCancel?.available) missing.push('Refund/cancel chua co cot status/refund/cancel.');
+  if (!result.shopOverview?.ok) missing.push('Crawler local chua co overview cho shop/profile dang chon.');
+  const missingRows = missing.map(item => `<li>${escapeHtml(item)}</li>`).join('');
+  if (!warnings && !missingRows) {
+    return `
+      <section class="warning-panel ok">
+        <h3>Data health</h3>
+        <p>Basic view khong thay metric bat buoc bi thieu. Van can validate bang data that truoc khi ket luan.</p>
+      </section>
+    `;
+  }
+  return `
+    <section class="warning-panel">
+      <h3>Missing / warning can xu ly</h3>
+      <ul>${warnings}${missingRows}</ul>
+    </section>
+  `;
+}
+
+function renderBusinessNextActions(result) {
+  const actions = [
+    !result.shopOverview?.ok ? 'Mo TikTok Crawler va crawl realtime bang dung shop/profile.' : '',
+    !adsSpendAvailable(result) ? 'Nap file Ads actual co cot Cash/Credit/Ads credit neu can tinh Ads Spend.' : '',
+    !result.orders?.refundCancel?.available ? 'Nap file don hang co status/refund/cancel de xem ty le hoan/huy.' : '',
+    groupedRows(result, 'orders') > 0 && !Number(result.priceRows || 0) ? 'Nap bang gia goc de tinh gia von/SKU profit.' : '',
+    'Kiem tra Advanced detail neu can doi chieu file, crawler cache, hoac mapping.'
+  ].filter(Boolean);
+  return `
+    <section class="mini-panel next-actions-panel">
+      <h3>Next actions</h3>
+      <ul>${actions.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>
+    </section>
+  `;
+}
+
 function csvCell(value) {
   const raw = String(value ?? '');
   return /[",\r\n]/.test(raw) ? `"${raw.replace(/"/g, '""')}"` : raw;
@@ -1297,7 +1384,6 @@ function renderShopOverviewMetrics(overview = {}) {
 
 function renderBusinessResult(result, mode = 'analysis') {
   state.businessResult = result;
-  const warnings = (result.warnings || []).map(item => `<li>${escapeHtml(item)}</li>`).join('');
   const fileRows = (result.fileSummary || []).map(file => `
     <tr><td>${escapeHtml(file.name)}</td><td>${escapeHtml(file.type)}</td><td>${file.rows}</td></tr>
   `).join('');
@@ -1337,10 +1423,11 @@ function renderBusinessResult(result, mode = 'analysis') {
   workspaceContent.innerHTML = `
     <div class="panel-header">
       <h2>${mode === 'plan' ? 'Ke hoach thang/quy toi' : 'Phan tich chi so kinh doanh'}</h2>
-      <p>Ket qua duoc tinh tu file TikTok Seller/Ads da nap va bang gia goc cot A/H.</p>
+      <p>Basic view uu tien source, missing data, KPI chinh va next actions. Advanced detail nam ben duoi de doi chieu file/crawler khi can.</p>
     </div>
+    ${renderBusinessHealthBand(result)}
     ${renderBusinessDataContext(result)}
-    ${warnings ? `<ul class="warn-list">${warnings}</ul>` : ''}
+    ${renderBusinessWarningPanel(result)}
     <div class="summary-grid business-kpis">
       ${businessMetricCard('Doanh thu', result.kpis?.revenue, result.kpis?.revenueSource || 'uploaded', 'money', revenueAvailable)}
       ${businessMetricCard('Loi nhuan uoc tinh', result.kpis?.netProfitEstimate, 'computed', 'money', revenueAvailable)}
@@ -1350,6 +1437,7 @@ function renderBusinessResult(result, mode = 'analysis') {
       ${businessMetricCard('Gia von hang ban', result.costs?.productCost, 'uploaded', 'money', productCostAvailable)}
       ${businessMetricCard('Mau + ship affiliate', Number(result.affiliate?.sampleCost || 0) + Number(result.affiliate?.shipping || 0), 'uploaded', 'money', affiliateCostAvailable)}
     </div>
+    ${renderBusinessNextActions(result)}
     ${renderShopOverviewMetrics(result.shopOverview)}
     <div class="analysis-grid">
       <section class="mini-panel">
@@ -1425,19 +1513,24 @@ function renderBusinessResult(result, mode = 'analysis') {
         <dl class="compact-list">
           <dt>Muc tieu doanh thu</dt><dd>${money(result.plan?.targetRevenue)}</dd>
           <dt>Ngan sach ads goi y</dt><dd>${money(result.plan?.suggestedAdsBudget)}</dd>
-          <dt>ROI hoa von</dt><dd>${Number(result.plan?.breakEvenRoi || 0).toFixed(2)}</dd>
-          <dt>ROI hien tai</dt><dd>${Number(result.plan?.currentRoi || 0).toFixed(2)}</dd>
+          <dt>ROI hoa von</dt><dd>${metricValue(result.plan?.breakEvenRoi, 'decimal', hasMetricValue(result.plan?.breakEvenRoi))}</dd>
+          <dt>ROI hien tai</dt><dd>${metricValue(result.plan?.currentRoi, 'decimal', hasMetricValue(result.plan?.currentRoi))}</dd>
         </dl>
         <ul class="plan-actions">${planActions}</ul>
       </section>
     </div>
-    <div class="mini-panel">
-      <h3>SKU uu tien cho ke hoach</h3>
-      <table class="data-table"><thead><tr><th>SKU</th><th>Doanh thu cu</th><th>Lai gop uoc tinh</th></tr></thead><tbody>${planRows || '<tr><td colspan="3">Chua co du lieu</td></tr>'}</tbody></table>
-    </div>
-    <details class="mini-panel">
-      <summary>File da nhan dien</summary>
-      <table class="data-table"><thead><tr><th>File</th><th>Loai</th><th>Rows</th></tr></thead><tbody>${fileRows}</tbody></table>
+    <details class="mini-panel advanced-detail">
+      <summary>Advanced detail: file, SKU plan, raw result export</summary>
+      <div class="advanced-detail-grid">
+        <section>
+          <h3>SKU uu tien cho ke hoach</h3>
+          <table class="data-table"><thead><tr><th>SKU</th><th>Doanh thu cu</th><th>Lai gop uoc tinh</th></tr></thead><tbody>${planRows || '<tr><td colspan="3">Chua co du lieu</td></tr>'}</tbody></table>
+        </section>
+        <section>
+          <h3>File da nhan dien</h3>
+          <table class="data-table"><thead><tr><th>File</th><th>Loai</th><th>Rows</th></tr></thead><tbody>${fileRows || '<tr><td colspan="3">Chua co file</td></tr>'}</tbody></table>
+        </section>
+      </div>
     </details>
     <div class="actions">
       <button id="businessAnalyzeAgain">Nap lai file</button>
@@ -1457,26 +1550,43 @@ function renderBusinessAnalysisWorkspace() {
     <form id="businessAnalysisForm" class="workspace-content">
       <div class="panel-header">
         <h2>Phan tich chi so kinh doanh</h2>
-        <p>Nap cac file TikTok Seller/Ads/KOC. Chay trong dashboard PC app, tu nhan dien file, gop trung loai, loc trung va tinh KPI. Neu mat mang, app dung file gia upload hoac cache gia da luu truoc do.</p>
+        <p>Nap file truoc, app se tach ro uploaded data, crawler data, missing/warning, KPI/result va next actions.</p>
       </div>
-      <label>
-        Google Sheet gia goc
-        <input name="priceSheetUrl" value="https://docs.google.com/spreadsheets/d/1RlaQAhHvLdFrYiG3q80DyVWrJZBmrvLPsrCGGRO_AWo/edit?gid=478274778#gid=478274778" autocomplete="off">
-      </label>
-      <label>
-        Hoac upload file gia goc (.xlsx/.csv/.tsv) - lay cot A va H
-        <input name="priceFile" type="file" accept=".xlsx,.csv,.tsv,.txt">
-      </label>
-      <label>
-        File TikTok Seller/Ads/KOC (.xlsx/.csv/.tsv), co the chon nhieu file
-        <input name="businessFiles" type="file" accept=".xlsx,.csv,.tsv,.txt" multiple required>
-      </label>
-      <div class="form-grid">
-        <label>Ky du lieu cu<input name="periodLabel" placeholder="VD: Thang 5/2026"></label>
-        <label>Ky ke hoach<input name="nextPeriodLabel" placeholder="VD: Thang 6/2026 / Q3"></label>
-        <label>Ty le tinh Ads credit con lai (%)<input name="adsCreditRatio" type="number" min="0" max="100" step="1" value="50"></label>
-        <label>Tang truong muc tieu (%)<input name="targetGrowthPct" type="number" min="0" max="500" step="1" value="20"></label>
-      </div>
+      ${renderBusinessHealthBand()}
+      <section class="data-flow-section">
+        <div class="flow-step">
+          <div>${flowStatusTag('1', 'neutral')}</div>
+          <div>
+            <h3>Upload data</h3>
+            <p>File business la bat buoc. Bang gia co the lay tu Google Sheet, file upload, hoac cache local neu da co.</p>
+            <label>
+              Google Sheet gia goc
+              <input name="priceSheetUrl" value="https://docs.google.com/spreadsheets/d/1RlaQAhHvLdFrYiG3q80DyVWrJZBmrvLPsrCGGRO_AWo/edit?gid=478274778#gid=478274778" autocomplete="off">
+            </label>
+            <label>
+              Hoac upload file gia goc (.xlsx/.csv/.tsv) - lay cot A va H
+              <input name="priceFile" type="file" accept=".xlsx,.csv,.tsv,.txt">
+            </label>
+            <label>
+              File TikTok Seller/Ads/KOC (.xlsx/.csv/.tsv/.txt), co the chon nhieu file
+              <input name="businessFiles" type="file" accept=".xlsx,.csv,.tsv,.txt" multiple required>
+            </label>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div>${flowStatusTag('2', 'neutral')}</div>
+          <div>
+            <h3>Calculation settings</h3>
+            <p>Cac setting nay chi dieu khien cach hien thi ke hoach va Ads credit, khong doc cookie/session.</p>
+            <div class="form-grid">
+              <label>Ky du lieu cu<input name="periodLabel" placeholder="VD: Thang 5/2026"></label>
+              <label>Ky ke hoach<input name="nextPeriodLabel" placeholder="VD: Thang 6/2026 / Q3"></label>
+              <label>Ty le tinh Ads credit con lai (%)<input name="adsCreditRatio" type="number" min="0" max="100" step="1" value="50"></label>
+              <label>Tang truong muc tieu (%)<input name="targetGrowthPct" type="number" min="0" max="500" step="1" value="20"></label>
+            </div>
+          </div>
+        </div>
+      </section>
       <button type="submit">Phan tich va tao ke hoach</button>
     </form>
   `;
@@ -1583,6 +1693,100 @@ function renderCrawlerBusinessInsight(database, activeMonth) {
 
 function latestCompassTimestamp(database = {}, activeMonth = '') {
   return database.months?.[activeMonth]?.crawledAt || database.updatedAt || '';
+}
+
+function crawlerStateLabel({ selectedShop, active, sellerCenter, confirmation }) {
+  const unresolvedCount = Array.isArray(sellerCenter?.unresolved) ? sellerCenter.unresolved.length : 0;
+  if (!selectedShop.id) {
+    return { key: 'need-login', label: 'Need shop/profile', tone: 'warn', reason: 'Chua chon shop/profile.' };
+  }
+  if (!selectedShop.cookieCount || selectedShop.cookieStorage === 'none') {
+    return { key: 'need-login', label: 'Need login/cookies', tone: 'warn', reason: 'Profile chua co encrypted cookie metadata.' };
+  }
+  if (confirmation?.status === 'wrong-shop') {
+    return { key: 'failed', label: 'Wrong shop', tone: 'danger', reason: 'Local confirmation dang bao sai shop.' };
+  }
+  if (confirmation?.status === 'not-logged-in') {
+    return { key: 'need-login', label: 'Need login', tone: 'warn', reason: 'Operator da danh dau profile chua dang nhap.' };
+  }
+  if (confirmation?.status === 'needs-relogin') {
+    return { key: 'cookie-expired', label: 'Cookie expired / re-login', tone: 'warn', reason: 'Operator da danh dau can dang nhap lai.' };
+  }
+  if (unresolvedCount && (active || sellerCenter?.runId)) {
+    return { key: 'partial', label: 'Partial', tone: 'warn', reason: `${unresolvedCount} module can xem lai.` };
+  }
+  if (active || sellerCenter?.runId) {
+    return { key: 'completed', label: 'Completed', tone: 'ok', reason: 'Co latest local crawl data.' };
+  }
+  if (confirmation?.status === 'correct-shop') {
+    return { key: 'ready', label: 'Ready', tone: 'ok', reason: 'Dung shop/profile theo local confirmation.' };
+  }
+  return { key: 'ready', label: 'Ready to check', tone: 'neutral', reason: 'Hay confirm profile truoc khi crawl that.' };
+}
+
+function renderCrawlerProfileCard(selectedShop, confirmation) {
+  const status = confirmationLabel(confirmation?.status);
+  return `
+    <section class="crawler-state-card">
+      <div class="panel-header compact">
+        <h3>Selected shop/profile</h3>
+        <p>Chi hien metadata an toan. Khong hien cookie/token/session value.</p>
+      </div>
+      <div class="context-grid crawler-context-grid">
+        <div><strong>${escapeHtml(selectedShop.label)}</strong><span>Shop/profile</span></div>
+        <div><strong>${escapeHtml(selectedShop.sellerId || 'Missing')}</strong><span>Seller ID</span></div>
+        <div><strong>${escapeHtml(selectedShop.adsAccountId || 'Missing')}</strong><span>Ads account</span></div>
+        <div><strong>${escapeHtml(status)}</strong><span>Local confirmation</span></div>
+      </div>
+    </section>
+  `;
+}
+
+function renderCrawlerSecurityCard(selectedShop) {
+  return `
+    <section class="crawler-state-card">
+      <div class="panel-header compact">
+        <h3>Safe cookie/session metadata</h3>
+        <p>Phase 1 chi dung count/status de operator biet profile co san sang hay khong.</p>
+      </div>
+      <div class="context-grid crawler-context-grid">
+        <div><strong>${metricValue(selectedShop.cookieCount, 'number', selectedShop.cookieCount > 0)}</strong><span>Cookie count</span></div>
+        <div><strong>${escapeHtml(selectedShop.cookieStorage || 'none')}</strong><span>Cookie storage</span></div>
+        <div><strong>${formatTimestamp(selectedShop.cookieUpdatedAt)}</strong><span>Cookie updated</span></div>
+        <div><strong>${escapeHtml(selectedShop.loginNote || 'Chua co')}</strong><span>Login note</span></div>
+      </div>
+    </section>
+  `;
+}
+
+function renderCrawlerRunStatus({ stateInfo, database, activeMonth, active, sellerCenter }) {
+  const unresolved = Array.isArray(sellerCenter?.unresolved) ? sellerCenter.unresolved : [];
+  const latestTime = latestCompassTimestamp(database, activeMonth) || sellerCenter.startedAt || sellerCenter.finishedAt;
+  const failureRows = unresolved.slice(0, 6).map(item => `
+    <li>${escapeHtml(item.module || 'Module')} - ${escapeHtml(item.reason || item.notes || 'Can xem lai')}</li>
+  `).join('');
+  return `
+    <section class="crawler-status-panel ${escapeHtml(stateInfo.tone)}">
+      <div class="crawler-status-head">
+        <div>
+          ${flowStatusTag(stateInfo.label, stateInfo.tone)}
+          <h3>Current crawler state</h3>
+          <p>${escapeHtml(stateInfo.reason)}</p>
+        </div>
+        <div class="crawler-status-meta">
+          <strong>${escapeHtml(sellerCenter.runId || active?.runId || database.runId || 'Chua co run')}</strong>
+          <span>Latest run ID</span>
+        </div>
+      </div>
+      <div class="context-grid crawler-context-grid">
+        <div><strong>${Object.keys(database.months || {}).length}</strong><span>Compass months</span></div>
+        <div><strong>${active?.daily?.length || 0}</strong><span>Daily rows</span></div>
+        <div><strong>${formatTimestamp(latestTime)}</strong><span>Latest timestamp</span></div>
+        <div><strong>${unresolved.length ? `${unresolved.length} issue` : 'Khong co'}</strong><span>Failure/partial reason</span></div>
+      </div>
+      ${failureRows ? `<div class="failure-panel"><h4>Failure reason / partial modules</h4><ul>${failureRows}</ul></div>` : ''}
+    </section>
+  `;
 }
 
 async function renderTikTokCrawlerWorkspaceLegacy() {
@@ -1695,6 +1899,106 @@ async function renderTikTokCrawlerWorkspace() {
       <td>${escapeHtml(item.notes || '')}</td>
     </tr>
   `).join('');
+
+  const confirmation = selectedShop.id ? readShopSessionConfirmation(selectedShop.id) : null;
+  const stateInfo = crawlerStateLabel({ selectedShop, active, sellerCenter, confirmation });
+  workspaceContent.innerHTML = `
+    <form id="tiktokCrawlerForm" class="workspace-content">
+      <div class="panel-header">
+        <h2>TikTok Shop Crawler</h2>
+        <p>Basic view cho biet shop/profile, safe cookie metadata, current state, latest run va failure reason truoc khi xem technical detail.</p>
+      </div>
+      ${renderCrawlerProfileCard(selectedShop, confirmation)}
+      ${renderCrawlerSecurityCard(selectedShop)}
+      ${renderCrawlerRunStatus({ stateInfo, database, activeMonth, active, sellerCenter })}
+      <section class="data-flow-section">
+        <div class="flow-step">
+          <div>${flowStatusTag('Basic', stateInfo.tone)}</div>
+          <div>
+            <h3>Crawl controls</h3>
+            <p>Mac dinh auto-open dung managed profile. CDP port chi dung khi tat auto-open.</p>
+            <label><input type="checkbox" name="autoOpenProfile" checked> Tu mo dung profile shop va dung session/cookie local da nap</label>
+            <div class="form-grid">
+              <label>Seller ID<input name="sellerId" value="${escapeHtml(defaultSellerId)}" autocomplete="off"></label>
+              <label>Thang can crawl Compass<input name="months" value="${escapeHtml(currentMonthKey())}" autocomplete="off"></label>
+              <label>CDP port thu cong<input name="cdpPort" value="58849" autocomplete="off"></label>
+              <label>Gioi han module Seller Center (0 = toan bo)<input name="maxModules" value="0" autocomplete="off"></label>
+            </div>
+            <label>URL goc Seller Center<input name="baseUrl" value="https://seller-vn.tiktok.com/homepage?shop_region=VN" autocomplete="off"></label>
+          </div>
+        </div>
+      </section>
+      <div class="actions">
+        <button type="submit" value="compass">Crawl Compass</button>
+        <button type="submit" value="seller-center" class="secondary">Crawl Seller Center full hom qua</button>
+        <button type="button" class="secondary" id="reloadCrawlerDb">Tai lai DB</button>
+      </div>
+    </form>
+    <div class="panel-header">
+      <h2>Compass basic metrics ${escapeHtml(activeMonth)}</h2>
+      <p>${active ? 'Source cache local. Raw path va module report nam trong Advanced detail.' : 'Chua co du lieu Compass cho shop/profile nay.'}</p>
+    </div>
+    ${renderCrawlerBusinessInsight(database, activeMonth)}
+    ${renderCrawlerRows(active)}
+    <details class="mini-panel advanced-detail">
+      <summary>Advanced / technical detail</summary>
+      <div class="advanced-detail-grid">
+        <section>
+          <h3>Seller Center latest run</h3>
+          <p>${sellerCenter.runId ? `Run: ${escapeHtml(sellerCenter.runId)} | Output: ${escapeHtml(sellerCenter.outputDir || '')}` : 'Chua co crawl Seller Center.'}</p>
+          <div class="context-grid crawler-context-grid">
+            <div><strong>${money(sellerCenter.summary?.apiEndpoints)}</strong><span>API endpoints</span></div>
+            <div><strong>${money(sellerCenter.summary?.rawFiles)}</strong><span>Raw files</span></div>
+            <div><strong>${money(sellerCenter.summary?.exportRequests)}</strong><span>Export requests</span></div>
+            <div><strong>${escapeHtml(shopId)}</strong><span>Shop DB</span></div>
+          </div>
+        </section>
+        <section>
+          <h3>Compass raw paths</h3>
+          <p>${active ? `Aggregate: ${escapeHtml(active.rawFiles?.aggregate || 'Chua co')} | Daily: ${escapeHtml(active.rawFiles?.daily || 'Chua co')}` : 'Chua co du lieu.'}</p>
+        </section>
+      </div>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead><tr><th>Module</th><th>Trang thai</th><th>API</th><th>Export</th><th>Dong</th><th>Ghi chu</th></tr></thead>
+          <tbody>${moduleRows || '<tr><td colspan="6">Chua co report.</td></tr>'}</tbody>
+        </table>
+      </div>
+    </details>
+  `;
+  document.querySelector('#tiktokCrawlerForm').addEventListener('submit', async event => {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const button = event.submitter;
+    const original = button.textContent;
+    button.disabled = true;
+    button.textContent = 'Dang crawl...';
+    try {
+      const result = await api('/api/tiktokshop-crawler/crawl', {
+        method: 'POST',
+        body: {
+          mode: button.value || 'compass',
+          shopId,
+          autoOpenProfile: form.get('autoOpenProfile') === 'on',
+          cdpPort: Number(form.get('cdpPort') || 0),
+          sellerId: form.get('sellerId'),
+          baseUrl: form.get('baseUrl'),
+          months: String(form.get('months') || '').split(',').map(item => item.trim()).filter(Boolean),
+          dateRange: 'yesterday',
+          maxModules: Number(form.get('maxModules') || 0)
+        }
+      });
+      setOutput(result);
+      await renderTikTokCrawlerWorkspace();
+    } catch (error) {
+      setOutput(error.data || error.message);
+    } finally {
+      button.disabled = false;
+      button.textContent = original;
+    }
+  });
+  bindClick('#reloadCrawlerDb', renderTikTokCrawlerWorkspace);
+  return;
 
   workspaceContent.innerHTML = `
     <form id="tiktokCrawlerForm" class="workspace-content">
