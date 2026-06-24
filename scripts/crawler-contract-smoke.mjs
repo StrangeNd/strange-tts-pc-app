@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import {
+  buildCrawlerStatusContract,
   buildCrawlerSnapshotContract,
+  normalizeCrawlerFailureReason,
   normalizedCrawlerMetric,
   sanitizeCrawlerUrl,
   scrubCrawlerPayload
@@ -76,5 +78,46 @@ assert.equal(contract.security.plaintextCookieExport, false);
 assert.equal(contract.security.remoteUpload, false);
 assert(contract.layers.some(layer => layer.key === 'raw_snapshot' && layer.scrubbed), 'raw snapshot layer must be scrubbed');
 assert(contract.layers.some(layer => layer.key === 'normalized_metrics' && layer.missingDataPolicy === 'missing-not-zero'));
+
+const statusContract = buildCrawlerStatusContract({
+  status: 'failed',
+  readiness: 'failed',
+  selectedShop: {
+    id: 'shop-a',
+    name: 'Shop A',
+    sellerId: 'seller-a',
+    adsAccountId: 'ads-a',
+    sessionPayload: 'secret-session-payload'
+  },
+  profileName: 'shop-seller-a',
+  cookieStorageStatus: 'encrypted',
+  cookieCount: 12,
+  cookieUpdatedAt: '2026-06-19T00:00:00.000Z',
+  sessionHint: 'safe_metadata_only',
+  latestRun: {
+    runId: 'run-a',
+    status: 'error',
+    mode: 'seller-center',
+    startedAt: '2026-06-19T00:00:00.000Z',
+    summary: { rawFiles: 2 },
+    cookieValue: 'secret-cookie-value'
+  },
+  failureReason: 'Need login because token=secret-token',
+  partialReason: 'sessionid=secret-session',
+  missingMetrics: ['compass_daily'],
+  runId: 'run-a'
+});
+
+const statusSerialized = JSON.stringify(statusContract);
+assert.equal(statusContract.failureReason, 'not_logged_in');
+assert.equal(statusContract.latestRun.status, 'failed');
+assert.equal(statusContract.cookieCount, 12);
+assert.equal(statusContract.sessionHint, 'safe_metadata_only');
+assert.equal(statusContract.selectedShop.sessionPayload, undefined, 'selected shop must only expose safe fields');
+assert(!statusSerialized.includes('secret-token'), 'status contract should scrub token-like text');
+assert(!statusSerialized.includes('secret-session'), 'status contract should scrub session-like text');
+assert(!statusSerialized.includes('secret-cookie-value'), 'status contract should not expose cookie values');
+assert.equal(normalizeCrawlerFailureReason('captcha verification required'), 'captcha_or_verification_needed');
+assert.equal(normalizeCrawlerFailureReason('ui_not_found menu text'), 'selector_changed');
 
 console.log('Crawler contract smoke passed.');

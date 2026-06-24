@@ -1568,7 +1568,7 @@ function renderBusinessAnalysisWorkspace() {
               <input name="priceFile" type="file" accept=".xlsx,.csv,.tsv,.txt">
             </label>
             <label>
-              File TikTok Seller/Ads/KOC (.xlsx/.csv/.tsv/.txt), co the chon nhieu file
+              File TikTok Seller/Ads/KOC (.xlsx/.csv/.tsv), co the chon nhieu file
               <input name="businessFiles" type="file" accept=".xlsx,.csv,.tsv,.txt" multiple required>
             </label>
           </div>
@@ -1695,7 +1695,52 @@ function latestCompassTimestamp(database = {}, activeMonth = '') {
   return database.months?.[activeMonth]?.crawledAt || database.updatedAt || '';
 }
 
-function crawlerStateLabel({ selectedShop, active, sellerCenter, confirmation }) {
+const CRAWLER_FAILURE_LABELS = {
+  not_logged_in: 'Need login',
+  cookie_missing: 'Cookie missing',
+  cookie_expired: 'Cookie expired',
+  wrong_shop_suspected: 'Wrong shop suspected',
+  captcha_or_verification_needed: 'Captcha / verification needed',
+  seller_center_unavailable: 'Seller Center unavailable',
+  compass_unavailable: 'Compass unavailable',
+  cdp_unavailable: 'Browser/CDP unavailable',
+  api_response_changed: 'API response changed',
+  selector_changed: 'UI selector changed',
+  network_error: 'Network error',
+  parse_error: 'Parse error',
+  partial_capture: 'Partial capture',
+  unknown: 'Unknown issue'
+};
+
+function crawlerFailureLabel(reason = '') {
+  return CRAWLER_FAILURE_LABELS[reason] || (reason ? reason.replaceAll('_', ' ') : 'Khong co');
+}
+
+function crawlerStatusTone(status = '') {
+  if (['ready', 'completed'].includes(status)) return 'ok';
+  if (['need-login', 'cookie-expired', 'partial'].includes(status)) return 'warn';
+  if (status === 'failed') return 'danger';
+  if (status === 'crawling') return 'neutral';
+  return 'neutral';
+}
+
+function crawlerStateLabel({ selectedShop, active, sellerCenter, confirmation, crawlerStatus }) {
+  if (crawlerStatus?.status) {
+    const status = String(crawlerStatus.status || '').replace('_', '-');
+    const labels = {
+      ready: 'Ready',
+      'need-login': 'Need login/cookies',
+      'cookie-expired': 'Cookie expired / re-login',
+      crawling: 'Crawling',
+      completed: 'Completed',
+      failed: 'Failed',
+      partial: 'Partial'
+    };
+    const reason = crawlerStatus.failureReason
+      ? crawlerFailureLabel(crawlerStatus.failureReason)
+      : crawlerStatus.partialReason || crawlerStatus.sessionHint || 'Safe status metadata is available.';
+    return { key: status, label: labels[status] || labels.ready, tone: crawlerStatusTone(status), reason };
+  }
   const unresolvedCount = Array.isArray(sellerCenter?.unresolved) ? sellerCenter.unresolved.length : 0;
   if (!selectedShop.id) {
     return { key: 'need-login', label: 'Need shop/profile', tone: 'warn', reason: 'Chua chon shop/profile.' };
@@ -1724,8 +1769,9 @@ function crawlerStateLabel({ selectedShop, active, sellerCenter, confirmation })
   return { key: 'ready', label: 'Ready to check', tone: 'neutral', reason: 'Hay confirm profile truoc khi crawl that.' };
 }
 
-function renderCrawlerProfileCard(selectedShop, confirmation) {
+function renderCrawlerProfileCard(selectedShop, confirmation, crawlerStatus) {
   const status = confirmationLabel(confirmation?.status);
+  const contractShop = crawlerStatus?.selectedShop || {};
   return `
     <section class="crawler-state-card">
       <div class="panel-header compact">
@@ -1733,16 +1779,19 @@ function renderCrawlerProfileCard(selectedShop, confirmation) {
         <p>Chi hien metadata an toan. Khong hien cookie/token/session value.</p>
       </div>
       <div class="context-grid crawler-context-grid">
-        <div><strong>${escapeHtml(selectedShop.label)}</strong><span>Shop/profile</span></div>
-        <div><strong>${escapeHtml(selectedShop.sellerId || 'Missing')}</strong><span>Seller ID</span></div>
-        <div><strong>${escapeHtml(selectedShop.adsAccountId || 'Missing')}</strong><span>Ads account</span></div>
+        <div><strong>${escapeHtml(contractShop.name || selectedShop.label)}</strong><span>Shop/profile</span></div>
+        <div><strong>${escapeHtml(contractShop.sellerId || selectedShop.sellerId || 'Missing')}</strong><span>Seller ID</span></div>
+        <div><strong>${escapeHtml(contractShop.adsAccountId || selectedShop.adsAccountId || 'Missing')}</strong><span>Ads account</span></div>
         <div><strong>${escapeHtml(status)}</strong><span>Local confirmation</span></div>
       </div>
     </section>
   `;
 }
 
-function renderCrawlerSecurityCard(selectedShop) {
+function renderCrawlerSecurityCard(selectedShop, crawlerStatus) {
+  const cookieCount = crawlerStatus?.cookieCount ?? selectedShop.cookieCount;
+  const cookieStorage = crawlerStatus?.cookieStorageStatus || selectedShop.cookieStorage || 'none';
+  const cookieUpdatedAt = crawlerStatus?.cookieUpdatedAt || selectedShop.cookieUpdatedAt;
   return `
     <section class="crawler-state-card">
       <div class="panel-header compact">
@@ -1750,21 +1799,30 @@ function renderCrawlerSecurityCard(selectedShop) {
         <p>Phase 1 chi dung count/status de operator biet profile co san sang hay khong.</p>
       </div>
       <div class="context-grid crawler-context-grid">
-        <div><strong>${metricValue(selectedShop.cookieCount, 'number', selectedShop.cookieCount > 0)}</strong><span>Cookie count</span></div>
-        <div><strong>${escapeHtml(selectedShop.cookieStorage || 'none')}</strong><span>Cookie storage</span></div>
-        <div><strong>${formatTimestamp(selectedShop.cookieUpdatedAt)}</strong><span>Cookie updated</span></div>
+        <div><strong>${metricValue(cookieCount, 'number', cookieCount > 0)}</strong><span>Cookie count</span></div>
+        <div><strong>${escapeHtml(cookieStorage)}</strong><span>Cookie storage</span></div>
+        <div><strong>${formatTimestamp(cookieUpdatedAt)}</strong><span>Cookie updated</span></div>
         <div><strong>${escapeHtml(selectedShop.loginNote || 'Chua co')}</strong><span>Login note</span></div>
       </div>
     </section>
   `;
 }
 
-function renderCrawlerRunStatus({ stateInfo, database, activeMonth, active, sellerCenter }) {
+function renderCrawlerRunStatus({ stateInfo, database, activeMonth, active, sellerCenter, crawlerStatus }) {
   const unresolved = Array.isArray(sellerCenter?.unresolved) ? sellerCenter.unresolved : [];
-  const latestTime = latestCompassTimestamp(database, activeMonth) || sellerCenter.startedAt || sellerCenter.finishedAt;
+  const latestRun = crawlerStatus?.latestRun || {};
+  const latestTime = latestRun.updatedAt || latestCompassTimestamp(database, activeMonth) || sellerCenter.startedAt || sellerCenter.finishedAt;
+  const failureReason = crawlerFailureLabel(crawlerStatus?.failureReason || '');
+  const partialReason = crawlerStatus?.partialReason || '';
+  const missingMetrics = Array.isArray(crawlerStatus?.missingMetrics) ? crawlerStatus.missingMetrics : [];
   const failureRows = unresolved.slice(0, 6).map(item => `
-    <li>${escapeHtml(item.module || 'Module')} - ${escapeHtml(item.reason || item.notes || 'Can xem lai')}</li>
+    <li>${escapeHtml(item.module || 'Module')} - ${escapeHtml(item.failureReason ? crawlerFailureLabel(item.failureReason) : (item.reason || item.notes || 'Can xem lai'))}</li>
   `).join('');
+  const contractFailureRows = [
+    crawlerStatus?.failureReason ? `<li>${escapeHtml(failureReason)}</li>` : '',
+    partialReason ? `<li>${escapeHtml(partialReason)}</li>` : '',
+    missingMetrics.length ? `<li>Missing metrics: ${escapeHtml(missingMetrics.join(', '))}</li>` : ''
+  ].filter(Boolean).join('');
   return `
     <section class="crawler-status-panel ${escapeHtml(stateInfo.tone)}">
       <div class="crawler-status-head">
@@ -1774,7 +1832,7 @@ function renderCrawlerRunStatus({ stateInfo, database, activeMonth, active, sell
           <p>${escapeHtml(stateInfo.reason)}</p>
         </div>
         <div class="crawler-status-meta">
-          <strong>${escapeHtml(sellerCenter.runId || active?.runId || database.runId || 'Chua co run')}</strong>
+          <strong>${escapeHtml(crawlerStatus?.runId || latestRun.runId || sellerCenter.runId || active?.runId || database.runId || 'Chua co run')}</strong>
           <span>Latest run ID</span>
         </div>
       </div>
@@ -1782,9 +1840,9 @@ function renderCrawlerRunStatus({ stateInfo, database, activeMonth, active, sell
         <div><strong>${Object.keys(database.months || {}).length}</strong><span>Compass months</span></div>
         <div><strong>${active?.daily?.length || 0}</strong><span>Daily rows</span></div>
         <div><strong>${formatTimestamp(latestTime)}</strong><span>Latest timestamp</span></div>
-        <div><strong>${unresolved.length ? `${unresolved.length} issue` : 'Khong co'}</strong><span>Failure/partial reason</span></div>
+        <div><strong>${escapeHtml(crawlerStatus?.failureReason ? failureReason : (unresolved.length ? `${unresolved.length} issue` : 'Khong co'))}</strong><span>Failure/partial reason</span></div>
       </div>
-      ${failureRows ? `<div class="failure-panel"><h4>Failure reason / partial modules</h4><ul>${failureRows}</ul></div>` : ''}
+      ${contractFailureRows || failureRows ? `<div class="failure-panel"><h4>Failure reason / partial modules</h4><ul>${contractFailureRows}${failureRows}</ul></div>` : ''}
     </section>
   `;
 }
@@ -1880,10 +1938,12 @@ async function renderTikTokCrawlerWorkspace() {
   const defaultSellerId = selectedShop.sellerId || '7494478078863902049';
   let database = { months: {} };
   let sellerCenter = { summary: {}, modules: [], unresolved: [] };
+  let crawlerStatus = null;
   try {
     const data = await api(`/api/tiktokshop-crawler/db?shopId=${encodeURIComponent(shopId)}`);
     database = data.database || database;
     sellerCenter = data.sellerCenter || sellerCenter;
+    crawlerStatus = data.crawlerStatus || null;
   } catch {}
 
   const months = Object.keys(database.months || {}).sort();
@@ -1901,16 +1961,16 @@ async function renderTikTokCrawlerWorkspace() {
   `).join('');
 
   const confirmation = selectedShop.id ? readShopSessionConfirmation(selectedShop.id) : null;
-  const stateInfo = crawlerStateLabel({ selectedShop, active, sellerCenter, confirmation });
+  const stateInfo = crawlerStateLabel({ selectedShop, active, sellerCenter, confirmation, crawlerStatus });
   workspaceContent.innerHTML = `
     <form id="tiktokCrawlerForm" class="workspace-content">
       <div class="panel-header">
         <h2>TikTok Shop Crawler</h2>
         <p>Basic view cho biet shop/profile, safe cookie metadata, current state, latest run va failure reason truoc khi xem technical detail.</p>
       </div>
-      ${renderCrawlerProfileCard(selectedShop, confirmation)}
-      ${renderCrawlerSecurityCard(selectedShop)}
-      ${renderCrawlerRunStatus({ stateInfo, database, activeMonth, active, sellerCenter })}
+      ${renderCrawlerProfileCard(selectedShop, confirmation, crawlerStatus)}
+      ${renderCrawlerSecurityCard(selectedShop, crawlerStatus)}
+      ${renderCrawlerRunStatus({ stateInfo, database, activeMonth, active, sellerCenter, crawlerStatus })}
       <section class="data-flow-section">
         <div class="flow-step">
           <div>${flowStatusTag('Basic', stateInfo.tone)}</div>
