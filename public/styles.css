@@ -1027,6 +1027,17 @@ button:disabled {
   line-height: 1.45;
 }
 
+.cdp-recovery-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.cdp-recovery-actions button {
+  min-height: 36px;
+}
+
 .mini-panel {
   min-width: 0;
   border: 1px solid var(--line);

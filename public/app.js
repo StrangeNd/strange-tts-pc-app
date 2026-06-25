@@ -657,30 +657,52 @@ function cdpRecoveryInfo({ crawlerStatus = null, dataSourceStatus = null } = {})
       : (Array.isArray(dataSourceStatus?.recoverySteps) && dataSourceStatus.recoverySteps.length
         ? dataSourceStatus.recoverySteps
         : [
-          'Close stale browser windows opened by the app.',
-          'Restart the PC app.',
-          'Open the selected TikTok Shop profile again.',
-          'Retry Seller Center crawl.'
+          'Đóng cửa sổ browser cũ.',
+          'Restart app.',
+          'Mở lại profile shop.',
+          'Retry crawl.'
         ]),
-    nextAction: cdpStatus.nextAction || dataSourceStatus?.nextAction || crawlerStatus?.nextAction || 'Dong cua so browser cu, restart app, mo lai profile, roi retry crawl.'
+    nextAction: cdpStatus.nextAction || dataSourceStatus?.nextAction || crawlerStatus?.nextAction || 'Đóng cửa sổ browser cũ, restart app, mở lại profile shop rồi retry crawl.'
   };
+}
+
+function recoveryStepLabel(step = '') {
+  const normalized = String(step || '').toLowerCase();
+  if (normalized.includes('close stale browser')) return 'Đóng cửa sổ browser cũ.';
+  if (normalized.includes('restart')) return 'Restart app.';
+  if (normalized.includes('open the selected tiktok shop profile')) return 'Mở lại profile shop.';
+  if (normalized.includes('retry seller center')) return 'Retry crawl.';
+  return step;
 }
 
 function renderCdpRecoveryPanel(input = {}) {
   const info = cdpRecoveryInfo(input);
   if (!info) return '';
-  const steps = info.recoverySteps.map(step => `<li>${escapeHtml(step)}</li>`).join('');
+  const steps = info.recoverySteps.map(step => `<li>${escapeHtml(recoveryStepLabel(step))}</li>`).join('');
+  const surface = input.surface || (input.dataSourceStatus ? 'dashboard' : 'crawler');
+  const dashboardActions = `
+    <button type="button" data-cdp-action="open-crawler">Mở TikTok Crawler để retry</button>
+    <button type="button" class="secondary" data-cdp-action="refresh-dashboard-status">Refresh trạng thái</button>
+  `;
+  const crawlerActions = `
+    <button type="button" data-cdp-action="retry-seller-center">Retry Seller Center crawl</button>
+    <button type="button" class="secondary" data-cdp-action="refresh-crawler-status">Refresh trạng thái</button>
+  `;
   return `
     <div class="failure-panel cdp-recovery-panel">
-      <h4>Mat ket noi browser/CDP</h4>
-      <p>Dong cua so browser cu, restart app, mo lai profile, roi retry crawl.</p>
+      <h4>Mất kết nối browser/CDP</h4>
+      <p>App không kết nối được browser đang dùng để crawl.</p>
+      <p>Đóng browser cũ, restart app, mở lại profile rồi retry crawl.</p>
       <ul>${steps}</ul>
       <p class="hint">Retryable: ${yesNo(info.retryable)}${info.checkedAt ? ` | Checked: ${formatTimestamp(info.checkedAt)}` : ''}</p>
+      <div class="cdp-recovery-actions">
+        ${surface === 'dashboard' ? dashboardActions : crawlerActions}
+      </div>
     </div>
   `;
 }
 
-function renderDataSourceStatusPanel(status = {}) {
+function renderDataSourceStatusPanel(status = {}, { surface = 'dashboard' } = {}) {
   if (!status || !Object.keys(status).length) {
     return `
       <section class="data-health-card">
@@ -712,7 +734,7 @@ function renderDataSourceStatusPanel(status = {}) {
       </div>
       <p class="hint">${escapeHtml(status.nextAction || 'Chua co next action.')}</p>
       ${status.fallbackReason ? `<p class="hint">Fallback reason: ${escapeHtml(status.fallbackReason)}</p>` : ''}
-      ${renderCdpRecoveryPanel({ dataSourceStatus: status })}
+      ${renderCdpRecoveryPanel({ dataSourceStatus: status, surface })}
     </section>
   `;
 }
@@ -942,6 +964,7 @@ function bindDashboardActions() {
   bindClick('#dashboardOpenCrawler', renderTikTokCrawlerWorkspace);
   bindClick('#dashboardOpenBusinessAnalysis', renderBusinessAnalysisWorkspace);
   bindClick('#dashboardOpenChecklist', renderOpsChecklistWorkspace);
+  bindCdpRecoveryActions('dashboard');
 }
 
 async function refreshDashboardRealtime(event) {
@@ -974,6 +997,80 @@ async function refreshDashboardRealtime(event) {
       button.textContent = 'Crawl realtime + cap nhat';
     }
   }
+}
+
+function crawlerFormPayload(mode = 'seller-center') {
+  const selectedShop = selectedShopContext();
+  const form = document.querySelector('#tiktokCrawlerForm');
+  const data = form ? new FormData(form) : null;
+  return {
+    mode,
+    shopId: selectedShop.id || 'little-apricot-hawaii-fashion',
+    autoOpenProfile: data ? data.get('autoOpenProfile') === 'on' : true,
+    cdpPort: Number(data?.get('cdpPort') || 0),
+    sellerId: data?.get('sellerId') || selectedShop.sellerId || '7494478078863902049',
+    baseUrl: data?.get('baseUrl') || 'https://seller-vn.tiktok.com/homepage?shop_region=VN',
+    months: String(data?.get('months') || currentMonthKey()).split(',').map(item => item.trim()).filter(Boolean),
+    dateRange: 'yesterday',
+    maxModules: Number(data?.get('maxModules') || 0)
+  };
+}
+
+async function retrySellerCenterCrawl(event) {
+  const button = event?.currentTarget;
+  const original = button?.textContent || '';
+  if (button) {
+    button.disabled = true;
+    button.textContent = 'Đang retry...';
+  }
+  setOutput('Đang retry Seller Center crawl theo thao tác của người dùng...');
+  try {
+    const result = await api('/api/tiktokshop-crawler/crawl', {
+      method: 'POST',
+      body: crawlerFormPayload('seller-center')
+    });
+    setOutput(result);
+  } catch (error) {
+    setOutput(error.data || error.message);
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = original;
+    }
+    await renderTikTokCrawlerWorkspace();
+  }
+}
+
+async function refreshCdpRecoveryStatus(event, surface = 'crawler') {
+  const button = event?.currentTarget;
+  const original = button?.textContent || '';
+  if (button) {
+    button.disabled = true;
+    button.textContent = 'Đang refresh...';
+  }
+  try {
+    if (surface === 'dashboard') await renderOperationsDashboardWorkspace();
+    else await renderTikTokCrawlerWorkspace();
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = original;
+    }
+  }
+}
+
+function bindCdpRecoveryActions(surface = 'crawler') {
+  document.querySelectorAll('[data-cdp-action]').forEach(button => {
+    button.addEventListener('click', event => {
+      event.preventDefault();
+      const action = event.currentTarget.dataset.cdpAction;
+      if (action === 'open-crawler') return renderTikTokCrawlerWorkspace();
+      if (action === 'retry-seller-center') return retrySellerCenterCrawl(event);
+      if (action === 'refresh-dashboard-status') return refreshCdpRecoveryStatus(event, 'dashboard');
+      if (action === 'refresh-crawler-status') return refreshCdpRecoveryStatus(event, surface);
+      return null;
+    });
+  });
 }
 
 function renderDashboardView(data) {
@@ -2248,6 +2345,7 @@ async function renderTikTokCrawlerWorkspace() {
     }
   });
   bindClick('#reloadCrawlerDb', renderTikTokCrawlerWorkspace);
+  bindCdpRecoveryActions('crawler');
   return;
 
   workspaceContent.innerHTML = `
