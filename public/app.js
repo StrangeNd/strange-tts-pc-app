@@ -190,7 +190,10 @@ function sourceLabel(value) {
     gmvMax: 'File GMV Max',
     uploaded: 'File upload',
     cached: 'Cache local',
+    'cached-crawler': 'Cache crawler',
     realtime: 'Realtime crawl',
+    partial: 'Partial',
+    failed: 'Failed',
     missing: 'Missing'
   };
   return labels[value] || value || 'Chua ro';
@@ -630,6 +633,53 @@ function dashboardCard(title, value, source, format = 'number', available = true
   `;
 }
 
+function dataSourceTone(status = {}) {
+  if (status.fallbackUsed || status.effectiveSource === 'partial') return 'warn';
+  if (status.effectiveSource === 'missing') return 'danger';
+  if (status.effectiveSource === 'realtime' || status.effectiveSource === 'cached-crawler') return 'ok';
+  return 'neutral';
+}
+
+function yesNo(value) {
+  return value ? 'Co' : 'Khong';
+}
+
+function renderDataSourceStatusPanel(status = {}) {
+  if (!status || !Object.keys(status).length) {
+    return `
+      <section class="data-health-card">
+        <div class="data-health-card-head">
+          <h3>Data source status</h3>
+          <span class="status-tag warn">Chua co metadata</span>
+        </div>
+        <p>API chua tra dataSourceStatus cho overview nay.</p>
+      </section>
+    `;
+  }
+  const tone = dataSourceTone(status);
+  const failureReason = status.latestAttemptedFailureReason
+    ? crawlerFailureLabel(status.latestAttemptedFailureReason)
+    : 'Khong co';
+  return `
+    <section class="data-health-card">
+      <div class="data-health-card-head">
+        <h3>Data source status</h3>
+        <span class="status-tag ${escapeHtml(tone)}">${escapeHtml(sourceLabel(status.effectiveSource))}</span>
+      </div>
+      <div class="mini-kpi-grid">
+        <div><strong>${escapeHtml(sourceLabel(status.effectiveSource))}</strong><span>Du lieu dang xem</span></div>
+        <div><strong>${escapeHtml(status.cacheRunId || 'Chua co')}</strong><span>Cache run</span></div>
+        <div><strong>${formatTimestamp(status.cacheUpdatedAt)}</strong><span>Cache updated</span></div>
+        <div><strong>${escapeHtml(status.latestAttemptedStatus || 'Chua co')}</strong><span>Realtime gan nhat</span></div>
+        <div><strong>${escapeHtml(failureReason)}</strong><span>Failure reason</span></div>
+        <div><strong>${yesNo(status.fallbackUsed)}</strong><span>Fallback cache</span></div>
+      </div>
+      <p class="hint">${escapeHtml(status.nextAction || 'Chua co next action.')}</p>
+      ${status.fallbackReason ? `<p class="hint">Fallback reason: ${escapeHtml(status.fallbackReason)}</p>` : ''}
+    </section>
+  `;
+}
+
 function renderDashboardRangeButtons(overview) {
   const ranges = overview?.ranges || [];
   if (!ranges.length) return '';
@@ -922,6 +972,7 @@ function renderDashboardView(data) {
     </div>
     ${renderDashboardRangeButtons(overview)}
     ${renderDashboardCards(range)}
+    ${renderDataSourceStatusPanel(overview.dataSourceStatus)}
     <div class="dashboard-notes">
       ${(overview.notes || []).map(note => `<p>${escapeHtml(note)}</p>`).join('')}
     </div>
@@ -1416,6 +1467,7 @@ function renderRefundCancelBreakdown(result) {
 function renderBusinessDataContext(result) {
   const selectedShop = selectedShopContext();
   const overview = result.shopOverview || {};
+  const dataSourceStatus = result.dataSourceStatus || overview.dataSourceStatus || {};
   const crawlerOk = Boolean(overview.ok);
   const fileCount = (result.fileSummary || []).length;
   const uploadedRows = Object.values(result.groupedRows || {}).reduce((sum, value) => sum + Number(value || 0), 0);
@@ -1435,7 +1487,10 @@ function renderBusinessDataContext(result) {
         <div><strong>${formatTimestamp(overview.updatedAt || overview.crawlerSummary?.finishedAt || overview.crawlerSummary?.startedAt)}</strong><span>Last crawl timestamp</span></div>
         <div><strong>${escapeHtml(sourceLabel(priceSource))}</strong><span>Bang gia goc</span></div>
         <div><strong>${overview.runId ? escapeHtml(overview.runId) : 'Chua co'}</strong><span>Crawler run ID</span></div>
+        <div><strong>${escapeHtml(sourceLabel(dataSourceStatus.effectiveSource || overview.sourceStatus || 'missing'))}</strong><span>Nguon dang xem</span></div>
+        <div><strong>${yesNo(dataSourceStatus.fallbackUsed)}</strong><span>Fallback cache</span></div>
       </div>
+      ${dataSourceStatus.nextAction ? `<p class="hint">Next action: ${escapeHtml(dataSourceStatus.nextAction)}</p>` : ''}
     </section>
   `;
 }

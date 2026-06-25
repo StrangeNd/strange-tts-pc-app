@@ -364,6 +364,137 @@ function buildServerCrawlerStatus({
   });
 }
 
+function sourceStatusForOverview(overview = {}) {
+  if (!overview?.ok) return 'missing-crawler';
+  if (overview.sourceStatus) return overview.sourceStatus;
+  return 'cached-crawler';
+}
+
+function sourceStatusEffectiveSource(sourceStatus = '', crawlerStatus = {}) {
+  const hasCache = sourceStatus === 'cached-crawler';
+  const realtimeStatus = crawlerStatus?.status || '';
+  if (hasCache) return 'cached-crawler';
+  if (['partial', 'failed'].includes(realtimeStatus)) return realtimeStatus === 'partial' ? 'partial' : 'missing';
+  if (realtimeStatus === 'crawling') return 'partial';
+  return 'missing';
+}
+
+function dataSourceNextAction({ fallbackUsed = false, realtimeStatus = '', failureReason = '', retryable = false, hasCache = false } = {}) {
+  if (fallbackUsed && retryable) return 'Close stale browser/CDP sessions, reopen the selected profile, then retry Seller Center or Compass crawl.';
+  if (fallbackUsed) return 'Review the latest realtime failure before retrying crawl.';
+  if (['partial', 'failed'].includes(realtimeStatus) && retryable) return 'Retry the realtime crawl from TikTok Crawler after checking the selected profile.';
+  if (['partial', 'failed'].includes(realtimeStatus)) return 'Review failure reason and update crawler mapping if needed.';
+  if (!hasCache) return 'Run a small Compass crawl for the selected range.';
+  if (failureReason) return 'Review the latest realtime attempt; cached crawler data is still being displayed.';
+  return 'Use cached crawler data or run a fresh crawl when newer data is needed.';
+}
+
+function buildDataSourceStatus({ overview = {}, crawlerStatus = {}, requestedRange = '' } = {}) {
+  const sourceStatus = sourceStatusForOverview(overview);
+  const hasCache = sourceStatus === 'cached-crawler' && Boolean(overview?.ok);
+  const realtimeStatus = crawlerStatus?.status || '';
+  const latestRun = crawlerStatus?.latestRun || null;
+  const realtimeAttempted = Boolean(
+    realtimeStatus
+    && latestRun?.runId
+    && latestRun.runId !== overview?.runId
+  );
+  const realtimeProblem = ['partial', 'failed', 'cookie-expired', 'need-login'].includes(realtimeStatus);
+  const fallbackUsed = Boolean(hasCache && realtimeAttempted && realtimeProblem);
+  const fallbackReason = fallbackUsed
+    ? (realtimeStatus === 'partial' ? 'realtime_partial_using_cached_crawler' : 'realtime_failed_using_cached_crawler')
+    : '';
+  const effectiveSource = fallbackUsed
+    ? 'cached-crawler'
+    : sourceStatusEffectiveSource(sourceStatus, crawlerStatus);
+  const cacheUpdatedAt = overview?.updatedAt || overview?.lastCrawlAt || '';
+  const latestSuccessfulRunId = hasCache ? (overview?.runId || '') : '';
+  const latestSuccessfulUpdatedAt = hasCache ? cacheUpdatedAt : '';
+  const retryable = Boolean(crawlerStatus?.retryable);
+  const failureReason = crawlerStatus?.failureReason || '';
+
+  return {
+    effectiveSource,
+    requestedRange: requestedRange || '',
+    effectiveRange: overview?.rangeLabel || '',
+    cacheRunId: hasCache ? (overview?.runId || '') : '',
+    cacheUpdatedAt: hasCache ? cacheUpdatedAt : '',
+    latestAttemptedRunId: latestRun?.runId || crawlerStatus?.runId || '',
+    latestAttemptedStatus: realtimeStatus || '',
+    latestAttemptedMode: latestRun?.mode || '',
+    latestAttemptedSource: latestRun?.source || '',
+    latestAttemptedUpdatedAt: latestRun?.updatedAt || crawlerStatus?.updatedAt || '',
+    latestAttemptedFailureReason: failureReason,
+    latestAttemptedPartialReason: crawlerStatus?.partialReason || '',
+    latestSuccessfulRunId,
+    latestSuccessfulUpdatedAt,
+    realtimeAttempted,
+    realtimeStatus,
+    fallbackUsed,
+    fallbackReason,
+    retryable,
+    nextAction: dataSourceNextAction({ fallbackUsed, realtimeStatus, failureReason, retryable, hasCache }),
+    updatedAt: new Date().toISOString()
+  };
+}
+
+function markStaleCrawlerRun(sellerCenter = {}, job = null) {
+  if (sellerCenter?.status === 'running' && job?.status !== 'running') {
+    return {
+      ...sellerCenter,
+      status: 'incomplete',
+      ok: false,
+      unresolved: [
+        ...(Array.isArray(sellerCenter.unresolved) ? sellerCenter.unresolved : []),
+        {
+          module: 'Seller Center',
+          reason: 'Job dang chay truoc do da bi dung hoac mat ket noi browser/CDP.'
+        }
+      ]
+    };
+  }
+  return sellerCenter;
+}
+
+function enrichOverviewDataSourceStatus({ overview = {}, shop = {}, requestedRange = '' } = {}) {
+  const shopId = overview.shopId || shop?.id || '';
+  const database = loadCompassDatabase(rootDir, shopId);
+  const job = crawlerJobs.get(shopId) || null;
+  const sellerCenter = markStaleCrawlerRun(loadSellerCenterLatest(rootDir, shopId), job);
+  const crawlerStatus = buildServerCrawlerStatus({
+    shop,
+    shopId,
+    database,
+    sellerCenter,
+    job
+  });
+  return {
+    ...overview,
+    dataSourceStatus: buildDataSourceStatus({
+      overview,
+      crawlerStatus,
+      requestedRange
+    })
+  };
+}
+
+function enrichBusinessAnalysisDataSourceStatus(result = {}, body = {}) {
+  const library = getShopLibrary(rootDir);
+  const shopById = new Map((library.shops || []).map(shop => [shop.id, shop]));
+  const requestedRange = body.range || body.rangeKey || body.periodLabel || '';
+  const shopId = body.shopId || body.crawlerShopId || result.shopOverview?.shopId || '';
+  const enrichedOverviews = (result.shopOverviews || []).map(overview => {
+    const shop = shopById.get(overview.shopId) || shopById.get(shopId) || {};
+    return enrichOverviewDataSourceStatus({ overview, shop, requestedRange });
+  });
+  return {
+    ...result,
+    shopOverviews: enrichedOverviews,
+    shopOverview: enrichedOverviews[0] || result.shopOverview || null,
+    dataSourceStatus: enrichedOverviews[0]?.dataSourceStatus || null
+  };
+}
+
 async function prepareCrawlerBrowser(body = {}, mode = 'seller-center') {
   const shopId = String(body.shopId || body.sellerId || 'little-apricot-hawaii-fashion');
   const storedShop = getShop(rootDir, shopId);
@@ -776,7 +907,10 @@ export function createServer({ port = 48731 } = {}) {
 
       if (url.pathname === '/api/business/analyze' && req.method === 'POST') {
         const body = await readBody(req, { maxBytes: 96 * 1024 * 1024 });
-        const result = await analyzeBusinessInput(body, { rootDir });
+        const result = enrichBusinessAnalysisDataSourceStatus(
+          await analyzeBusinessInput(body, { rootDir }),
+          body
+        );
         appendAudit(rootDir, 'business.analyze', {
           fileCount: Array.isArray(body.files) ? body.files.length : 0,
           priceSheet: Boolean(body.priceSheetUrl),
@@ -790,6 +924,7 @@ export function createServer({ port = 48731 } = {}) {
       if (url.pathname === '/api/business/shop-overview' && req.method === 'GET') {
         const shopId = url.searchParams.get('shopId') || '';
         const sellerId = url.searchParams.get('sellerId') || '';
+        const requestedRange = url.searchParams.get('range') || url.searchParams.get('rangeKey') || '';
         const library = getShopLibrary(rootDir);
         const shopById = new Map((library.shops || []).map(shop => [shop.id, shop]));
         const overviews = buildAllShopOverviewsFromCrawler(rootDir, {}, { shopId, sellerId })
@@ -803,7 +938,12 @@ export function createServer({ port = 48731 } = {}) {
               loginNote: shop?.loginNote || '',
               sourceStatus: overview.ok ? 'cached-crawler' : 'missing-crawler'
             };
-          });
+          })
+          .map(overview => enrichOverviewDataSourceStatus({
+            overview,
+            shop: shopById.get(overview.shopId) || shopById.get(shopId) || {},
+            requestedRange
+          }));
         return sendJson(res, 200, {
           ok: true,
           generatedAt: new Date().toISOString(),
