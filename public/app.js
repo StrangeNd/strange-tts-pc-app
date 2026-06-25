@@ -644,6 +644,42 @@ function yesNo(value) {
   return value ? 'Co' : 'Khong';
 }
 
+function cdpRecoveryInfo({ crawlerStatus = null, dataSourceStatus = null } = {}) {
+  const cdpStatus = crawlerStatus?.cdpStatus || dataSourceStatus?.cdpStatus || {};
+  const failureReason = crawlerStatus?.failureReason || dataSourceStatus?.latestAttemptedFailureReason || '';
+  const hasCdpProblem = failureReason === 'cdp_unavailable' || cdpStatus.reason === 'cdp_unavailable' || cdpStatus.reachable === false;
+  if (!hasCdpProblem) return null;
+  return {
+    checkedAt: cdpStatus.checkedAt || dataSourceStatus?.updatedAt || crawlerStatus?.updatedAt || '',
+    retryable: cdpStatus.retryable ?? crawlerStatus?.retryable ?? dataSourceStatus?.retryable ?? true,
+    recoverySteps: Array.isArray(cdpStatus.recoverySteps) && cdpStatus.recoverySteps.length
+      ? cdpStatus.recoverySteps
+      : (Array.isArray(dataSourceStatus?.recoverySteps) && dataSourceStatus.recoverySteps.length
+        ? dataSourceStatus.recoverySteps
+        : [
+          'Close stale browser windows opened by the app.',
+          'Restart the PC app.',
+          'Open the selected TikTok Shop profile again.',
+          'Retry Seller Center crawl.'
+        ]),
+    nextAction: cdpStatus.nextAction || dataSourceStatus?.nextAction || crawlerStatus?.nextAction || 'Dong cua so browser cu, restart app, mo lai profile, roi retry crawl.'
+  };
+}
+
+function renderCdpRecoveryPanel(input = {}) {
+  const info = cdpRecoveryInfo(input);
+  if (!info) return '';
+  const steps = info.recoverySteps.map(step => `<li>${escapeHtml(step)}</li>`).join('');
+  return `
+    <div class="failure-panel cdp-recovery-panel">
+      <h4>Mat ket noi browser/CDP</h4>
+      <p>Dong cua so browser cu, restart app, mo lai profile, roi retry crawl.</p>
+      <ul>${steps}</ul>
+      <p class="hint">Retryable: ${yesNo(info.retryable)}${info.checkedAt ? ` | Checked: ${formatTimestamp(info.checkedAt)}` : ''}</p>
+    </div>
+  `;
+}
+
 function renderDataSourceStatusPanel(status = {}) {
   if (!status || !Object.keys(status).length) {
     return `
@@ -676,6 +712,7 @@ function renderDataSourceStatusPanel(status = {}) {
       </div>
       <p class="hint">${escapeHtml(status.nextAction || 'Chua co next action.')}</p>
       ${status.fallbackReason ? `<p class="hint">Fallback reason: ${escapeHtml(status.fallbackReason)}</p>` : ''}
+      ${renderCdpRecoveryPanel({ dataSourceStatus: status })}
     </section>
   `;
 }
@@ -1992,6 +2029,7 @@ function renderCrawlerRunStatus({ stateInfo, database, activeMonth, active, sell
         <div><strong>${escapeHtml(crawlerStatus?.failureReason ? failureReason : (unresolved.length ? `${unresolved.length} issue` : 'Khong co'))}</strong><span>Failure/partial reason</span></div>
       </div>
       ${contractFailureRows || failureRows ? `<div class="failure-panel"><h4>Failure reason / partial modules</h4><ul>${contractFailureRows}${failureRows}</ul></div>` : ''}
+      ${renderCdpRecoveryPanel({ crawlerStatus })}
     </section>
   `;
 }
@@ -2093,6 +2131,9 @@ async function renderTikTokCrawlerWorkspace() {
     database = data.database || database;
     sellerCenter = data.sellerCenter || sellerCenter;
     crawlerStatus = data.crawlerStatus || null;
+    if (crawlerStatus && data.cdpStatus) {
+      crawlerStatus = { ...crawlerStatus, cdpStatus: data.cdpStatus };
+    }
   } catch {}
 
   const months = Object.keys(database.months || {}).sort();
