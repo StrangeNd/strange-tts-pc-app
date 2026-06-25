@@ -1015,6 +1015,29 @@ button:disabled {
   font-size: 12px;
 }
 
+.cdp-recovery-panel {
+  border-left-color: #b42318;
+  background: #fff4f2;
+}
+
+.cdp-recovery-panel p {
+  margin: 0 0 8px;
+  color: #475467;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.cdp-recovery-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.cdp-recovery-actions button {
+  min-height: 36px;
+}
+
 .mini-panel {
   min-width: 0;
   border: 1px solid var(--line);

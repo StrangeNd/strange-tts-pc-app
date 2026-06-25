@@ -25,6 +25,13 @@ const sessions = new Map();
 const crawlerJobs = new Map();
 const requireLogin = process.env.STTS_REQUIRE_LOGIN === '1';
 const enforceLicense = process.env.STTS_LICENSE_ENFORCE !== '0';
+const CDP_RECOVERY_STEPS = Object.freeze([
+  'Close stale browser windows opened by the app.',
+  'Restart the PC app.',
+  'Open the selected TikTok Shop profile again.',
+  'Retry Seller Center crawl.'
+]);
+const CDP_RECOVERY_NEXT_ACTION = 'Close stale browser/CDP sessions, restart app, then retry Seller Center crawl.';
 
 fs.mkdirSync(logDir, { recursive: true, mode: 0o700 });
 
@@ -309,6 +316,117 @@ function crawlerLatestRun({ database = {}, sellerCenter = {}, job = null, mode =
   };
 }
 
+function safeCdpStatus({
+  reachable = null,
+  checkedAt = '',
+  reason = '',
+  retryable,
+  recoverySteps,
+  nextAction = '',
+  activeJob = false,
+  staleRun = false
+} = {}) {
+  const cdpProblem = reason === 'cdp_unavailable' || reachable === false;
+  return {
+    reachable,
+    checkedAt: checkedAt || new Date().toISOString(),
+    reason: reason || (reachable === true ? 'cdp_reachable' : 'cdp_not_checked'),
+    retryable: retryable === undefined ? cdpProblem : Boolean(retryable),
+    recoverySteps: recoverySteps || (cdpProblem ? [...CDP_RECOVERY_STEPS] : []),
+    nextAction: nextAction || (cdpProblem ? CDP_RECOVERY_NEXT_ACTION : ''),
+    activeJob: Boolean(activeJob),
+    staleRun: Boolean(staleRun)
+  };
+}
+
+async function probeCdpStatus(cdpPort, { requirePage = true } = {}) {
+  const port = Number(cdpPort || 0);
+  if (!port) {
+    return safeCdpStatus({ reachable: null, reason: 'cdp_not_checked', retryable: false });
+  }
+
+  let latest = safeCdpStatus({ reachable: false, reason: 'cdp_unavailable', retryable: true });
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 2500);
+    try {
+      const response = await fetch(`http://127.0.0.1:${port}/json`, { signal: controller.signal });
+      if (!response.ok) {
+        latest = safeCdpStatus({ reachable: false, reason: 'cdp_unavailable', retryable: true });
+      } else {
+        const tabs = await response.json();
+        const pageCount = Array.isArray(tabs)
+          ? tabs.filter(tab => tab?.type === 'page' && tab.webSocketDebuggerUrl).length
+          : 0;
+        if (!requirePage || pageCount) {
+          return safeCdpStatus({
+            reachable: true,
+            reason: 'cdp_reachable',
+            retryable: false,
+            recoverySteps: [],
+            nextAction: ''
+          });
+        }
+        latest = safeCdpStatus({ reachable: false, reason: 'cdp_unavailable', retryable: true });
+      }
+    } catch {
+      latest = safeCdpStatus({ reachable: false, reason: 'cdp_unavailable', retryable: true });
+    } finally {
+      clearTimeout(timer);
+    }
+    if (attempt < 2) await new Promise(resolve => setTimeout(resolve, 450));
+  }
+  return latest;
+}
+
+function buildCdpUnavailableResponse({ shopId, shop, database, sellerCenter, job, mode, launch, cdpStatus }) {
+  const crawlerStatus = buildServerCrawlerStatus({
+    shop,
+    shopId,
+    database,
+    sellerCenter,
+    job,
+    mode,
+    launch,
+    error: 'cdp_unavailable',
+    cdpStatus,
+    activeJob: false,
+    staleRun: Boolean(sellerCenter?.staleRun)
+  });
+  return {
+    ok: false,
+    accepted: false,
+    status: 'failed',
+    failureReason: 'cdp_unavailable',
+    retryable: true,
+    cdpStatus,
+    crawlerStatus,
+    recoverySteps: cdpStatus.recoverySteps || [...CDP_RECOVERY_STEPS],
+    nextAction: cdpStatus.nextAction || CDP_RECOVERY_NEXT_ACTION,
+    launch: launch ? {
+      profileName: launch.profileName,
+      debugPort: launch.debugPort,
+      cookiesApplied: launch.cookiesApplied,
+      extensionId: launch.extensionId
+    } : null
+  };
+}
+
+function cdpStatusFromCrawlerStatus(crawlerStatus = {}, { activeJob = false, staleRun = false } = {}) {
+  const failureReason = crawlerStatus?.failureReason || '';
+  const partialReason = String(crawlerStatus?.partialReason || '');
+  const hasCdpProblem = failureReason === 'cdp_unavailable' || /browser\/CDP|cdp|debug/i.test(partialReason);
+  return safeCdpStatus({
+    reachable: hasCdpProblem ? false : null,
+    reason: hasCdpProblem ? 'cdp_unavailable' : 'cdp_not_checked',
+    retryable: hasCdpProblem ? true : Boolean(crawlerStatus?.retryable),
+    recoverySteps: hasCdpProblem ? [...CDP_RECOVERY_STEPS] : [],
+    nextAction: hasCdpProblem ? CDP_RECOVERY_NEXT_ACTION : '',
+    activeJob,
+    staleRun
+  });
+}
+
 function buildServerCrawlerStatus({
   shop = {},
   shopId = '',
@@ -317,7 +435,10 @@ function buildServerCrawlerStatus({
   job = null,
   mode = '',
   launch = null,
-  error = ''
+  error = '',
+  cdpStatus = null,
+  activeJob = false,
+  staleRun = false
 } = {}) {
   const cookieCount = Number(shop.cookieCount || launch?.cookiesApplied || 0);
   const cookieStorageStatus = shop.cookieStorage || (cookieCount ? 'encrypted' : 'none');
@@ -345,7 +466,7 @@ function buildServerCrawlerStatus({
         ? 'crawl_running'
         : 'safe_metadata_only';
 
-  return buildCrawlerStatusContract({
+  const statusContract = buildCrawlerStatusContract({
     status,
     readiness: status,
     selectedShop: crawlerSafeShop(shop, shopId),
@@ -362,6 +483,159 @@ function buildServerCrawlerStatus({
     runId: job?.runId || job?.id || sellerCenter?.runId || database.runId || '',
     updatedAt: new Date().toISOString()
   });
+  const resolvedCdpStatus = cdpStatus || cdpStatusFromCrawlerStatus(statusContract, { activeJob, staleRun });
+  return {
+    ...statusContract,
+    retryable: Boolean(statusContract.retryable || resolvedCdpStatus.retryable),
+    activeJob: Boolean(activeJob),
+    staleRun: Boolean(staleRun),
+    cdpStatus: resolvedCdpStatus,
+    recoverySteps: resolvedCdpStatus.recoverySteps || [],
+    nextAction: resolvedCdpStatus.nextAction || ''
+  };
+}
+
+function sourceStatusForOverview(overview = {}) {
+  if (!overview?.ok) return 'missing-crawler';
+  if (overview.sourceStatus) return overview.sourceStatus;
+  return 'cached-crawler';
+}
+
+function sourceStatusEffectiveSource(sourceStatus = '', crawlerStatus = {}) {
+  const hasCache = sourceStatus === 'cached-crawler';
+  const realtimeStatus = crawlerStatus?.status || '';
+  if (hasCache) return 'cached-crawler';
+  if (['partial', 'failed'].includes(realtimeStatus)) return realtimeStatus === 'partial' ? 'partial' : 'missing';
+  if (realtimeStatus === 'crawling') return 'partial';
+  return 'missing';
+}
+
+function dataSourceNextAction({ fallbackUsed = false, realtimeStatus = '', failureReason = '', retryable = false, hasCache = false } = {}) {
+  if (failureReason === 'cdp_unavailable') return CDP_RECOVERY_NEXT_ACTION;
+  if (fallbackUsed && retryable) return 'Close stale browser/CDP sessions, reopen the selected profile, then retry Seller Center or Compass crawl.';
+  if (fallbackUsed) return 'Review the latest realtime failure before retrying crawl.';
+  if (['partial', 'failed'].includes(realtimeStatus) && retryable) return 'Retry the realtime crawl from TikTok Crawler after checking the selected profile.';
+  if (['partial', 'failed'].includes(realtimeStatus)) return 'Review failure reason and update crawler mapping if needed.';
+  if (!hasCache) return 'Run a small Compass crawl for the selected range.';
+  if (failureReason) return 'Review the latest realtime attempt; cached crawler data is still being displayed.';
+  return 'Use cached crawler data or run a fresh crawl when newer data is needed.';
+}
+
+function buildDataSourceStatus({ overview = {}, crawlerStatus = {}, requestedRange = '' } = {}) {
+  const sourceStatus = sourceStatusForOverview(overview);
+  const hasCache = sourceStatus === 'cached-crawler' && Boolean(overview?.ok);
+  const realtimeStatus = crawlerStatus?.status || '';
+  const latestRun = crawlerStatus?.latestRun || null;
+  const realtimeAttempted = Boolean(
+    realtimeStatus
+    && latestRun?.runId
+    && latestRun.runId !== overview?.runId
+  );
+  const realtimeProblem = ['partial', 'failed', 'cookie-expired', 'need-login'].includes(realtimeStatus);
+  const fallbackUsed = Boolean(hasCache && realtimeAttempted && realtimeProblem);
+  const fallbackReason = fallbackUsed
+    ? (realtimeStatus === 'partial' ? 'realtime_partial_using_cached_crawler' : 'realtime_failed_using_cached_crawler')
+    : '';
+  const effectiveSource = fallbackUsed
+    ? 'cached-crawler'
+    : sourceStatusEffectiveSource(sourceStatus, crawlerStatus);
+  const cacheUpdatedAt = overview?.updatedAt || overview?.lastCrawlAt || '';
+  const latestSuccessfulRunId = hasCache ? (overview?.runId || '') : '';
+  const latestSuccessfulUpdatedAt = hasCache ? cacheUpdatedAt : '';
+  const retryable = Boolean(crawlerStatus?.retryable);
+  const failureReason = crawlerStatus?.failureReason || '';
+  const cdpStatus = crawlerStatus?.cdpStatus || cdpStatusFromCrawlerStatus(crawlerStatus);
+  const cdpProblem = failureReason === 'cdp_unavailable' || cdpStatus?.reason === 'cdp_unavailable';
+
+  return {
+    effectiveSource,
+    requestedRange: requestedRange || '',
+    effectiveRange: overview?.rangeLabel || '',
+    cacheRunId: hasCache ? (overview?.runId || '') : '',
+    cacheUpdatedAt: hasCache ? cacheUpdatedAt : '',
+    latestAttemptedRunId: latestRun?.runId || crawlerStatus?.runId || '',
+    latestAttemptedStatus: realtimeStatus || '',
+    latestAttemptedMode: latestRun?.mode || '',
+    latestAttemptedSource: latestRun?.source || '',
+    latestAttemptedUpdatedAt: latestRun?.updatedAt || crawlerStatus?.updatedAt || '',
+    latestAttemptedFailureReason: failureReason,
+    latestAttemptedPartialReason: crawlerStatus?.partialReason || '',
+    latestSuccessfulRunId,
+    latestSuccessfulUpdatedAt,
+    realtimeAttempted,
+    realtimeStatus,
+    fallbackUsed,
+    fallbackReason,
+    retryable,
+    cdpStatus,
+    recoverySteps: cdpProblem ? [...CDP_RECOVERY_STEPS] : [],
+    nextAction: dataSourceNextAction({ fallbackUsed, realtimeStatus, failureReason, retryable, hasCache }),
+    updatedAt: new Date().toISOString()
+  };
+}
+
+function markStaleCrawlerRun(sellerCenter = {}, job = null) {
+  if (sellerCenter?.status === 'running' && job?.status !== 'running') {
+    return {
+      ...sellerCenter,
+      status: 'incomplete',
+      ok: false,
+      failureReason: 'cdp_unavailable',
+      retryable: true,
+      staleRun: true,
+      unresolved: [
+        ...(Array.isArray(sellerCenter.unresolved) ? sellerCenter.unresolved : []),
+        {
+          module: 'Seller Center',
+          failureReason: 'cdp_unavailable',
+          reason: 'Job dang chay truoc do da bi dung hoac mat ket noi browser/CDP.'
+        }
+      ]
+    };
+  }
+  return sellerCenter;
+}
+
+function enrichOverviewDataSourceStatus({ overview = {}, shop = {}, requestedRange = '' } = {}) {
+  const shopId = overview.shopId || shop?.id || '';
+  const database = loadCompassDatabase(rootDir, shopId);
+  const job = crawlerJobs.get(shopId) || null;
+  const sellerCenter = markStaleCrawlerRun(loadSellerCenterLatest(rootDir, shopId), job);
+  const staleRun = Boolean(sellerCenter?.staleRun);
+  const crawlerStatus = buildServerCrawlerStatus({
+    shop,
+    shopId,
+    database,
+    sellerCenter,
+    job,
+    activeJob: job?.status === 'running',
+    staleRun
+  });
+  return {
+    ...overview,
+    dataSourceStatus: buildDataSourceStatus({
+      overview,
+      crawlerStatus,
+      requestedRange
+    })
+  };
+}
+
+function enrichBusinessAnalysisDataSourceStatus(result = {}, body = {}) {
+  const library = getShopLibrary(rootDir);
+  const shopById = new Map((library.shops || []).map(shop => [shop.id, shop]));
+  const requestedRange = body.range || body.rangeKey || body.periodLabel || '';
+  const shopId = body.shopId || body.crawlerShopId || result.shopOverview?.shopId || '';
+  const enrichedOverviews = (result.shopOverviews || []).map(overview => {
+    const shop = shopById.get(overview.shopId) || shopById.get(shopId) || {};
+    return enrichOverviewDataSourceStatus({ overview, shop, requestedRange });
+  });
+  return {
+    ...result,
+    shopOverviews: enrichedOverviews,
+    shopOverview: enrichedOverviews[0] || result.shopOverview || null,
+    dataSourceStatus: enrichedOverviews[0]?.dataSourceStatus || null
+  };
 }
 
 async function prepareCrawlerBrowser(body = {}, mode = 'seller-center') {
@@ -776,7 +1050,10 @@ export function createServer({ port = 48731 } = {}) {
 
       if (url.pathname === '/api/business/analyze' && req.method === 'POST') {
         const body = await readBody(req, { maxBytes: 96 * 1024 * 1024 });
-        const result = await analyzeBusinessInput(body, { rootDir });
+        const result = enrichBusinessAnalysisDataSourceStatus(
+          await analyzeBusinessInput(body, { rootDir }),
+          body
+        );
         appendAudit(rootDir, 'business.analyze', {
           fileCount: Array.isArray(body.files) ? body.files.length : 0,
           priceSheet: Boolean(body.priceSheetUrl),
@@ -790,6 +1067,7 @@ export function createServer({ port = 48731 } = {}) {
       if (url.pathname === '/api/business/shop-overview' && req.method === 'GET') {
         const shopId = url.searchParams.get('shopId') || '';
         const sellerId = url.searchParams.get('sellerId') || '';
+        const requestedRange = url.searchParams.get('range') || url.searchParams.get('rangeKey') || '';
         const library = getShopLibrary(rootDir);
         const shopById = new Map((library.shops || []).map(shop => [shop.id, shop]));
         const overviews = buildAllShopOverviewsFromCrawler(rootDir, {}, { shopId, sellerId })
@@ -803,7 +1081,12 @@ export function createServer({ port = 48731 } = {}) {
               loginNote: shop?.loginNote || '',
               sourceStatus: overview.ok ? 'cached-crawler' : 'missing-crawler'
             };
-          });
+          })
+          .map(overview => enrichOverviewDataSourceStatus({
+            overview,
+            shop: shopById.get(overview.shopId) || shopById.get(shopId) || {},
+            requestedRange
+          }));
         return sendJson(res, 200, {
           ok: true,
           generatedAt: new Date().toISOString(),
@@ -816,28 +1099,33 @@ export function createServer({ port = 48731 } = {}) {
         const shopId = url.searchParams.get('shopId') || 'little-apricot-hawaii-fashion';
         const shop = getShop(rootDir, shopId) || {};
         const database = loadCompassDatabase(rootDir, shopId);
-        const sellerCenter = loadSellerCenterLatest(rootDir, shopId);
         const activeJob = crawlerJobs.get(shopId);
-        if (sellerCenter?.status === 'running' && activeJob?.status !== 'running') {
-          sellerCenter.status = 'incomplete';
-          sellerCenter.ok = false;
-          sellerCenter.unresolved ||= [];
-          sellerCenter.unresolved.push({
-            module: 'Seller Center',
-            reason: 'Job dang chay truoc do da bi dung hoac mat ket noi browser/CDP.'
-          });
-        }
+        const sellerCenter = markStaleCrawlerRun(loadSellerCenterLatest(rootDir, shopId), activeJob);
+        const activeJobRunning = activeJob?.status === 'running';
+        const staleRun = Boolean(sellerCenter?.staleRun);
+        const liveCdpStatus = activeJobRunning && activeJob?.cdpPort
+          ? safeCdpStatus({ ...(await probeCdpStatus(activeJob.cdpPort, { requirePage: false })), activeJob: true, staleRun })
+          : null;
+        const crawlerStatus = buildServerCrawlerStatus({
+          shop,
+          shopId,
+          database,
+          sellerCenter,
+          job: activeJob || null,
+          cdpStatus: liveCdpStatus,
+          activeJob: activeJobRunning,
+          staleRun
+        });
+        const cdpStatus = crawlerStatus.cdpStatus || cdpStatusFromCrawlerStatus(crawlerStatus, {
+          activeJob: activeJobRunning,
+          staleRun
+        });
         return sendJson(res, 200, {
           ok: true,
           database,
           sellerCenter,
-          crawlerStatus: buildServerCrawlerStatus({
-            shop,
-            shopId,
-            database,
-            sellerCenter,
-            job: activeJob || null
-          })
+          cdpStatus,
+          crawlerStatus: { ...crawlerStatus, cdpStatus }
         });
       }
 
@@ -850,20 +1138,68 @@ export function createServer({ port = 48731 } = {}) {
           const existing = crawlerJobs.get(shopId);
           if (existing?.status === 'running' && !body.force) {
             const shop = getShop(rootDir, shopId) || {};
+            const database = loadCompassDatabase(rootDir, shopId);
+            const sellerCenter = markStaleCrawlerRun(loadSellerCenterLatest(rootDir, shopId), existing);
+            const crawlerStatus = buildServerCrawlerStatus({
+              shop,
+              shopId,
+              database,
+              sellerCenter,
+              job: existing,
+              mode,
+              cdpStatus: existing?.cdpPort
+                ? safeCdpStatus({ ...(await probeCdpStatus(existing.cdpPort, { requirePage: false })), activeJob: true })
+                : null,
+              activeJob: true,
+              staleRun: Boolean(sellerCenter?.staleRun)
+            });
             return sendJson(res, 202, {
               ok: true,
               accepted: true,
               status: 'running',
               job: existing,
-              crawlerStatus: buildServerCrawlerStatus({
-                shop,
-                shopId,
-                database: loadCompassDatabase(rootDir, shopId),
-                sellerCenter: loadSellerCenterLatest(rootDir, shopId),
-                job: existing,
-                mode
-              })
+              cdpStatus: crawlerStatus.cdpStatus,
+              crawlerStatus
             });
+          }
+          const shop = getShop(rootDir, shopId) || {};
+          const database = loadCompassDatabase(rootDir, shopId);
+          const sellerCenter = markStaleCrawlerRun(loadSellerCenterLatest(rootDir, shopId), null);
+          const cdpStatus = await probeCdpStatus(cdpPort, { requirePage: true });
+          if (cdpStatus.reachable === false) {
+            const failedJob = {
+              id: new Date().toISOString().replace(/[:.]/g, '-'),
+              mode,
+              status: 'error',
+              shopId,
+              sellerId,
+              autoOpenProfile: Boolean(launch),
+              profileName: launch?.profileName || '',
+              startedAt: new Date().toISOString(),
+              finishedAt: new Date().toISOString(),
+              failureReason: 'cdp_unavailable',
+              retryable: true
+            };
+            crawlerJobs.set(shopId, failedJob);
+            appendAudit(rootDir, 'tiktokshop_crawler.crawl_preflight_failed', {
+              mode,
+              shopId,
+              sellerId,
+              jobId: failedJob.id,
+              failureReason: 'cdp_unavailable',
+              retryable: true,
+              autoOpenProfile: Boolean(launch)
+            });
+            return sendJson(res, 503, buildCdpUnavailableResponse({
+              shopId,
+              shop,
+              database,
+              sellerCenter,
+              job: failedJob,
+              mode,
+              launch,
+              cdpStatus
+            }));
           }
           const job = {
             id: new Date().toISOString().replace(/[:.]/g, '-'),
@@ -915,14 +1251,18 @@ export function createServer({ port = 48731 } = {}) {
             status: 'running',
             job,
             crawlerStatus: buildServerCrawlerStatus({
-              shop: getShop(rootDir, shopId) || {},
+              shop,
               shopId,
-              database: loadCompassDatabase(rootDir, shopId),
-              sellerCenter: loadSellerCenterLatest(rootDir, shopId),
+              database,
+              sellerCenter,
               job,
               mode,
-              launch
+              launch,
+              cdpStatus,
+              activeJob: true,
+              staleRun: Boolean(sellerCenter?.staleRun)
             }),
+            cdpStatus,
             launch: launch ? {
               profileName: launch.profileName,
               debugPort: launch.debugPort,
@@ -933,6 +1273,45 @@ export function createServer({ port = 48731 } = {}) {
         }
         const prepared = await prepareCrawlerBrowser(body, mode);
         const { shopId, sellerId, cdpPort, launch } = prepared;
+        const shop = getShop(rootDir, shopId) || {};
+        const databaseBeforeCrawl = loadCompassDatabase(rootDir, shopId);
+        const sellerCenter = markStaleCrawlerRun(loadSellerCenterLatest(rootDir, shopId), null);
+        const cdpStatus = await probeCdpStatus(cdpPort, { requirePage: true });
+        if (cdpStatus.reachable === false) {
+          const failedJob = {
+            id: new Date().toISOString().replace(/[:.]/g, '-'),
+            mode,
+            status: 'error',
+            shopId,
+            sellerId,
+            autoOpenProfile: Boolean(launch),
+            profileName: launch?.profileName || '',
+            startedAt: new Date().toISOString(),
+            finishedAt: new Date().toISOString(),
+            failureReason: 'cdp_unavailable',
+            retryable: true
+          };
+          crawlerJobs.set(shopId, failedJob);
+          appendAudit(rootDir, 'tiktokshop_crawler.crawl_preflight_failed', {
+            mode,
+            shopId,
+            sellerId,
+            jobId: failedJob.id,
+            failureReason: 'cdp_unavailable',
+            retryable: true,
+            autoOpenProfile: Boolean(launch)
+          });
+          return sendJson(res, 503, buildCdpUnavailableResponse({
+            shopId,
+            shop,
+            database: databaseBeforeCrawl,
+            sellerCenter,
+            job: failedJob,
+            mode,
+            launch,
+            cdpStatus
+          }));
+        }
         const result = await crawlCompassMonths({
           rootDir,
           cdpPort,
@@ -956,13 +1335,15 @@ export function createServer({ port = 48731 } = {}) {
         return sendJson(res, 200, {
           ...result,
           crawlerStatus: buildServerCrawlerStatus({
-            shop: getShop(rootDir, shopId) || {},
+            shop,
             shopId,
             database: loadCompassDatabase(rootDir, shopId),
             sellerCenter: loadSellerCenterLatest(rootDir, shopId),
             mode,
-            launch
+            launch,
+            cdpStatus
           }),
+          cdpStatus,
           launch: launch ? {
             profileName: launch.profileName,
             debugPort: launch.debugPort,

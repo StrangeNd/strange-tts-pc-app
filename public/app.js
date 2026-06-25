@@ -190,7 +190,10 @@ function sourceLabel(value) {
     gmvMax: 'File GMV Max',
     uploaded: 'File upload',
     cached: 'Cache local',
+    'cached-crawler': 'Cache crawler',
     realtime: 'Realtime crawl',
+    partial: 'Partial',
+    failed: 'Failed',
     missing: 'Missing'
   };
   return labels[value] || value || 'Chua ro';
@@ -630,6 +633,112 @@ function dashboardCard(title, value, source, format = 'number', available = true
   `;
 }
 
+function dataSourceTone(status = {}) {
+  if (status.fallbackUsed || status.effectiveSource === 'partial') return 'warn';
+  if (status.effectiveSource === 'missing') return 'danger';
+  if (status.effectiveSource === 'realtime' || status.effectiveSource === 'cached-crawler') return 'ok';
+  return 'neutral';
+}
+
+function yesNo(value) {
+  return value ? 'Co' : 'Khong';
+}
+
+function cdpRecoveryInfo({ crawlerStatus = null, dataSourceStatus = null } = {}) {
+  const cdpStatus = crawlerStatus?.cdpStatus || dataSourceStatus?.cdpStatus || {};
+  const failureReason = crawlerStatus?.failureReason || dataSourceStatus?.latestAttemptedFailureReason || '';
+  const hasCdpProblem = failureReason === 'cdp_unavailable' || cdpStatus.reason === 'cdp_unavailable' || cdpStatus.reachable === false;
+  if (!hasCdpProblem) return null;
+  return {
+    checkedAt: cdpStatus.checkedAt || dataSourceStatus?.updatedAt || crawlerStatus?.updatedAt || '',
+    retryable: cdpStatus.retryable ?? crawlerStatus?.retryable ?? dataSourceStatus?.retryable ?? true,
+    recoverySteps: Array.isArray(cdpStatus.recoverySteps) && cdpStatus.recoverySteps.length
+      ? cdpStatus.recoverySteps
+      : (Array.isArray(dataSourceStatus?.recoverySteps) && dataSourceStatus.recoverySteps.length
+        ? dataSourceStatus.recoverySteps
+        : [
+          'Đóng cửa sổ browser cũ.',
+          'Restart app.',
+          'Mở lại profile shop.',
+          'Retry crawl.'
+        ]),
+    nextAction: cdpStatus.nextAction || dataSourceStatus?.nextAction || crawlerStatus?.nextAction || 'Đóng cửa sổ browser cũ, restart app, mở lại profile shop rồi retry crawl.'
+  };
+}
+
+function recoveryStepLabel(step = '') {
+  const normalized = String(step || '').toLowerCase();
+  if (normalized.includes('close stale browser')) return 'Đóng cửa sổ browser cũ.';
+  if (normalized.includes('restart')) return 'Restart app.';
+  if (normalized.includes('open the selected tiktok shop profile')) return 'Mở lại profile shop.';
+  if (normalized.includes('retry seller center')) return 'Retry crawl.';
+  return step;
+}
+
+function renderCdpRecoveryPanel(input = {}) {
+  const info = cdpRecoveryInfo(input);
+  if (!info) return '';
+  const steps = info.recoverySteps.map(step => `<li>${escapeHtml(recoveryStepLabel(step))}</li>`).join('');
+  const surface = input.surface || (input.dataSourceStatus ? 'dashboard' : 'crawler');
+  const dashboardActions = `
+    <button type="button" data-cdp-action="open-crawler">Mở TikTok Crawler để retry</button>
+    <button type="button" class="secondary" data-cdp-action="refresh-dashboard-status">Refresh trạng thái</button>
+  `;
+  const crawlerActions = `
+    <button type="button" data-cdp-action="retry-seller-center">Retry Seller Center crawl</button>
+    <button type="button" class="secondary" data-cdp-action="refresh-crawler-status">Refresh trạng thái</button>
+  `;
+  return `
+    <div class="failure-panel cdp-recovery-panel">
+      <h4>Mất kết nối browser/CDP</h4>
+      <p>App không kết nối được browser đang dùng để crawl.</p>
+      <p>Đóng browser cũ, restart app, mở lại profile rồi retry crawl.</p>
+      <ul>${steps}</ul>
+      <p class="hint">Retryable: ${yesNo(info.retryable)}${info.checkedAt ? ` | Checked: ${formatTimestamp(info.checkedAt)}` : ''}</p>
+      <div class="cdp-recovery-actions">
+        ${surface === 'dashboard' ? dashboardActions : crawlerActions}
+      </div>
+    </div>
+  `;
+}
+
+function renderDataSourceStatusPanel(status = {}, { surface = 'dashboard' } = {}) {
+  if (!status || !Object.keys(status).length) {
+    return `
+      <section class="data-health-card">
+        <div class="data-health-card-head">
+          <h3>Data source status</h3>
+          <span class="status-tag warn">Chua co metadata</span>
+        </div>
+        <p>API chua tra dataSourceStatus cho overview nay.</p>
+      </section>
+    `;
+  }
+  const tone = dataSourceTone(status);
+  const failureReason = status.latestAttemptedFailureReason
+    ? crawlerFailureLabel(status.latestAttemptedFailureReason)
+    : 'Khong co';
+  return `
+    <section class="data-health-card">
+      <div class="data-health-card-head">
+        <h3>Data source status</h3>
+        <span class="status-tag ${escapeHtml(tone)}">${escapeHtml(sourceLabel(status.effectiveSource))}</span>
+      </div>
+      <div class="mini-kpi-grid">
+        <div><strong>${escapeHtml(sourceLabel(status.effectiveSource))}</strong><span>Du lieu dang xem</span></div>
+        <div><strong>${escapeHtml(status.cacheRunId || 'Chua co')}</strong><span>Cache run</span></div>
+        <div><strong>${formatTimestamp(status.cacheUpdatedAt)}</strong><span>Cache updated</span></div>
+        <div><strong>${escapeHtml(status.latestAttemptedStatus || 'Chua co')}</strong><span>Realtime gan nhat</span></div>
+        <div><strong>${escapeHtml(failureReason)}</strong><span>Failure reason</span></div>
+        <div><strong>${yesNo(status.fallbackUsed)}</strong><span>Fallback cache</span></div>
+      </div>
+      <p class="hint">${escapeHtml(status.nextAction || 'Chua co next action.')}</p>
+      ${status.fallbackReason ? `<p class="hint">Fallback reason: ${escapeHtml(status.fallbackReason)}</p>` : ''}
+      ${renderCdpRecoveryPanel({ dataSourceStatus: status, surface })}
+    </section>
+  `;
+}
+
 function renderDashboardRangeButtons(overview) {
   const ranges = overview?.ranges || [];
   if (!ranges.length) return '';
@@ -855,6 +964,7 @@ function bindDashboardActions() {
   bindClick('#dashboardOpenCrawler', renderTikTokCrawlerWorkspace);
   bindClick('#dashboardOpenBusinessAnalysis', renderBusinessAnalysisWorkspace);
   bindClick('#dashboardOpenChecklist', renderOpsChecklistWorkspace);
+  bindCdpRecoveryActions('dashboard');
 }
 
 async function refreshDashboardRealtime(event) {
@@ -887,6 +997,80 @@ async function refreshDashboardRealtime(event) {
       button.textContent = 'Crawl realtime + cap nhat';
     }
   }
+}
+
+function crawlerFormPayload(mode = 'seller-center') {
+  const selectedShop = selectedShopContext();
+  const form = document.querySelector('#tiktokCrawlerForm');
+  const data = form ? new FormData(form) : null;
+  return {
+    mode,
+    shopId: selectedShop.id || 'little-apricot-hawaii-fashion',
+    autoOpenProfile: data ? data.get('autoOpenProfile') === 'on' : true,
+    cdpPort: Number(data?.get('cdpPort') || 0),
+    sellerId: data?.get('sellerId') || selectedShop.sellerId || '7494478078863902049',
+    baseUrl: data?.get('baseUrl') || 'https://seller-vn.tiktok.com/homepage?shop_region=VN',
+    months: String(data?.get('months') || currentMonthKey()).split(',').map(item => item.trim()).filter(Boolean),
+    dateRange: 'yesterday',
+    maxModules: Number(data?.get('maxModules') || 0)
+  };
+}
+
+async function retrySellerCenterCrawl(event) {
+  const button = event?.currentTarget;
+  const original = button?.textContent || '';
+  if (button) {
+    button.disabled = true;
+    button.textContent = 'Đang retry...';
+  }
+  setOutput('Đang retry Seller Center crawl theo thao tác của người dùng...');
+  try {
+    const result = await api('/api/tiktokshop-crawler/crawl', {
+      method: 'POST',
+      body: crawlerFormPayload('seller-center')
+    });
+    setOutput(result);
+  } catch (error) {
+    setOutput(error.data || error.message);
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = original;
+    }
+    await renderTikTokCrawlerWorkspace();
+  }
+}
+
+async function refreshCdpRecoveryStatus(event, surface = 'crawler') {
+  const button = event?.currentTarget;
+  const original = button?.textContent || '';
+  if (button) {
+    button.disabled = true;
+    button.textContent = 'Đang refresh...';
+  }
+  try {
+    if (surface === 'dashboard') await renderOperationsDashboardWorkspace();
+    else await renderTikTokCrawlerWorkspace();
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = original;
+    }
+  }
+}
+
+function bindCdpRecoveryActions(surface = 'crawler') {
+  document.querySelectorAll('[data-cdp-action]').forEach(button => {
+    button.addEventListener('click', event => {
+      event.preventDefault();
+      const action = event.currentTarget.dataset.cdpAction;
+      if (action === 'open-crawler') return renderTikTokCrawlerWorkspace();
+      if (action === 'retry-seller-center') return retrySellerCenterCrawl(event);
+      if (action === 'refresh-dashboard-status') return refreshCdpRecoveryStatus(event, 'dashboard');
+      if (action === 'refresh-crawler-status') return refreshCdpRecoveryStatus(event, surface);
+      return null;
+    });
+  });
 }
 
 function renderDashboardView(data) {
@@ -922,6 +1106,7 @@ function renderDashboardView(data) {
     </div>
     ${renderDashboardRangeButtons(overview)}
     ${renderDashboardCards(range)}
+    ${renderDataSourceStatusPanel(overview.dataSourceStatus)}
     <div class="dashboard-notes">
       ${(overview.notes || []).map(note => `<p>${escapeHtml(note)}</p>`).join('')}
     </div>
@@ -1416,6 +1601,7 @@ function renderRefundCancelBreakdown(result) {
 function renderBusinessDataContext(result) {
   const selectedShop = selectedShopContext();
   const overview = result.shopOverview || {};
+  const dataSourceStatus = result.dataSourceStatus || overview.dataSourceStatus || {};
   const crawlerOk = Boolean(overview.ok);
   const fileCount = (result.fileSummary || []).length;
   const uploadedRows = Object.values(result.groupedRows || {}).reduce((sum, value) => sum + Number(value || 0), 0);
@@ -1435,7 +1621,10 @@ function renderBusinessDataContext(result) {
         <div><strong>${formatTimestamp(overview.updatedAt || overview.crawlerSummary?.finishedAt || overview.crawlerSummary?.startedAt)}</strong><span>Last crawl timestamp</span></div>
         <div><strong>${escapeHtml(sourceLabel(priceSource))}</strong><span>Bang gia goc</span></div>
         <div><strong>${overview.runId ? escapeHtml(overview.runId) : 'Chua co'}</strong><span>Crawler run ID</span></div>
+        <div><strong>${escapeHtml(sourceLabel(dataSourceStatus.effectiveSource || overview.sourceStatus || 'missing'))}</strong><span>Nguon dang xem</span></div>
+        <div><strong>${yesNo(dataSourceStatus.fallbackUsed)}</strong><span>Fallback cache</span></div>
       </div>
+      ${dataSourceStatus.nextAction ? `<p class="hint">Next action: ${escapeHtml(dataSourceStatus.nextAction)}</p>` : ''}
     </section>
   `;
 }
@@ -1937,6 +2126,7 @@ function renderCrawlerRunStatus({ stateInfo, database, activeMonth, active, sell
         <div><strong>${escapeHtml(crawlerStatus?.failureReason ? failureReason : (unresolved.length ? `${unresolved.length} issue` : 'Khong co'))}</strong><span>Failure/partial reason</span></div>
       </div>
       ${contractFailureRows || failureRows ? `<div class="failure-panel"><h4>Failure reason / partial modules</h4><ul>${contractFailureRows}${failureRows}</ul></div>` : ''}
+      ${renderCdpRecoveryPanel({ crawlerStatus })}
     </section>
   `;
 }
@@ -2038,6 +2228,9 @@ async function renderTikTokCrawlerWorkspace() {
     database = data.database || database;
     sellerCenter = data.sellerCenter || sellerCenter;
     crawlerStatus = data.crawlerStatus || null;
+    if (crawlerStatus && data.cdpStatus) {
+      crawlerStatus = { ...crawlerStatus, cdpStatus: data.cdpStatus };
+    }
   } catch {}
 
   const months = Object.keys(database.months || {}).sort();
@@ -2152,6 +2345,7 @@ async function renderTikTokCrawlerWorkspace() {
     }
   });
   bindClick('#reloadCrawlerDb', renderTikTokCrawlerWorkspace);
+  bindCdpRecoveryActions('crawler');
   return;
 
   workspaceContent.innerHTML = `
