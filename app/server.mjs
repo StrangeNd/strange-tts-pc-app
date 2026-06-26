@@ -1170,6 +1170,7 @@ export function createServer({ port = 48731 } = {}) {
       if (url.pathname === '/api/tiktokshop-crawler/crawl' && req.method === 'POST') {
         const body = await readBody(req, { maxBytes: 256 * 1024 });
         const mode = body.mode || 'compass';
+        const target = String(body.target || '').trim().toLowerCase() === 'overview' ? 'overview' : '';
         if (mode === 'seller-center') {
           const prepared = await prepareCrawlerBrowser(body, mode);
           const { shopId, sellerId, cdpPort, targetUrl, launch } = prepared;
@@ -1208,6 +1209,7 @@ export function createServer({ port = 48731 } = {}) {
             const failedJob = {
               id: new Date().toISOString().replace(/[:.]/g, '-'),
               mode,
+              target,
               status: 'error',
               shopId,
               sellerId,
@@ -1221,6 +1223,7 @@ export function createServer({ port = 48731 } = {}) {
             crawlerJobs.set(shopId, failedJob);
             appendAudit(rootDir, 'tiktokshop_crawler.crawl_preflight_failed', {
               mode,
+              target,
               shopId,
               sellerId,
               jobId: failedJob.id,
@@ -1242,6 +1245,7 @@ export function createServer({ port = 48731 } = {}) {
           const job = {
             id: new Date().toISOString().replace(/[:.]/g, '-'),
             mode,
+            target,
             status: 'running',
             shopId,
             sellerId,
@@ -1257,6 +1261,7 @@ export function createServer({ port = 48731 } = {}) {
             shopId,
             sellerId,
             baseUrl: targetUrl,
+            target,
             configPath: body.configPath || undefined,
             dateRange: body.dateRange || 'yesterday',
             maxModules: Number(body.maxModules || 0),
@@ -1265,16 +1270,18 @@ export function createServer({ port = 48731 } = {}) {
             maxSafeControls: Number(body.maxSafeControls || 28)
           })
             .then(result => {
-              crawlerJobs.set(shopId, { ...job, status: 'done', finishedAt: new Date().toISOString(), runId: result.runId, summary: result.summary });
-              appendAudit(rootDir, 'tiktokshop_crawler.crawl_done', { mode, shopId, runId: result.runId, summary: result.summary });
+              const summary = result.targetInventory ? { ...result.summary, targetInventory: result.targetInventory } : result.summary;
+              crawlerJobs.set(shopId, { ...job, status: 'done', finishedAt: new Date().toISOString(), runId: result.runId, summary });
+              appendAudit(rootDir, 'tiktokshop_crawler.crawl_done', { mode, target, shopId, runId: result.runId, summary });
             })
             .catch(error => {
               const failureReason = normalizeCrawlerFailureReason(error.message);
               crawlerJobs.set(shopId, { ...job, status: 'error', finishedAt: new Date().toISOString(), failureReason });
-              appendAudit(rootDir, 'tiktokshop_crawler.crawl_error', { mode, shopId, failureReason });
+              appendAudit(rootDir, 'tiktokshop_crawler.crawl_error', { mode, target, shopId, failureReason });
             });
           appendAudit(rootDir, 'tiktokshop_crawler.crawl_start', {
             mode,
+            target,
             shopId,
             sellerId,
             jobId: job.id,
@@ -1332,6 +1339,7 @@ export function createServer({ port = 48731 } = {}) {
           crawlerJobs.set(shopId, failedJob);
           appendAudit(rootDir, 'tiktokshop_crawler.crawl_preflight_failed', {
             mode,
+            target,
             shopId,
             sellerId,
             jobId: failedJob.id,

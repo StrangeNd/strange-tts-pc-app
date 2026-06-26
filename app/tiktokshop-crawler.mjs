@@ -10,6 +10,82 @@ import {
 const DEFAULT_COMPASS_URL = 'https://seller-vn.tiktok.com/compass/data-overview?shop_region=VN';
 const DEFAULT_READY_TIME = 'auto';
 const DEFAULT_SELLER_ID = '7494478078863902049';
+const TARGET_OVERVIEW_HINTS = [
+  'homepage',
+  'home',
+  'stats',
+  'overview',
+  'performance',
+  'growth_center',
+  'violation',
+  'task',
+  'novice',
+  'compass',
+  'data_compass',
+  'analytics'
+];
+const CORE_OVERVIEW_METRICS = {
+  gmv: ['gmv', 'revenue', 'sales_amount', 'total_sales'],
+  orders: ['orders', 'order_count', 'order_cnt', 'paid_order', 'orders_cnt'],
+  visitors: ['visitors', 'visitor_count', 'visitor_cnt', 'uv'],
+  impressions: ['impressions', 'impression_count', 'impression_cnt', 'pv', 'views'],
+  refunds: ['refunds', 'refund_count', 'refund_cnt', 'return_refund'],
+  conversionRate: ['conversion', 'conversion_rate', 'cvr'],
+  aov: ['aov', 'average_order_value'],
+  shopScore: ['shop_score', 'seller_score', 'violation_score', 'account_health_score', 'score'],
+  violations: ['violation', 'violations'],
+  tasks: ['task', 'tasks', 'novice']
+};
+const TARGET_CAPTURE_CLASSIFICATIONS = new Set([
+  'TARGET_CAPTURE_READY',
+  'TARGET_CAPTURE_PARTIAL',
+  'TARGET_CAPTURE_NO_CORE_METRICS',
+  'TARGET_CAPTURE_FAILED'
+]);
+const TARGET_OVERVIEW_MODULES = [
+  {
+    id: 'target_homepage_overview',
+    name: 'Target overview homepage',
+    url: 'https://seller-vn.tiktok.com/homepage?shop_region=VN',
+    menuLabels: ['Tổng quan', 'Tong quan', 'Overview', 'Home'],
+    targetOnly: true
+  },
+  {
+    id: 'target_growth_performance',
+    name: 'Target growth performance',
+    url: 'https://seller-vn.tiktok.com/growth-center?shop_region=VN',
+    menuLabels: ['Tăng trưởng', 'Tang truong', 'Growth', 'Performance'],
+    targetOnly: true
+  },
+  {
+    id: 'target_growth_tasks',
+    name: 'Target growth tasks',
+    url: 'https://seller-vn.tiktok.com/growth-center/tasks?shop_region=VN',
+    menuLabels: ['Nhiệm vụ', 'Nhiem vu', 'Tasks', 'Novice'],
+    targetOnly: true
+  },
+  {
+    id: 'target_account_health',
+    name: 'Target shop health',
+    url: 'https://seller-vn.tiktok.com/account/health?shop_region=VN',
+    menuLabels: ['Tình trạng tài khoản', 'Tinh trang tai khoan', 'Account health', 'Shop health', 'Violation'],
+    targetOnly: true
+  },
+  {
+    id: 'target_shop_score',
+    name: 'Target shop score',
+    url: 'https://seller-vn.tiktok.com/account/health/shop-score?shop_region=VN',
+    menuLabels: ['Điểm cửa hàng', 'Diem cua hang', 'Shop score'],
+    targetOnly: true
+  },
+  {
+    id: 'target_compass_overview',
+    name: 'Target Compass overview fallback',
+    url: DEFAULT_COMPASS_URL,
+    menuLabels: ['Số liệu phân tích', 'So lieu phan tich', 'Analytics', 'Data overview', 'Compass'],
+    targetOnly: true
+  }
+];
 
 function localYesterday() {
   const date = new Date();
@@ -626,6 +702,37 @@ function flattenModules(config) {
   return rows;
 }
 
+function normalizeTarget(value = '') {
+  const target = String(value || '').trim().toLowerCase().replace(/[^a-z0-9_-]+/g, '-');
+  return target === 'overview' ? 'overview' : '';
+}
+
+function targetModules(config, target = '') {
+  if (normalizeTarget(target) !== 'overview') return flattenModules(config);
+  const configModules = flattenModules(config).filter(module => {
+    const haystack = [
+      module.id,
+      module.name,
+      module.url,
+      ...(module.menuLabels || []),
+      ...(module.inheritedLabels || [])
+    ].join(' ').toLowerCase();
+    return TARGET_OVERVIEW_HINTS.some(hint => haystack.includes(hint));
+  });
+  const seen = new Set();
+  return [...TARGET_OVERVIEW_MODULES, ...configModules].filter(module => {
+    const key = module.url || module.id || module.name;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).map(module => ({
+    ...module,
+    parentId: module.parentId ?? null,
+    parentName: module.parentName ?? null,
+    depth: module.depth ?? 0
+  }));
+}
+
 function fileSafePart(value) {
   return String(value || 'item')
     .normalize('NFD')
@@ -710,6 +817,93 @@ function writeCsv(file, rows) {
   fs.writeFileSync(file, lines.join('\n'), { mode: 0o600 });
 }
 
+function safeEndpointPath(url = '') {
+  try {
+    return new URL(sanitizeCrawlerUrl(url)).pathname || '';
+  } catch {
+    return String(url || '').split('?')[0].replace(/^https?:\/\/[^/]+/i, '');
+  }
+}
+
+function normalizedHintText(value = '') {
+  return String(value || '')
+    .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+    .replace(/[^a-z0-9]+/gi, '_')
+    .toLowerCase();
+}
+
+function uniqueSorted(values = []) {
+  return [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b));
+}
+
+function metricHintFromText(value = '') {
+  const text = normalizedHintText(value);
+  return TARGET_OVERVIEW_HINTS.find(hint => text.includes(hint)) || '';
+}
+
+function detectCoreMetricPresence(endpointPaths = [], fieldPaths = []) {
+  const haystack = [...endpointPaths, ...fieldPaths].map(normalizedHintText);
+  return Object.fromEntries(Object.entries(CORE_OVERVIEW_METRICS).map(([metric, aliases]) => [
+    metric,
+    haystack.some(text => aliases.some(alias => text.includes(normalizedHintText(alias))))
+  ]));
+}
+
+function classifyTargetInventory({ target = '', endpointPaths = [], coreMetricPresence = {}, failed = false } = {}) {
+  if (failed) return 'TARGET_CAPTURE_FAILED';
+  if (normalizeTarget(target) !== 'overview') return '';
+  const relevantEndpoint = endpointPaths.some(endpoint => TARGET_OVERVIEW_HINTS.some(hint => normalizedHintText(endpoint).includes(hint)));
+  const presentCount = Object.values(coreMetricPresence || {}).filter(Boolean).length;
+  if (relevantEndpoint && presentCount >= 3) return 'TARGET_CAPTURE_READY';
+  if (relevantEndpoint && presentCount > 0) return 'TARGET_CAPTURE_PARTIAL';
+  if (endpointPaths.length) return 'TARGET_CAPTURE_NO_CORE_METRICS';
+  return 'TARGET_CAPTURE_FAILED';
+}
+
+export function buildTargetInventory({
+  target = '',
+  runId = '',
+  apiLog = [],
+  rawEntries = [],
+  normalizedRows = [],
+  dataDictionary = {},
+  failed = false
+} = {}) {
+  const normalizedTarget = normalizeTarget(target);
+  if (!normalizedTarget) return null;
+  const endpointPaths = uniqueSorted(apiLog.map(item => safeEndpointPath(item.url)));
+  const fieldPaths = uniqueSorted([
+    ...Object.keys(dataDictionary || {}),
+    ...Object.values(dataDictionary || {}).map(item => item?.path),
+    ...normalizedRows.flatMap(row => Object.keys(row || {}))
+  ]);
+  const metricHints = uniqueSorted([
+    ...endpointPaths.map(metricHintFromText),
+    ...fieldPaths.map(metricHintFromText),
+    ...fieldPaths.filter(field => Object.values(CORE_OVERVIEW_METRICS).some(aliases => (
+      aliases.some(alias => normalizedHintText(field).includes(normalizedHintText(alias)))
+    )))
+  ]).slice(0, 80);
+  const coreMetricPresence = detectCoreMetricPresence(endpointPaths, fieldPaths);
+  const classification = classifyTargetInventory({
+    target: normalizedTarget,
+    endpointPaths,
+    coreMetricPresence,
+    failed
+  });
+  return scrubCrawlerPayload({
+    target: normalizedTarget,
+    runId,
+    endpointCount: endpointPaths.length,
+    rawFileCount: rawEntries.length,
+    normalizedRecordCount: normalizedRows.length,
+    endpointPaths,
+    metricHints,
+    coreMetricPresence,
+    classification: TARGET_CAPTURE_CLASSIFICATIONS.has(classification) ? classification : 'TARGET_CAPTURE_FAILED'
+  });
+}
+
 function makeReport(report) {
   const lines = [
     `# TikTok Seller Center crawl report`,
@@ -734,6 +928,22 @@ function makeReport(report) {
     lines.push('', '## Không lấy được API / cần fallback UI', '');
     report.unresolved.forEach(item => lines.push(`- ${item.module}: ${item.reason}`));
   }
+  if (report.targetInventory) {
+    lines.push(
+      '',
+      '## Target inventory',
+      '',
+      `- Target: ${report.targetInventory.target}`,
+      `- Classification: ${report.targetInventory.classification}`,
+      `- Endpoint paths: ${report.targetInventory.endpointPaths.join(', ') || 'none'}`,
+      '',
+      '| Core metric | Present |',
+      '|---|---:|'
+    );
+    for (const [key, present] of Object.entries(report.targetInventory.coreMetricPresence || {})) {
+      lines.push(`| ${key} | ${present ? 'yes' : 'no'} |`);
+    }
+  }
   return `${lines.join('\n')}\n`;
 }
 
@@ -744,7 +954,8 @@ export function buildSellerCenterFixtureRun({
   baseUrl = 'https://seller-vn.tiktok.com/fixture',
   dateRange = { start: '2026-06-19', end: '2026-06-19', label: 'Fixture' },
   rawResponses = [],
-  fixtureRunId = `fixture-${runId()}`
+  fixtureRunId = `fixture-${runId()}`,
+  target = ''
 } = {}) {
   if (!rootDir) throw new Error('rootDir is required.');
   if (!Array.isArray(rawResponses) || !rawResponses.length) {
@@ -809,6 +1020,14 @@ export function buildSellerCenterFixtureRun({
     const parsed = readJson(path.join(dir, entry.file), null);
     normalizedRows.push(...flattenRecords(parsed, entry.url));
   }
+  const targetInventory = buildTargetInventory({
+    target,
+    runId: fixtureRunId,
+    apiLog,
+    rawEntries,
+    normalizedRows,
+    dataDictionary
+  });
 
   writeJson(path.join(logsDir, 'api-log.json'), scrubCrawlerPayload(apiLog));
   writeJson(path.join(logsDir, 'action-log.json'), scrubCrawlerPayload(actionLog));
@@ -844,7 +1063,8 @@ export function buildSellerCenterFixtureRun({
       rawFiles: rawEntries.length,
       normalizedRows: normalizedRows.length,
       exportRequests: 0
-    }
+    },
+    ...(targetInventory ? { targetInventory } : {})
   };
   writeCrawlerContract(path.join(dir, 'snapshot-contract.json'), {
     shopId,
@@ -1106,6 +1326,7 @@ export async function crawlSellerCenterDeep({
   sellerId = '',
   configPath = DEFAULT_SELLER_CENTER_CONFIG,
   baseUrl,
+  target = '',
   dateRange = 'yesterday',
   maxModules = 0,
   dryRun = false,
@@ -1115,6 +1336,7 @@ export async function crawlSellerCenterDeep({
   if (!rootDir) throw new Error('rootDir is required.');
   const config = readSellerCenterConfig(rootDir, configPath);
   if (!config) throw new Error(`Cannot read Seller Center crawler config: ${configPath}`);
+  const normalizedTarget = normalizeTarget(target);
   const range = normalizeSellerCenterDateRange(dateRange);
   const id = runId();
   const dir = sellerCenterDir(rootDir, shopId, id);
@@ -1144,6 +1366,7 @@ export async function crawlSellerCenterDeep({
     shopId,
     sellerId,
     baseUrl: baseUrl || config.baseUrl,
+    target: normalizedTarget,
     dateRange: range,
     outputDir: path.relative(shopDir, dir),
     startedAt,
@@ -1180,6 +1403,7 @@ export async function crawlSellerCenterDeep({
     ].some(part => lower.includes(part))) return false;
     const looksLikeApi = lower.includes('/api/') || lower.includes('/api/v') || lower.includes('api.') || lower.includes('tiktokshop.com/api');
     if (!looksLikeApi) return false;
+    if (normalizedTarget === 'overview' && TARGET_OVERVIEW_HINTS.some(part => lower.includes(part))) return true;
     return (network.captureUrlContains || []).some(part => lower.includes(String(part).toLowerCase()));
   };
 
@@ -1248,7 +1472,7 @@ export async function crawlSellerCenterDeep({
     await waitMs(1200);
     await captureBrowserResources({ cdp, shouldCapture, dir, rawDir, rawEntries, apiLog, dataDictionary, actionLog, moduleId: 'date-range', limit: 40 });
 
-    const modules = flattenModules(config).slice(0, maxModules > 0 ? maxModules : undefined);
+    const modules = targetModules(config, normalizedTarget).slice(0, maxModules > 0 ? maxModules : undefined);
     const moduleReports = [];
     for (const module of modules) {
       const beforeApiCount = apiLog.length;
@@ -1393,6 +1617,14 @@ export async function crawlSellerCenterDeep({
     });
     writeJson(path.join(normalizedDir, 'records.json'), normalizedRows);
     writeCsv(path.join(normalizedDir, 'records.csv'), normalizedRows);
+    const targetInventory = buildTargetInventory({
+      target: normalizedTarget,
+      runId: id,
+      apiLog,
+      rawEntries,
+      normalizedRows,
+      dataDictionary
+    });
 
     const report = {
       ok: true,
@@ -1400,6 +1632,7 @@ export async function crawlSellerCenterDeep({
       shopId,
       sellerId,
       baseUrl: targetUrl,
+      target: normalizedTarget,
       dateRange: range,
       outputDir: dir,
       snapshotContract: 'snapshot-contract.json',
@@ -1410,7 +1643,8 @@ export async function crawlSellerCenterDeep({
         rawFiles: rawEntries.length,
         normalizedRows: normalizedRows.length,
         exportRequests: exportRequests.length
-      }
+      },
+      ...(targetInventory ? { targetInventory } : {})
     };
     writeCrawlerContract(path.join(dir, 'snapshot-contract.json'), {
       shopId,

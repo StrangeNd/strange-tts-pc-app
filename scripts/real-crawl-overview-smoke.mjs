@@ -51,8 +51,6 @@ try {
           { startDate: '2026-06-06', endDate: '2026-06-07', totalGmv: 600, contentVideoGmv: 60 },
           { startDate: '2026-06-07', endDate: '2026-06-08', totalGmv: 700, contentVideoGmv: 70 },
           { startDate: '2026-06-08', endDate: '2026-06-09', totalGmv: 800, contentVideoGmv: 80 },
-          { startDate: '2026-06-25', endDate: '2026-06-26', totalGmv: 0, contentVideoGmv: 0 },
-          { startDate: '2026-06-26', endDate: '2026-06-27', totalGmv: 0, contentVideoGmv: 0 },
           { startDate: '2026-06-27', endDate: '2026-06-28', totalGmv: 0, contentVideoGmv: 0 },
           { startDate: '2026-06-28', endDate: '2026-06-29', totalGmv: 0, contentVideoGmv: 0 },
           { startDate: '2026-06-29', endDate: '2026-06-30', totalGmv: 0, contentVideoGmv: 0 },

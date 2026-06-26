@@ -1031,6 +1031,34 @@ function crawlerFormPayload(mode = 'seller-center') {
   };
 }
 
+function renderTargetInventory(inventory = null) {
+  if (!inventory) return '<p>Chua co targeted overview inventory.</p>';
+  const presence = inventory.coreMetricPresence || {};
+  const rows = Object.entries(presence).map(([key, present]) => `
+    <tr>
+      <td>${escapeHtml(key)}</td>
+      <td>${present ? 'Co hint' : 'Chua thay'}</td>
+    </tr>
+  `).join('');
+  const endpoints = (inventory.endpointPaths || []).slice(0, 12).map(item => `<li>${escapeHtml(item)}</li>`).join('');
+  return `
+    <div class="context-grid crawler-context-grid">
+      <div><strong>${escapeHtml(inventory.classification || 'Chua phan loai')}</strong><span>Classification</span></div>
+      <div><strong>${money(inventory.endpointCount)}</strong><span>Endpoint paths</span></div>
+      <div><strong>${money(inventory.rawFileCount)}</strong><span>Raw files</span></div>
+      <div><strong>${money(inventory.normalizedRecordCount)}</strong><span>Normalized records</span></div>
+    </div>
+    <p>Metric hints: ${escapeHtml((inventory.metricHints || []).slice(0, 16).join(', ') || 'Chua co')}</p>
+    <ul>${endpoints || '<li>Chua co endpoint path.</li>'}</ul>
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead><tr><th>Core metric</th><th>Presence</th></tr></thead>
+        <tbody>${rows || '<tr><td colspan="2">Chua co hint.</td></tr>'}</tbody>
+      </table>
+    </div>
+  `;
+}
+
 async function retrySellerCenterCrawl(event) {
   const button = event?.currentTarget;
   const original = button?.textContent || '';
@@ -2253,6 +2281,7 @@ async function renderTikTokCrawlerWorkspace() {
   const months = Object.keys(database.months || {}).sort();
   const activeMonth = months.at(-1) || '2026-05';
   const active = database.months?.[activeMonth];
+  const targetInventory = sellerCenter.targetInventory || crawlerStatus?.latestRun?.summary?.targetInventory || crawlerStatus?.latestRun?.targetInventory || null;
   const moduleRows = (sellerCenter.modules || []).map(item => `
     <tr>
       <td>${escapeHtml(item.name)}</td>
@@ -2289,11 +2318,13 @@ async function renderTikTokCrawlerWorkspace() {
               <label>Gioi han module Seller Center (0 = toan bo)<input name="maxModules" value="0" autocomplete="off"></label>
             </div>
             <label>URL goc Seller Center<input name="baseUrl" value="https://seller-vn.tiktok.com/homepage?shop_region=VN" autocomplete="off"></label>
+            <p class="hint">Chay capture nho de tim nguon metric Tong quan shop. Chua cap nhat Dashboard cards.</p>
           </div>
         </div>
       </section>
       <div class="actions">
         <button type="submit" value="compass">Crawl Compass</button>
+        <button type="submit" value="seller-center" data-target="overview" class="secondary">Target overview capture</button>
         <button type="submit" value="seller-center" class="secondary">Crawl Seller Center full hom qua</button>
         <button type="button" class="secondary" id="reloadCrawlerDb">Tai lai DB</button>
       </div>
@@ -2321,6 +2352,10 @@ async function renderTikTokCrawlerWorkspace() {
           <h3>Compass raw paths</h3>
           <p>${active ? `Aggregate: ${escapeHtml(active.rawFiles?.aggregate || 'Chua co')} | Daily: ${escapeHtml(active.rawFiles?.daily || 'Chua co')}` : 'Chua co du lieu.'}</p>
         </section>
+        <section>
+          <h3>Target overview inventory</h3>
+          ${renderTargetInventory(targetInventory)}
+        </section>
       </div>
       <div class="table-scroll">
         <table class="data-table">
@@ -2342,6 +2377,7 @@ async function renderTikTokCrawlerWorkspace() {
         method: 'POST',
         body: {
           mode: button.value || 'compass',
+          target: button.dataset.target || '',
           shopId,
           autoOpenProfile: form.get('autoOpenProfile') === 'on',
           cdpPort: Number(form.get('cdpPort') || 0),
