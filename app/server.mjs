@@ -521,6 +521,36 @@ function dataSourceNextAction({ fallbackUsed = false, realtimeStatus = '', failu
   return 'Use cached crawler data or run a fresh crawl when newer data is needed.';
 }
 
+function buildFreshnessGap({ overview = {}, latestRun = null, sourceStatus = '', effectiveSource = '', hasCache = false } = {}) {
+  const realtimeRunId = latestRun?.runId || latestRun?.id || '';
+  const realtimeStatus = latestRun?.status || '';
+  const effectiveCardRunId = hasCache ? (overview?.runId || '') : '';
+  const effectiveCardUpdatedAt = hasCache ? (overview?.updatedAt || overview?.lastCrawlAt || '') : '';
+  const cardsUseCachedCompass = sourceStatus === 'cached-crawler' && effectiveSource === 'cached-crawler';
+  const realtimeCompleted = realtimeStatus === 'completed' || realtimeStatus === 'done';
+  const exists = Boolean(
+    realtimeCompleted
+    && cardsUseCachedCompass
+    && realtimeRunId
+    && effectiveCardRunId
+    && realtimeRunId !== effectiveCardRunId
+  );
+  return {
+    exists,
+    reason: exists ? 'realtime_completed_but_cards_use_cached_compass' : '',
+    realtimeRunId: realtimeRunId || '',
+    realtimeUpdatedAt: latestRun?.updatedAt || latestRun?.finishedAt || latestRun?.startedAt || '',
+    realtimeStatus: realtimeStatus || '',
+    effectiveCardRunId,
+    effectiveCardSource: effectiveSource || sourceStatus || '',
+    effectiveCardUpdatedAt,
+    severity: exists ? 'info' : '',
+    nextAction: exists
+      ? 'Dashboard cards still use cached Compass data. Run/implement fresh overview mapping before treating cards as realtime-fresh.'
+      : ''
+  };
+}
+
 function buildDataSourceStatus({ overview = {}, crawlerStatus = {}, requestedRange = '' } = {}) {
   const sourceStatus = sourceStatusForOverview(overview);
   const hasCache = sourceStatus === 'cached-crawler' && Boolean(overview?.ok);
@@ -546,6 +576,13 @@ function buildDataSourceStatus({ overview = {}, crawlerStatus = {}, requestedRan
   const failureReason = crawlerStatus?.failureReason || '';
   const cdpStatus = crawlerStatus?.cdpStatus || cdpStatusFromCrawlerStatus(crawlerStatus);
   const cdpProblem = failureReason === 'cdp_unavailable' || cdpStatus?.reason === 'cdp_unavailable';
+  const freshnessGap = buildFreshnessGap({
+    overview,
+    latestRun,
+    sourceStatus,
+    effectiveSource,
+    hasCache
+  });
 
   return {
     effectiveSource,
@@ -568,6 +605,7 @@ function buildDataSourceStatus({ overview = {}, crawlerStatus = {}, requestedRan
     fallbackReason,
     retryable,
     cdpStatus,
+    freshnessGap,
     recoverySteps: cdpProblem ? [...CDP_RECOVERY_STEPS] : [],
     nextAction: dataSourceNextAction({ fallbackUsed, realtimeStatus, failureReason, retryable, hasCache }),
     updatedAt: new Date().toISOString()

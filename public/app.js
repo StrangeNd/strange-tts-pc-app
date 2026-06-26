@@ -718,6 +718,7 @@ function renderDataSourceStatusPanel(status = {}, { surface = 'dashboard' } = {}
   const failureReason = status.latestAttemptedFailureReason
     ? crawlerFailureLabel(status.latestAttemptedFailureReason)
     : 'Khong co';
+  const freshnessGap = status.freshnessGap || {};
   return `
     <section class="data-health-card">
       <div class="data-health-card-head">
@@ -735,6 +736,20 @@ function renderDataSourceStatusPanel(status = {}, { surface = 'dashboard' } = {}
       <p class="hint">${escapeHtml(status.nextAction || 'Chua co next action.')}</p>
       ${status.fallbackReason ? `<p class="hint">Fallback reason: ${escapeHtml(status.fallbackReason)}</p>` : ''}
       ${renderCdpRecoveryPanel({ dataSourceStatus: status, surface })}
+      ${freshnessGap.exists ? `
+        <div class="freshness-gap-panel">
+          <h4>Dữ liệu realtime đã chạy xong, nhưng card vẫn dùng cache</h4>
+          <p>Seller Center crawl mới nhất đã completed.</p>
+          <p>Các card Tổng quan shop hiện vẫn lấy từ Compass/cache run cũ.</p>
+          <p>Chỉ coi đây là trạng thái metadata-fresh, chưa phải dashboard-card fresh.</p>
+          <div class="context-grid freshness-gap-grid">
+            <div><strong>${escapeHtml(freshnessGap.realtimeRunId || 'Chua co')}</strong><span>Realtime run</span></div>
+            <div><strong>${escapeHtml(freshnessGap.effectiveCardRunId || 'Chua co')}</strong><span>Card source run</span></div>
+            <div><strong>${formatTimestamp(freshnessGap.effectiveCardUpdatedAt)}</strong><span>Card source updated</span></div>
+            <div><strong>${escapeHtml(freshnessGap.nextAction || 'Chua co')}</strong><span>Next action</span></div>
+          </div>
+        </div>
+      ` : ''}
     </section>
   `;
 }
@@ -1608,6 +1623,7 @@ function renderBusinessDataContext(result) {
   const priceSource = result.priceRows
     ? ((result.warnings || []).some(item => /cache/i.test(item)) ? 'cached' : 'uploaded')
     : 'missing';
+  const freshnessGap = dataSourceStatus.freshnessGap || {};
   return `
     <section class="context-panel">
       <div class="panel-header">
@@ -1624,6 +1640,7 @@ function renderBusinessDataContext(result) {
         <div><strong>${escapeHtml(sourceLabel(dataSourceStatus.effectiveSource || overview.sourceStatus || 'missing'))}</strong><span>Nguon dang xem</span></div>
         <div><strong>${yesNo(dataSourceStatus.fallbackUsed)}</strong><span>Fallback cache</span></div>
       </div>
+      ${freshnessGap.exists ? `<p class="hint freshness-gap-note">Realtime completed, nhung KPI hien van dua tren cached overview/Compass.</p>` : ''}
       ${dataSourceStatus.nextAction ? `<p class="hint">Next action: ${escapeHtml(dataSourceStatus.nextAction)}</p>` : ''}
     </section>
   `;
