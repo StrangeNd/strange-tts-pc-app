@@ -981,7 +981,7 @@ function bindDashboardActions() {
   bindClick('#refreshDashboardInline', renderOperationsDashboardWorkspace);
   bindClick('#dashboardOpenSellerProfile', openOrAttachSellerProfile);
   bindClick('#dashboardVerifySession', verifySellerProfileSession);
-  bindClick('#dashboardTargetOverviewCapture', refreshDashboardRealtime);
+  bindClick('#dashboardTargetOverviewCapture', targetOverviewCapture);
   bindClick('#openDashboardDiagnostic', () => openExtensionPage('pages/dashboard.html'));
   bindClick('#dashboardOpenCrawler', renderTikTokCrawlerWorkspace);
   bindClick('#dashboardOpenBusinessAnalysis', renderBusinessAnalysisWorkspace);
@@ -1110,7 +1110,7 @@ async function verifySellerProfileSession(event) {
   }
 }
 
-async function refreshDashboardRealtime(event) {
+async function targetOverviewCapture(event) {
   const button = event?.currentTarget;
   const selectedShop = selectedShopContext();
   if (!selectedShop.id) return setOutput('Chua chon shop/profile de crawl realtime.');
