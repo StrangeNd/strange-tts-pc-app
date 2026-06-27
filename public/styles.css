@@ -1038,6 +1038,14 @@ button:disabled {
   min-height: 36px;
 }
 
+.target-session-gate {
+  border-left: 4px solid #d69e2e;
+}
+
+.target-session-gate.ok {
+  border-left-color: #2f855a;
+}
+
 .mini-panel {
   min-width: 0;
   border: 1px solid var(--line);

@@ -22,6 +22,7 @@ const state = {
   businessResult: null,
   dashboardOverview: null,
   dashboardRangeKey: '',
+  sessionReadiness: {},
   shops: [],
   statusVisible: false
 };
@@ -962,8 +963,12 @@ function renderDashboardEmpty(selectedShop, shopCount) {
       </div>
     </div>
     ${renderDashboardCards({ cards: [] })}
+    ${renderTargetCaptureGate(selectedShop)}
     ${renderShopHealthCenter({})}
     <div class="actions dashboard-actions">
+      <button id="dashboardOpenSellerProfile">Open/Attach seller profile</button>
+      <button id="dashboardVerifySession" class="secondary">Refresh/Verify session</button>
+      <button id="dashboardTargetOverviewCapture" class="secondary" ${sessionReadinessFor(selectedShop.id || '').sessionReady === true ? '' : 'disabled'}>Target overview capture</button>
       <button id="dashboardOpenCrawler">Mo TikTok Crawler</button>
       <button id="dashboardOpenBusinessAnalysis" class="secondary">Nap file Phan tich KD</button>
       <button id="dashboardOpenChecklist" class="secondary">Checklist van hanh</button>
@@ -974,7 +979,9 @@ function renderDashboardEmpty(selectedShop, shopCount) {
 
 function bindDashboardActions() {
   bindClick('#refreshDashboardInline', renderOperationsDashboardWorkspace);
-  bindClick('#dashboardRealtimeCrawl', refreshDashboardRealtime);
+  bindClick('#dashboardOpenSellerProfile', openOrAttachSellerProfile);
+  bindClick('#dashboardVerifySession', verifySellerProfileSession);
+  bindClick('#dashboardTargetOverviewCapture', refreshDashboardRealtime);
   bindClick('#openDashboardDiagnostic', () => openExtensionPage('pages/dashboard.html'));
   bindClick('#dashboardOpenCrawler', renderTikTokCrawlerWorkspace);
   bindClick('#dashboardOpenBusinessAnalysis', renderBusinessAnalysisWorkspace);
@@ -982,34 +989,177 @@ function bindDashboardActions() {
   bindCdpRecoveryActions('dashboard');
 }
 
+function targetProfilePayload(mode = 'seller-center') {
+  const selectedShop = selectedShopContext();
+  return {
+    mode,
+    shopId: selectedShop.id || 'little-apricot-hawaii-fashion',
+    sellerId: selectedShop.sellerId || '7494478078863902049',
+    baseUrl: selectedShop.sellerCenterUrl || 'https://seller-vn.tiktok.com/homepage?shop_region=VN'
+  };
+}
+
+function rememberSessionReadiness(shopId, result = {}) {
+  if (!shopId) return null;
+  const next = {
+    sessionReady: result.sessionReady ?? null,
+    currentPageKind: result.currentPageKind || 'unknown',
+    selectedShop: result.selectedShop || null,
+    profileName: result.profileName || '',
+    cdpStatus: result.cdpStatus || null,
+    activeJob: result.activeJob || null,
+    failureReason: result.failureReason || '',
+    nextAction: result.nextAction || '',
+    checkedAt: new Date().toISOString()
+  };
+  state.sessionReadiness[shopId] = next;
+  return next;
+}
+
+function sessionReadinessFor(shopId) {
+  return state.sessionReadiness[shopId] || {
+    sessionReady: null,
+    currentPageKind: 'unknown',
+    failureReason: 'cookie_missing',
+    nextAction: 'Open/Attach seller profile, login if needed, then click Refresh/Verify session.'
+  };
+}
+
+function renderTargetCaptureGate(selectedShop) {
+  const readiness = sessionReadinessFor(selectedShop.id || '');
+  const ready = readiness.sessionReady === true;
+  const kind = readiness.currentPageKind || 'unknown';
+  const failure = readiness.failureReason ? crawlerFailureLabel(readiness.failureReason) : 'Khong co';
+  return `
+    <section class="data-health-card target-session-gate ${ready ? 'ok' : 'warn'}">
+      <div class="data-health-card-head">
+        <h3>Target overview capture</h3>
+        <span class="status-tag ${ready ? 'ok' : 'warn'}">${ready ? 'Session/profile da san sang' : 'Chưa xác thực session'}</span>
+      </div>
+      <div class="mini-kpi-grid">
+        <div><strong>${ready ? 'true' : (readiness.sessionReady === false ? 'false' : 'null')}</strong><span>sessionReady</span></div>
+        <div><strong>${escapeHtml(kind)}</strong><span>currentPageKind</span></div>
+        <div><strong>${escapeHtml(selectedShop.name || selectedShop.label || 'Chua chon')}</strong><span>selectedShop</span></div>
+        <div><strong>${escapeHtml(readiness.profileName || 'Chua co')}</strong><span>profileName</span></div>
+        <div><strong>${escapeHtml(readiness.cdpStatus?.reason || 'cdp_not_checked')}</strong><span>cdpStatus</span></div>
+        <div><strong>${escapeHtml(readiness.activeJob?.status || 'Khong co')}</strong><span>activeJob</span></div>
+        <div><strong>${escapeHtml(failure)}</strong><span>failureReason</span></div>
+        <div><strong>${escapeHtml(readiness.nextAction || 'Target overview capture chỉ chạy sau khi session/profile đã sẵn sàng')}</strong><span>nextAction</span></div>
+      </div>
+      <p class="hint">Đăng nhập trong browser app đã mở, sau đó bấm Refresh/Verify session.</p>
+      <p class="hint">Không mở browser mới khi session chưa sẵn sàng. Target overview capture chỉ chạy sau khi session/profile đã sẵn sàng.</p>
+    </section>
+  `;
+}
+
+async function openOrAttachSellerProfile(event) {
+  const button = event?.currentTarget;
+  const selectedShop = selectedShopContext();
+  if (!selectedShop.id) return setOutput('Chua chon shop/profile de open/attach.');
+  const original = button?.textContent || '';
+  if (button) {
+    button.disabled = true;
+    button.textContent = 'Dang open/attach...';
+  }
+  try {
+    const result = await api('/api/tiktokshop-crawler/profile/open', {
+      method: 'POST',
+      body: targetProfilePayload('seller-center')
+    });
+    rememberSessionReadiness(selectedShop.id, result);
+    setOutput(result);
+    await renderOperationsDashboardWorkspace();
+  } catch (error) {
+    rememberSessionReadiness(selectedShop.id, error.data || {});
+    setOutput(error.data || error.message);
+    await renderOperationsDashboardWorkspace();
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = original;
+    }
+  }
+}
+
+async function verifySellerProfileSession(event) {
+  const button = event?.currentTarget;
+  const selectedShop = selectedShopContext();
+  if (!selectedShop.id) return setOutput('Chua chon shop/profile de verify session.');
+  const original = button?.textContent || '';
+  if (button) {
+    button.disabled = true;
+    button.textContent = 'Dang verify...';
+  }
+  try {
+    const result = await api('/api/tiktokshop-crawler/profile/verify', {
+      method: 'POST',
+      body: targetProfilePayload('seller-center')
+    });
+    rememberSessionReadiness(selectedShop.id, result);
+    setOutput(result);
+    await renderOperationsDashboardWorkspace();
+  } catch (error) {
+    rememberSessionReadiness(selectedShop.id, error.data || {});
+    setOutput(error.data || error.message);
+    await renderOperationsDashboardWorkspace();
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = original;
+    }
+  }
+}
+
 async function refreshDashboardRealtime(event) {
   const button = event?.currentTarget;
   const selectedShop = selectedShopContext();
   if (!selectedShop.id) return setOutput('Chua chon shop/profile de crawl realtime.');
   if (!selectedShop.sellerId) return setOutput('Shop dang chon chua co Seller ID.');
+  const readiness = sessionReadinessFor(selectedShop.id);
+  if (readiness.sessionReady !== true) {
+    const blocked = {
+      ok: false,
+      sessionReady: readiness.sessionReady,
+      currentPageKind: readiness.currentPageKind || 'unknown',
+      selectedShop: selectedShop.name || selectedShop.label || selectedShop.id,
+      profileName: readiness.profileName || '',
+      cdpStatus: readiness.cdpStatus || { reason: 'cdp_not_checked' },
+      activeJob: readiness.activeJob || null,
+      failureReason: readiness.failureReason || 'cookie_missing',
+      retryable: true,
+      nextAction: 'Đăng nhập trong browser app đã mở, sau đó bấm Refresh/Verify session.'
+    };
+    setOutput(blocked);
+    return;
+  }
   if (button) {
     button.disabled = true;
-    button.textContent = 'Dang crawl realtime...';
+    button.textContent = 'Dang capture...';
   }
   try {
     const result = await api('/api/tiktokshop-crawler/crawl', {
       method: 'POST',
       body: {
-        mode: 'compass',
+        ...targetProfilePayload('seller-center'),
+        mode: 'seller-center',
         shopId: selectedShop.id,
         sellerId: selectedShop.sellerId,
-        autoOpenProfile: true,
-        months: [currentMonthKey()]
+        autoOpenProfile: false,
+        targetedOverviewCapture: true,
+        dateRange: 'yesterday',
+        maxModules: 0
       }
     });
     setOutput(result);
     await renderOperationsDashboardWorkspace();
   } catch (error) {
+    rememberSessionReadiness(selectedShop.id, error.data || {});
     setOutput(error.data || error.message);
+    await renderOperationsDashboardWorkspace();
   } finally {
     if (button) {
       button.disabled = false;
-      button.textContent = 'Crawl realtime + cap nhat';
+      button.textContent = 'Target overview capture';
     }
   }
 }
@@ -1122,6 +1272,7 @@ function renderDashboardView(data) {
     ${renderDashboardRangeButtons(overview)}
     ${renderDashboardCards(range)}
     ${renderDataSourceStatusPanel(overview.dataSourceStatus)}
+    ${renderTargetCaptureGate(selectedShop)}
     <div class="dashboard-notes">
       ${(overview.notes || []).map(note => `<p>${escapeHtml(note)}</p>`).join('')}
     </div>
@@ -1130,7 +1281,9 @@ function renderDashboardView(data) {
     ${renderDashboardMetricTable(range)}
     ${renderDashboardDetails(range)}
     <div class="actions dashboard-actions">
-      <button id="dashboardRealtimeCrawl">Crawl realtime + cap nhat</button>
+      <button id="dashboardOpenSellerProfile">Open/Attach seller profile</button>
+      <button id="dashboardVerifySession" class="secondary">Refresh/Verify session</button>
+      <button id="dashboardTargetOverviewCapture" class="secondary" ${sessionReadinessFor(selectedShop.id || '').sessionReady === true ? '' : 'disabled'}>Target overview capture</button>
       <button id="refreshDashboardInline" class="secondary">Tai lai cache dashboard</button>
       <button id="dashboardOpenCrawler" class="secondary">Mo TikTok Crawler</button>
       <button id="dashboardOpenBusinessAnalysis" class="secondary">Nap file Phan tich KD</button>
@@ -2004,6 +2157,7 @@ const CRAWLER_FAILURE_LABELS = {
   seller_center_unavailable: 'Seller Center unavailable',
   compass_unavailable: 'Compass unavailable',
   cdp_unavailable: 'Browser/CDP unavailable',
+  active_job_running: 'Active job running',
   api_response_changed: 'API response changed',
   selector_changed: 'UI selector changed',
   network_error: 'Network error',

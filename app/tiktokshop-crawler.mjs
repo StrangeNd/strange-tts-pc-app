@@ -87,6 +87,37 @@ async function cdpTabs(port) {
   return res.json();
 }
 
+export function classifyTikTokShopPageKind(pageUrl = '') {
+  const value = String(pageUrl || '').toLowerCase();
+  if (!value) return 'unknown';
+  if (/(\/account\/login|\/login|signup|sign-up|register|\/auth\/|checkpoint|passport|permission-request-dialog)/i.test(value)) {
+    if (/signup|sign-up|register/i.test(value)) return 'signup';
+    return 'login';
+  }
+  if (value.includes('seller-vn.tiktok.com') || value.includes('seller.tiktok.com') || value.includes('shop.tiktok.com')) {
+    return 'seller_center';
+  }
+  return 'unknown';
+}
+
+export function safeTikTokShopPageStateFromTabs(tabs = [], expectedUrl = '') {
+  const pages = Array.isArray(tabs) ? tabs.filter(tab => tab?.type === 'page' && tab.webSocketDebuggerUrl) : [];
+  const ranked = [
+    pages.find(tab => expectedUrl && String(tab.url || '') === expectedUrl),
+    pages.find(tab => classifyTikTokShopPageKind(tab.url) === 'seller_center'),
+    pages.find(tab => ['login', 'signup'].includes(classifyTikTokShopPageKind(tab.url))),
+    pages.find(tab => !String(tab.url || '').startsWith('edge://')),
+    pages[0]
+  ].filter(Boolean);
+  const page = ranked[0] || null;
+  return {
+    page,
+    pageCount: pages.length,
+    currentPageKind: page ? classifyTikTokShopPageKind(page.url) : 'unknown',
+    hasUsablePage: Boolean(page?.webSocketDebuggerUrl)
+  };
+}
+
 class CdpPage {
   constructor(webSocketDebuggerUrl) {
     this.ws = new WebSocket(webSocketDebuggerUrl);
@@ -145,9 +176,7 @@ export async function findCompassPage({ cdpPort, url = DEFAULT_COMPASS_URL } = {
   const expectedUrl = String(url || '');
   const isSellerPage = tab => (
     tab.type === 'page' &&
-    String(tab.url || '').includes('seller-vn.tiktok.com') &&
-    !String(tab.url || '').includes('/account/login') &&
-    !String(tab.url || '').includes('permission-request-dialog')
+    classifyTikTokShopPageKind(tab.url) === 'seller_center'
   );
   let page = tabs.find(tab => tab.type === 'page' && String(tab.url || '').includes('/compass/data-overview'));
   if (!page) page = tabs.find(tab => expectedUrl && tab.type === 'page' && String(tab.url || '') === expectedUrl);
@@ -873,9 +902,7 @@ async function findSellerCenterPage({ cdpPort, url } = {}) {
   const expectedUrl = String(url || '');
   const isUsableSellerPage = tab => (
     tab.type === 'page' &&
-    String(tab.url || '').includes('seller-vn.tiktok.com') &&
-    !String(tab.url || '').includes('/account/login') &&
-    !String(tab.url || '').includes('permission-request-dialog')
+    classifyTikTokShopPageKind(tab.url) === 'seller_center'
   );
   let page = tabs.find(tab => expectedUrl && tab.type === 'page' && String(tab.url || '') === expectedUrl);
   if (!page) page = tabs.find(isUsableSellerPage);

@@ -12,7 +12,7 @@ import { encryptionStatus } from './crypto-store.mjs';
 import { ensureExtensionLibrary, getExtensionLibrary, importExtensionFromPath, setActiveExtension } from './extension-library.mjs';
 import { activateLicense, deactivateLicense, getLicenseMetadata, getLicenseStatus } from './license.mjs';
 import { buildSellerAdsUrl, createShop, getShop, getShopCookies, getShopLibrary, importShopCookies } from './shop-library.mjs';
-import { crawlCompassMonths, crawlSellerCenterDeep, loadCompassDatabase, loadSellerCenterLatest } from './tiktokshop-crawler.mjs';
+import { crawlCompassMonths, crawlSellerCenterDeep, loadCompassDatabase, loadSellerCenterLatest, safeTikTokShopPageStateFromTabs } from './tiktokshop-crawler.mjs';
 import { buildCrawlerStatusContract, normalizeCrawlerFailureReason } from './crawler-contract.mjs';
 import { downloadTikTokVideo } from './video-download.mjs';
 
@@ -23,6 +23,7 @@ const privateDir = path.join(rootDir, 'data', 'private');
 const logDir = path.join(rootDir, 'data', 'logs');
 const sessions = new Map();
 const crawlerJobs = new Map();
+const crawlerProfileSessions = new Map();
 const requireLogin = process.env.STTS_REQUIRE_LOGIN === '1';
 const enforceLicense = process.env.STTS_LICENSE_ENFORCE !== '0';
 const CDP_RECOVERY_STEPS = Object.freeze([
@@ -32,6 +33,8 @@ const CDP_RECOVERY_STEPS = Object.freeze([
   'Retry Seller Center crawl.'
 ]);
 const CDP_RECOVERY_NEXT_ACTION = 'Close stale browser/CDP sessions, restart app, then retry Seller Center crawl.';
+const TARGET_CAPTURE_LOGIN_ACTION = 'Login in the opened profile, then click Refresh/Verify session.';
+const TARGET_CAPTURE_PROFILE_ACTION = 'Open/Attach seller profile, login if needed, then click Refresh/Verify session.';
 
 fs.mkdirSync(logDir, { recursive: true, mode: 0o700 });
 
@@ -257,6 +260,143 @@ function crawlerDefaultUrl(mode, shop = {}) {
     return shop.compassUrl || 'https://seller-vn.tiktok.com/compass/data-overview?shop_region=VN';
   }
   return shop.sellerCenterUrl || 'https://seller-vn.tiktok.com/homepage?shop_region=VN';
+}
+
+function crawlerContext(body = {}, mode = 'seller-center') {
+  const shopId = String(body.shopId || body.sellerId || 'little-apricot-hawaii-fashion');
+  const storedShop = getShop(rootDir, shopId);
+  const shop = {
+    ...(storedShop || {}),
+    ...(body.shop || {})
+  };
+  const sellerId = String(body.sellerId || shop.sellerId || shop.oec_seller_id || '7494478078863902049');
+  const shopKey = String(body.shopKey || shop.local_key || shop.canonical_shop_id || sellerId || shopId);
+  const profileName = runtimeShopProfileName(shop, shopKey);
+  const targetUrl = assertRuntimeUrlAllowed(body.baseUrl || crawlerDefaultUrl(mode, shop));
+  return { shopId, storedShop, shop, sellerId, shopKey, profileName, targetUrl };
+}
+
+function safeActiveJob(job = null) {
+  if (!job) return null;
+  return {
+    id: job.id || '',
+    runId: job.runId || '',
+    mode: job.mode || '',
+    status: job.status || '',
+    shopId: job.shopId || '',
+    sellerId: job.sellerId || '',
+    profileName: job.profileName || '',
+    startedAt: job.startedAt || '',
+    finishedAt: job.finishedAt || '',
+    failureReason: job.failureReason || '',
+    retryable: Boolean(job.retryable)
+  };
+}
+
+async function inspectCdpPageState(cdpPort, { targetUrl = '', activeJob = false } = {}) {
+  const port = Number(cdpPort || 0);
+  if (!port) {
+    return {
+      cdpStatus: safeCdpStatus({
+        reachable: null,
+        reason: 'cdp_not_checked',
+        retryable: false,
+        activeJob
+      }),
+      currentPageKind: 'unknown',
+      sessionReady: null
+    };
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 2500);
+  try {
+    const response = await fetch(`http://127.0.0.1:${port}/json`, { signal: controller.signal });
+    if (!response.ok) throw new Error('cdp_unavailable');
+    const tabs = await response.json();
+    const pageState = safeTikTokShopPageStateFromTabs(tabs, targetUrl);
+    const sessionReady = pageState.currentPageKind === 'seller_center';
+    return {
+      cdpStatus: safeCdpStatus({
+        reachable: pageState.hasUsablePage,
+        reason: pageState.hasUsablePage ? 'cdp_reachable' : 'cdp_unavailable',
+        retryable: !pageState.hasUsablePage,
+        recoverySteps: pageState.hasUsablePage ? [] : [...CDP_RECOVERY_STEPS],
+        nextAction: pageState.hasUsablePage ? '' : TARGET_CAPTURE_PROFILE_ACTION,
+        activeJob
+      }),
+      currentPageKind: pageState.currentPageKind,
+      sessionReady,
+      pageCount: pageState.pageCount
+    };
+  } catch {
+    return {
+      cdpStatus: safeCdpStatus({
+        reachable: false,
+        reason: 'cdp_unavailable',
+        retryable: true,
+        nextAction: TARGET_CAPTURE_PROFILE_ACTION,
+        activeJob
+      }),
+      currentPageKind: 'unknown',
+      sessionReady: false
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function targetCaptureBlockedResponse({
+  shopId,
+  shop = {},
+  database = {},
+  sellerCenter = {},
+  activeJob = null,
+  cdpStatus = null,
+  currentPageKind = 'unknown',
+  sessionReady = null,
+  failureReason = 'cookie_missing',
+  nextAction = TARGET_CAPTURE_PROFILE_ACTION,
+  mode = 'seller-center',
+  profileName = ''
+} = {}) {
+  const job = activeJob ? safeActiveJob(activeJob) : null;
+  const normalizedReason = normalizeCrawlerFailureReason(failureReason);
+  const statusJob = job
+    ? { ...job, status: 'running', failureReason: normalizedReason, retryable: true }
+    : { mode, status: 'error', shopId, profileName, failureReason: normalizedReason, retryable: true };
+  const crawlerStatus = buildServerCrawlerStatus({
+    shop,
+    shopId,
+    database,
+    sellerCenter,
+    job: statusJob,
+    mode,
+    cdpStatus: cdpStatus ? safeCdpStatus({ ...cdpStatus, activeJob: Boolean(job) }) : null,
+    activeJob: Boolean(job),
+    staleRun: Boolean(sellerCenter?.staleRun)
+  });
+  return {
+    ok: false,
+    accepted: false,
+    status: job ? 'running' : 'blocked',
+    sessionReady,
+    currentPageKind,
+    selectedShop: crawlerSafeShop(shop, shopId),
+    profileName: profileName || statusJob.profileName || crawlerStatus.profileName || '',
+    cdpStatus: crawlerStatus.cdpStatus,
+    activeJob: job,
+    failureReason: normalizedReason,
+    retryable: true,
+    nextAction,
+    crawlerStatus: {
+      ...crawlerStatus,
+      failureReason: normalizedReason,
+      retryable: true,
+      nextAction,
+      currentPageKind,
+      sessionReady
+    }
+  };
 }
 
 function crawlerSafeShop(shop = {}, fallbackId = '') {
@@ -677,22 +817,13 @@ function enrichBusinessAnalysisDataSourceStatus(result = {}, body = {}) {
 }
 
 async function prepareCrawlerBrowser(body = {}, mode = 'seller-center') {
-  const shopId = String(body.shopId || body.sellerId || 'little-apricot-hawaii-fashion');
-  const storedShop = getShop(rootDir, shopId);
-  const shop = {
-    ...(storedShop || {}),
-    ...(body.shop || {})
-  };
-  const sellerId = String(body.sellerId || shop.sellerId || shop.oec_seller_id || '7494478078863902049');
-  const targetUrl = assertRuntimeUrlAllowed(body.baseUrl || crawlerDefaultUrl(mode, shop));
+  const { shopId, storedShop, shop, sellerId, shopKey, profileName, targetUrl } = crawlerContext(body, mode);
   const requestedPort = Number(body.cdpPort || 0);
   const autoOpenProfile = body.autoOpenProfile === true || body.autoOpenProfile === 'true' || !requestedPort;
   if (!autoOpenProfile) {
     return { shopId, sellerId, cdpPort: requestedPort, targetUrl, launch: null };
   }
 
-  const shopKey = String(body.shopKey || shop.local_key || shop.canonical_shop_id || sellerId || shopId);
-  const profileName = runtimeShopProfileName(shop, shopKey);
   const cookies = storedShop?.id ? getShopCookies(rootDir, storedShop.id) : [];
   const launch = await launchChromeWithCookies(rootDir, {
     appUrl: targetUrl,
@@ -711,6 +842,17 @@ async function prepareCrawlerBrowser(body = {}, mode = 'seller-center') {
     appWindow: true,
     extensionPage: '',
     stopExistingProfile: body.stopExistingProfile !== false
+  });
+  crawlerProfileSessions.set(shopId, {
+    shopId,
+    sellerId,
+    profileName: launch.profileName || profileName,
+    cdpPort: launch.debugPort,
+    targetUrl,
+    openedAt: new Date().toISOString(),
+    verifiedAt: '',
+    sessionReady: null,
+    currentPageKind: 'unknown'
   });
   return { shopId, sellerId, cdpPort: launch.debugPort, targetUrl, launch };
 }
@@ -1167,12 +1309,137 @@ export function createServer({ port = 48731 } = {}) {
         });
       }
 
+      if (url.pathname === '/api/tiktokshop-crawler/profile/open' && req.method === 'POST') {
+        const body = await readBody(req, { maxBytes: 256 * 1024 });
+        const mode = body.mode || 'seller-center';
+        const context = crawlerContext(body, mode);
+        const existing = crawlerProfileSessions.get(context.shopId);
+        if (existing?.cdpPort) {
+          const state = await inspectCdpPageState(existing.cdpPort, { targetUrl: existing.targetUrl || context.targetUrl });
+          if (state.cdpStatus.reachable) {
+            const nextSession = {
+              ...existing,
+              cdpStatus: state.cdpStatus,
+              currentPageKind: state.currentPageKind,
+              sessionReady: state.sessionReady,
+              verifiedAt: state.sessionReady ? new Date().toISOString() : existing.verifiedAt
+            };
+            crawlerProfileSessions.set(context.shopId, nextSession);
+            return sendJson(res, 200, {
+              ok: true,
+              attached: true,
+              opened: false,
+              sessionReady: state.sessionReady,
+              currentPageKind: state.currentPageKind,
+              selectedShop: crawlerSafeShop(context.shop, context.shopId),
+              profileName: existing.profileName,
+              cdpStatus: state.cdpStatus,
+              activeJob: safeActiveJob(crawlerJobs.get(context.shopId)) || null,
+              failureReason: state.sessionReady ? '' : (['login', 'signup'].includes(state.currentPageKind) ? 'not_logged_in' : ''),
+              nextAction: state.sessionReady ? '' : TARGET_CAPTURE_LOGIN_ACTION
+            });
+          }
+        }
+
+        const cookies = context.storedShop?.id ? getShopCookies(rootDir, context.storedShop.id) : [];
+        const launch = await launchChromeWithCookies(rootDir, {
+          appUrl: context.targetUrl,
+          profileName: context.profileName,
+          cookies,
+          shopContext: {
+            shopKey: context.shopKey,
+            name: context.shop.name || context.shop.shopRealName || context.shopId,
+            avatar: context.shop.avatar || context.shop.shopAvatar || context.shop.shopLogo || '',
+            sellerId: context.sellerId,
+            adsAccountId: context.shop.adsAccountId || context.shop.aadvid || '',
+            profileName: context.profileName,
+            pageType: mode === 'compass' ? 'compass' : 'seller-center',
+            targetUrl: context.targetUrl
+          },
+          appWindow: true,
+          extensionPage: '',
+          stopExistingProfile: false
+        });
+        const state = await inspectCdpPageState(launch.debugPort, { targetUrl: context.targetUrl });
+        crawlerProfileSessions.set(context.shopId, {
+          shopId: context.shopId,
+          sellerId: context.sellerId,
+          profileName: launch.profileName || context.profileName,
+          cdpPort: launch.debugPort,
+          targetUrl: context.targetUrl,
+          openedAt: new Date().toISOString(),
+          verifiedAt: state.sessionReady ? new Date().toISOString() : '',
+          sessionReady: state.sessionReady,
+          currentPageKind: state.currentPageKind,
+          cdpStatus: state.cdpStatus
+        });
+        appendAudit(rootDir, 'tiktokshop_crawler.profile_open_attach', {
+          mode,
+          shopId: context.shopId,
+          sellerId: context.sellerId,
+          profileName: launch.profileName || context.profileName,
+          currentPageKind: state.currentPageKind,
+          sessionReady: state.sessionReady,
+          cookieCount: cookies.length
+        });
+        return sendJson(res, 200, {
+          ok: true,
+          attached: false,
+          opened: true,
+          sessionReady: state.sessionReady,
+          currentPageKind: state.currentPageKind,
+          selectedShop: crawlerSafeShop(context.shop, context.shopId),
+          profileName: launch.profileName || context.profileName,
+          cdpStatus: state.cdpStatus,
+          activeJob: safeActiveJob(crawlerJobs.get(context.shopId)) || null,
+          failureReason: state.sessionReady ? '' : (['login', 'signup'].includes(state.currentPageKind) ? 'not_logged_in' : ''),
+          nextAction: state.sessionReady ? '' : TARGET_CAPTURE_LOGIN_ACTION
+        });
+      }
+
+      if (url.pathname === '/api/tiktokshop-crawler/profile/verify' && req.method === 'POST') {
+        const body = await readBody(req, { maxBytes: 256 * 1024 });
+        const mode = body.mode || 'seller-center';
+        const context = crawlerContext(body, mode);
+        const existing = crawlerProfileSessions.get(context.shopId);
+        const cdpPort = Number(body.cdpPort || existing?.cdpPort || 0);
+        const state = await inspectCdpPageState(cdpPort, { targetUrl: existing?.targetUrl || context.targetUrl });
+        const failureReason = state.sessionReady
+          ? ''
+          : (['login', 'signup'].includes(state.currentPageKind) ? 'not_logged_in' : (state.cdpStatus.reachable === false ? 'cdp_unavailable' : 'cookie_missing'));
+        crawlerProfileSessions.set(context.shopId, {
+          ...(existing || {}),
+          shopId: context.shopId,
+          sellerId: context.sellerId,
+          profileName: existing?.profileName || context.profileName,
+          cdpPort,
+          targetUrl: existing?.targetUrl || context.targetUrl,
+          verifiedAt: new Date().toISOString(),
+          sessionReady: state.sessionReady,
+          currentPageKind: state.currentPageKind,
+          cdpStatus: state.cdpStatus
+        });
+        return sendJson(res, 200, {
+          ok: state.sessionReady,
+          sessionReady: state.sessionReady,
+          currentPageKind: state.currentPageKind,
+          selectedShop: crawlerSafeShop(context.shop, context.shopId),
+          profileName: existing?.profileName || context.profileName,
+          cdpStatus: state.cdpStatus,
+          activeJob: safeActiveJob(crawlerJobs.get(context.shopId)) || null,
+          failureReason,
+          retryable: !state.sessionReady,
+          nextAction: state.sessionReady ? 'Target overview capture chỉ chạy sau khi session/profile đã sẵn sàng' : TARGET_CAPTURE_LOGIN_ACTION
+        });
+      }
+
       if (url.pathname === '/api/tiktokshop-crawler/crawl' && req.method === 'POST') {
         const body = await readBody(req, { maxBytes: 256 * 1024 });
         const mode = body.mode || 'compass';
         if (mode === 'seller-center') {
-          const prepared = await prepareCrawlerBrowser(body, mode);
-          const { shopId, sellerId, cdpPort, targetUrl, launch } = prepared;
+          const isTargetedOverviewCapture = body.targetedOverviewCapture === true || body.targetedOverviewCapture === 'true';
+          const context = crawlerContext(body, mode);
+          const { shopId, sellerId, targetUrl } = context;
           const existing = crawlerJobs.get(shopId);
           if (existing?.status === 'running' && !body.force) {
             const shop = getShop(rootDir, shopId) || {};
@@ -1191,14 +1458,95 @@ export function createServer({ port = 48731 } = {}) {
               activeJob: true,
               staleRun: Boolean(sellerCenter?.staleRun)
             });
-            return sendJson(res, 202, {
+            const duplicatePayload = {
               ok: true,
               accepted: true,
               status: 'running',
-              job: existing,
+              activeJob: safeActiveJob(existing),
               cdpStatus: crawlerStatus.cdpStatus,
               crawlerStatus
+            };
+            if (isTargetedOverviewCapture) {
+              return sendJson(res, 409, {
+                ...duplicatePayload,
+                ok: false,
+                accepted: false,
+                failureReason: 'active_job_running',
+                retryable: true,
+                nextAction: 'Wait for the active job to finish, then refresh status.'
+              });
+            }
+            return sendJson(res, 202, { ...duplicatePayload, job: existing });
+          }
+
+          let prepared = null;
+          let launch = null;
+          let cdpPort = Number(body.cdpPort || 0);
+          if (isTargetedOverviewCapture) {
+            const session = crawlerProfileSessions.get(shopId);
+            const shop = getShop(rootDir, shopId) || {};
+            const database = loadCompassDatabase(rootDir, shopId);
+            const sellerCenter = markStaleCrawlerRun(loadSellerCenterLatest(rootDir, shopId), null);
+            if (!session?.cdpPort) {
+              return sendJson(res, 409, targetCaptureBlockedResponse({
+                shopId,
+                shop,
+                database,
+                sellerCenter,
+                currentPageKind: 'unknown',
+                sessionReady: false,
+                failureReason: 'cookie_missing',
+                nextAction: TARGET_CAPTURE_PROFILE_ACTION,
+                profileName: context.profileName
+              }));
+            }
+            const state = await inspectCdpPageState(session.cdpPort, { targetUrl: session.targetUrl || targetUrl });
+            const loginLike = ['login', 'signup'].includes(state.currentPageKind);
+            if (!state.sessionReady || loginLike) {
+              const failureReason = loginLike ? 'not_logged_in' : (state.cdpStatus.reachable === false ? 'cdp_unavailable' : 'cookie_missing');
+              crawlerProfileSessions.set(shopId, {
+                ...session,
+                verifiedAt: new Date().toISOString(),
+                sessionReady: state.sessionReady,
+                currentPageKind: state.currentPageKind,
+                cdpStatus: state.cdpStatus
+              });
+              appendAudit(rootDir, 'tiktokshop_crawler.target_capture_blocked', {
+                mode,
+                shopId,
+                sellerId,
+                profileName: session.profileName || context.profileName,
+                currentPageKind: state.currentPageKind,
+                sessionReady: state.sessionReady,
+                failureReason,
+                retryable: true
+              });
+              return sendJson(res, 409, targetCaptureBlockedResponse({
+                shopId,
+                shop,
+                database,
+                sellerCenter,
+                cdpStatus: state.cdpStatus,
+                currentPageKind: state.currentPageKind,
+                sessionReady: state.sessionReady,
+                failureReason,
+                nextAction: TARGET_CAPTURE_LOGIN_ACTION,
+                profileName: session.profileName || context.profileName
+              }));
+            }
+            crawlerProfileSessions.set(shopId, {
+              ...session,
+              verifiedAt: new Date().toISOString(),
+              sessionReady: true,
+              currentPageKind: state.currentPageKind,
+              cdpStatus: state.cdpStatus
             });
+            cdpPort = session.cdpPort;
+            prepared = { shopId, sellerId, cdpPort, targetUrl: session.targetUrl || targetUrl, launch: null };
+          } else {
+            prepared = await prepareCrawlerBrowser(body, mode);
+            cdpPort = prepared.cdpPort;
+            launch = prepared.launch;
           }
           const shop = getShop(rootDir, shopId) || {};
           const database = loadCompassDatabase(rootDir, shopId);
@@ -1212,7 +1560,7 @@ export function createServer({ port = 48731 } = {}) {
               shopId,
               sellerId,
               autoOpenProfile: Boolean(launch),
-              profileName: launch?.profileName || '',
+              profileName: launch?.profileName || crawlerProfileSessions.get(shopId)?.profileName || '',
               startedAt: new Date().toISOString(),
               finishedAt: new Date().toISOString(),
               failureReason: 'cdp_unavailable',
@@ -1247,7 +1595,7 @@ export function createServer({ port = 48731 } = {}) {
             sellerId,
             cdpPort,
             autoOpenProfile: Boolean(launch),
-            profileName: launch?.profileName || '',
+            profileName: launch?.profileName || crawlerProfileSessions.get(shopId)?.profileName || '',
             startedAt: new Date().toISOString()
           };
           crawlerJobs.set(shopId, job);
