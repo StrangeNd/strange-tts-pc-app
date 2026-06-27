@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { finalizeCdpUnavailableJobForStatus } from '../app/server.mjs';
 
 const rootDir = process.cwd();
 const server = readFileSync(join(rootDir, 'app/server.mjs'), 'utf8');
@@ -30,5 +31,34 @@ assert(app.includes('Target overview capture'), 'UI should show target overview 
 assert(app.includes('Chưa xác thực session'), 'UI should show unverified session copy');
 assert(app.includes('Không mở browser mới khi session chưa sẵn sàng'), 'UI should warn that target capture does not open a new browser');
 assert(app.includes('Target overview capture chỉ chạy sau khi session/profile đã sẵn sàng'), 'UI should block target capture until readiness is verified');
+
+assert(server.includes('finalizeActiveJobOnCdpDrop'), 'server should finalize active jobs when CDP drops');
+assert(server.includes('outputDirMissing'), 'server should expose outputDirMissing metadata');
+assert(server.includes('TARGET_CAPTURE_FAILED'), 'server should expose target capture failure classification');
+
+const finalized = finalizeCdpUnavailableJobForStatus({
+  job: {
+    id: 'smoke-run-001',
+    mode: 'seller-center',
+    status: 'running',
+    shopId: 'smoke-shop',
+    sellerId: 'smoke-seller',
+    startedAt: '2026-06-27T00:00:00.000Z'
+  },
+  shopId: 'smoke-shop',
+  sellerId: 'smoke-seller',
+  artifactExists: false,
+  finishedAt: '2026-06-27T00:01:00.000Z'
+});
+assert.equal(finalized.status, 'partial', 'CDP drop finalizer should mark running job partial');
+assert.equal(finalized.readiness, 'partial', 'CDP drop finalizer should mark readiness partial');
+assert.equal(finalized.activeJob, false, 'CDP drop finalizer should clear activeJob');
+assert.equal(finalized.failureReason, 'cdp_unavailable', 'CDP drop finalizer should expose cdp_unavailable failure');
+assert.equal(finalized.partialReason, 'cdp_unavailable', 'CDP drop finalizer should expose cdp_unavailable partial reason');
+assert.equal(finalized.retryable, true, 'CDP drop finalizer should remain retryable');
+assert.equal(finalized.outputDirMissing, true, 'missing artifact should set outputDirMissing');
+assert.equal(finalized.targetInventory.classification, 'TARGET_CAPTURE_FAILED', 'missing artifact should expose failed target inventory classification');
+assert.equal(finalized.targetInventory.reason, 'cdp_unavailable_before_artifact', 'missing artifact should expose safe target inventory reason');
+assert.deepEqual(finalized.targetInventory.counts, { endpoint: 0, raw: 0, normalized: 0, export: 0 }, 'missing artifact counts should be zero');
 
 console.log('TikTok crawler auto-profile smoke passed.');
