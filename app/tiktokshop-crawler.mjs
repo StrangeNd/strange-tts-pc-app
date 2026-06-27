@@ -631,6 +631,45 @@ function sellerCenterDir(rootDir, shopId, id) {
   return path.join(databaseDir(rootDir, shopId), 'seller-center', id);
 }
 
+export function createSellerCenterRunId() {
+  return runId();
+}
+
+export function writeSellerCenterRunStatusMarker({
+  rootDir,
+  shopId = 'default-shop',
+  sellerId = '',
+  runId: id = '',
+  baseUrl = '',
+  dateRange = 'yesterday',
+  target = ''
+} = {}) {
+  if (!rootDir) throw new Error('rootDir is required.');
+  const markerRunId = id || runId();
+  const shopDir = databaseDir(rootDir, shopId);
+  const startedAt = new Date().toISOString();
+  const outputDir = path.join('seller-center', markerRunId);
+  const latest = {
+    ok: false,
+    mode: 'seller-center',
+    target: target || undefined,
+    status: 'crawling',
+    runId: markerRunId,
+    shopId,
+    sellerId,
+    baseUrl,
+    dateRange,
+    outputDir,
+    startedAt,
+    updatedAt: startedAt,
+    summary: { apiEndpoints: 0, rawFiles: 0, normalizedRows: 0, exportRequests: 0 },
+    modules: [],
+    unresolved: []
+  };
+  writeJson(path.join(shopDir, 'seller-center-latest.json'), latest);
+  return latest;
+}
+
 function readSellerCenterConfig(rootDir, configPath) {
   const file = path.isAbsolute(configPath || '')
     ? configPath
@@ -1131,6 +1170,7 @@ export async function crawlSellerCenterDeep({
   cdpPort,
   shopId = 'default-shop',
   sellerId = '',
+  runId: requestedRunId = '',
   configPath = DEFAULT_SELLER_CENTER_CONFIG,
   baseUrl,
   dateRange = 'yesterday',
@@ -1143,7 +1183,7 @@ export async function crawlSellerCenterDeep({
   const config = readSellerCenterConfig(rootDir, configPath);
   if (!config) throw new Error(`Cannot read Seller Center crawler config: ${configPath}`);
   const range = normalizeSellerCenterDateRange(dateRange);
-  const id = runId();
+  const id = requestedRunId || runId();
   const dir = sellerCenterDir(rootDir, shopId, id);
   const shopDir = databaseDir(rootDir, shopId);
   const rawDir = path.join(dir, 'raw');
@@ -1166,7 +1206,9 @@ export async function crawlSellerCenterDeep({
   });
   writeJson(path.join(shopDir, 'seller-center-latest.json'), {
     ok: false,
-    status: 'running',
+    mode: 'seller-center',
+    target: undefined,
+    status: 'crawling',
     runId: id,
     shopId,
     sellerId,
@@ -1174,6 +1216,7 @@ export async function crawlSellerCenterDeep({
     dateRange: range,
     outputDir: path.relative(shopDir, dir),
     startedAt,
+    updatedAt: startedAt,
     summary: { apiEndpoints: 0, rawFiles: 0, normalizedRows: 0, exportRequests: 0 },
     modules: [],
     unresolved: []
